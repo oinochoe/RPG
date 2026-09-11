@@ -29,6 +29,11 @@ interface MockState {
   nextCharacterId: number;
   characters: CharacterSummary[];
   activeCharacterId: number | null;
+  // The mock has no real per-request auth/session lookup (the login handler hands out a
+  // fixed 'mock-access' token regardless of which user logged in), so there is no way to
+  // identify "the calling user" from a request alone. For this single-session local mock,
+  // the email of the most recently logged-in user stands in for that session.
+  currentUserEmail: string | null;
 }
 
 function defaultState(): MockState {
@@ -39,6 +44,7 @@ function defaultState(): MockState {
     nextCharacterId: 1,
     characters: [],
     activeCharacterId: null,
+    currentUserEmail: null,
   };
 }
 
@@ -127,6 +133,8 @@ export const handlers = [
         { status: 401 },
       );
     }
+    state.currentUserEmail = body.email;
+    persist();
     return HttpResponse.json({ access_token: 'mock-access', refresh_token: 'mock-refresh' });
   }),
 
@@ -134,10 +142,21 @@ export const handlers = [
     HttpResponse.json({ access_token: 'mock-access-2', refresh_token: 'mock-refresh-2' }),
   ),
 
-  http.post(`${BASE}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
+  http.post(`${BASE}/auth/logout`, () => {
+    state.currentUserEmail = null;
+    persist();
+    return new HttpResponse(null, { status: 204 });
+  }),
 
   http.post(`${BASE}/characters`, async ({ request }) => {
     const body = (await request.json()) as { name: string; character_class: CharacterSummary['character_class'] };
+    const currentUser = state.currentUserEmail ? users.get(state.currentUserEmail) : undefined;
+    if (!currentUser || !currentUser.verified) {
+      return HttpResponse.json(
+        { error: 'forbidden', reason: 'email_unverified', message: 'Email not verified.' },
+        { status: 403 },
+      );
+    }
     if (state.characters.some((c) => c.name === body.name)) {
       return HttpResponse.json(
         { error: 'conflict', reason: 'name_already_taken', message: 'Name already taken.' },
@@ -169,7 +188,15 @@ export const handlers = [
   ),
 
   http.post(`${BASE}/characters/:id/select`, ({ params }) => {
-    state.activeCharacterId = Number(params.id);
+    const characterId = Number(params.id);
+    const exists = state.characters.some((c) => c.id === characterId);
+    if (!exists) {
+      return HttpResponse.json(
+        { error: 'not_found', reason: 'character_not_found', message: 'Character not found.' },
+        { status: 404 },
+      );
+    }
+    state.activeCharacterId = characterId;
     persist();
     return new HttpResponse(null, { status: 204 });
   }),
