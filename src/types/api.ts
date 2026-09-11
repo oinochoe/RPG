@@ -1,0 +1,111 @@
+export interface ApiErrorBody {
+  error: string;
+  trace_id?: string;
+  message?: string;
+  field?: string;
+  reason?: string;
+}
+
+export class ApiError extends Error {
+  status: number;
+  error: string;
+  reason?: string;
+  field?: string;
+  traceId?: string;
+
+  constructor(status: number, body: ApiErrorBody) {
+    super(body.message ?? body.error ?? 'Unknown API error');
+    this.status = status;
+    this.error = body.error;
+    this.reason = body.reason;
+    this.field = body.field;
+    this.traceId = body.trace_id;
+  }
+}
+
+export interface AuthTokens {
+  access_token: string;
+  refresh_token: string;
+}
+
+export type CharacterClass = 'warrior' | 'mage' | 'archer';
+
+export interface CharacterSummary {
+  id: number;
+  name: string;
+  character_class: CharacterClass;
+  level: number;
+  current_hp: number;
+  max_hp: number;
+  current_map_id: number;
+}
+
+export interface EquippedItem {
+  id: number;
+  item_template_id: number;
+  equipped_slot: string;
+  enchant_level: number;
+}
+
+export interface InventorySlot {
+  id: number;
+  item_template_id: number;
+  slot_index: number;
+  quantity: number;
+  enchant_level: number;
+  is_equipped: boolean;
+  equipped_slot: string | null;
+}
+
+export interface CharacterProfile {
+  id: number;
+  user_id: number;
+  name: string;
+  character_class: CharacterClass;
+  level: number;
+  experience: number;
+  current_hp: number;
+  max_hp: number;
+  current_mp: number;
+  max_mp: number;
+  attack_power: number;
+  defense_power: number;
+  gold: number;
+  skill_points: number;
+  current_map_id: number;
+  position_x: number;
+  position_y: number;
+  position_z: number;
+  created_at: string;
+  equipped_items: EquippedItem[];
+  inventory: InventorySlot[];
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  page: number;
+  page_size: number;
+  total: number;
+}
+
+export interface MonsterInstanceSummary {
+  instance_id: number;
+  monster_template_id: number;
+  name: string;
+  level: number;
+  current_hp: number;
+  max_hp: number;
+  position_x: number;
+  position_y: number;
+  position_z: number;
+}
+
+export interface EnterMapResponse {
+  map_id: number;
+  map_name: string;
+  position_x: number;
+  position_y: number;
+  position_z: number;
+  dungeon_instance_id: number | null;
+  monsters: MonsterInstanceSummary[];
+}
