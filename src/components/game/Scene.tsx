@@ -13,7 +13,14 @@ export function Scene({
 }) {
   return (
     <>
-      <OrthographicCamera makeDefault position={[20, 20, 20]} zoom={40} near={0.1} far={200} />
+      <OrthographicCamera
+        makeDefault
+        position={[20, 20, 20]}
+        zoom={40}
+        near={0.1}
+        far={200}
+        onUpdate={(self) => self.lookAt(0, 0, 0)}
+      />
       <ambientLight intensity={0.6} />
       <directionalLight position={[10, 20, 10]} intensity={0.8} castShadow />
       <Ground />
