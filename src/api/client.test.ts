@@ -94,4 +94,13 @@ describe('apiRequest', () => {
     await expect(apiRequest('/characters/me')).rejects.toBeInstanceOf(ApiError);
     expect(onAuthFailure).toHaveBeenCalled();
   });
+
+  it('returns undefined for a 204 No Content response', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await apiRequest<void>('/auth/logout', { method: 'POST' });
+
+    expect(result).toBeUndefined();
+  });
 });
