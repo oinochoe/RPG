@@ -717,7 +717,11 @@ export function getAdminClient() {
 import { Hono } from "hono";
 import { ApiError, errorResponseFromApiError, unknownErrorResponse } from "./errors.ts";
 
-const app = new Hono().basePath("/functions/v1/api");
+// Supabase's gateway strips the "/functions/v1/<function-name>" prefix
+// before Hono ever sees the request, so the in-function basePath is just
+// the function name, NOT the full external URL path (confirmed against
+// https://supabase.com/docs/guides/functions/routing's Hono example).
+const app = new Hono().basePath("/api");
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
