@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { getAdminClient } from "./supabaseAdmin.ts";
-import { ApiError } from "./errors.ts";
+import { ApiError, readJsonBody } from "./errors.ts";
 
 export const authRoutes = new Hono();
 
 authRoutes.post("/register", async (c) => {
-  const { email, password } = await c.req.json();
-  if (!email || !password) {
+  const { email, password } = await readJsonBody(c);
+  if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
     throw new ApiError(400, "validation_failed", "invalid_request", "email and password are required.");
   }
   if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
@@ -15,7 +15,18 @@ authRoutes.post("/register", async (c) => {
 
   const admin = getAdminClient();
 
-  const { data: existing } = await admin.from("users").select("id").eq("email", email).maybeSingle();
+  const { data: existing, error: existingCheckError } = await admin
+    .from("users")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+  if (existingCheckError) {
+    // Fail closed: every other Supabase call in this file checks `error` —
+    // silently ignoring it here would let a transient DB failure masquerade
+    // as "no existing user" and let registration proceed unchecked.
+    console.error("existence check failed during registration:", existingCheckError.message);
+    throw new ApiError(500, "internal_error", "registration_check_failed", "회원가입 처리 중 오류가 발생했습니다.");
+  }
   if (existing) {
     throw new ApiError(409, "conflict", "email_already_registered", "이미 등록된 이메일 주소입니다.", "email");
   }
@@ -74,14 +85,22 @@ authRoutes.post("/register", async (c) => {
 });
 
 authRoutes.post("/login", async (c) => {
-  const { email, password } = await c.req.json();
-  if (!email || !password) {
+  const { email, password } = await readJsonBody(c);
+  if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
     throw new ApiError(400, "validation_failed", "invalid_request", "email and password are required.");
   }
 
   const admin = getAdminClient();
   const { data, error } = await admin.auth.signInWithPassword({ email, password });
   if (error || !data.session) {
+    // Distinguish "email not confirmed" from genuinely wrong credentials —
+    // GoTrue reports this as AuthApiError with code "email_not_confirmed"
+    // (also surfaced as status 400). Collapsing it into invalid_credentials
+    // tells a legitimate unconfirmed user "you typed it wrong" instead of
+    // "verify your email first."
+    if (error?.code === "email_not_confirmed") {
+      throw new ApiError(403, "forbidden", "email_unverified", "이메일 인증을 완료한 후 이용할 수 있습니다.");
+    }
     throw new ApiError(401, "unauthorized", "invalid_credentials", "이메일 또는 비밀번호가 올바르지 않습니다.");
   }
 
@@ -92,8 +111,8 @@ authRoutes.post("/login", async (c) => {
 });
 
 authRoutes.post("/refresh", async (c) => {
-  const { refresh_token } = await c.req.json();
-  if (!refresh_token) {
+  const { refresh_token } = await readJsonBody(c);
+  if (typeof refresh_token !== "string" || !refresh_token) {
     throw new ApiError(400, "validation_failed", "invalid_request", "refresh_token is required.", "refresh_token");
   }
 
@@ -149,8 +168,8 @@ authRoutes.post("/logout", async (c) => {
 });
 
 authRoutes.post("/verify-email", async (c) => {
-  const { token } = await c.req.json();
-  if (!token) {
+  const { token } = await readJsonBody(c);
+  if (typeof token !== "string" || !token) {
     throw new ApiError(400, "validation_failed", "invalid_request", "token is required.", "token");
   }
 

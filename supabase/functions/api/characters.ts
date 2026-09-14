@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { getAdminClient } from "./supabaseAdmin.ts";
-import { ApiError } from "./errors.ts";
+import { ApiError, readJsonBody } from "./errors.ts";
 import { requireAuth, AppUser } from "./authMiddleware.ts";
 
 export const charactersRoutes = new Hono<{ Variables: { appUser: AppUser } }>();
@@ -47,11 +47,11 @@ function toProfile(row: Record<string, unknown>) {
 
 charactersRoutes.post("/", async (c) => {
   const appUser = c.get("appUser");
-  const { name, character_class } = await c.req.json();
+  const { name, character_class } = await readJsonBody(c);
   if (!name || typeof name !== "string" || name.length < 2 || name.length > 16) {
     throw new ApiError(400, "validation_failed", "invalid_name", "이름은 2~16자여야 합니다.", "name");
   }
-  if (!["warrior", "mage", "archer"].includes(character_class)) {
+  if (typeof character_class !== "string" || !["warrior", "mage", "archer"].includes(character_class)) {
     throw new ApiError(400, "validation_failed", "invalid_class", "유효하지 않은 직업입니다.", "character_class");
   }
 

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { getAdminClient } from "./supabaseAdmin.ts";
-import { ApiError } from "./errors.ts";
+import { ApiError, readJsonBody } from "./errors.ts";
 import { requireAuth, AppUser } from "./authMiddleware.ts";
 
 export const mapsRoutes = new Hono<{ Variables: { appUser: AppUser } }>();
@@ -9,7 +9,10 @@ mapsRoutes.use("*", requireAuth);
 
 mapsRoutes.post("/enter-map", async (c) => {
   const appUser = c.get("appUser");
-  const { map_id } = await c.req.json();
+  const { map_id } = await readJsonBody(c);
+  if (typeof map_id !== "number") {
+    throw new ApiError(400, "validation_failed", "invalid_request", "map_id는 숫자여야 합니다.", "map_id");
+  }
 
   const admin = getAdminClient();
   const { data: map, error: mapError } = await admin
