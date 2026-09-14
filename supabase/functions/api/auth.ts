@@ -30,7 +30,11 @@ authRoutes.post("/register", async (c) => {
     email_confirm: false,
   });
   if (signUpError || !signUpData.user) {
-    throw new ApiError(400, "validation_failed", "registration_failed", signUpError?.message ?? "Registration failed.");
+    // Don't leak raw GoTrue error text to the client (schema/internals
+    // reconnaissance risk, e.g. constraint names) — log it server-side and
+    // return a static message instead.
+    console.error("createUser failed during registration:", signUpError?.message);
+    throw new ApiError(400, "validation_failed", "registration_failed", "회원가입 처리 중 오류가 발생했습니다.");
   }
 
   const { error: insertError } = await admin.from("users").insert({
@@ -40,7 +44,19 @@ authRoutes.post("/register", async (c) => {
     status: "active",
   });
   if (insertError) {
-    throw new ApiError(500, "internal_error", "user_row_insert_failed", insertError.message);
+    // Roll back the orphaned auth user so the operation is atomic from the
+    // caller's perspective — otherwise this email could never register
+    // again (GoTrue already has it) nor ever log in (no matching
+    // public.users row for requireAuth to find), a permanent DoS against
+    // that address.
+    const { error: deleteError } = await admin.auth.admin.deleteUser(signUpData.user.id);
+    if (deleteError) {
+      console.error("Failed to roll back orphaned auth user after insert failure:", deleteError.message);
+    }
+    // Don't leak raw Postgres error text to the client — log it server-side
+    // and return a static message instead.
+    console.error("users row insert failed during registration:", insertError.message);
+    throw new ApiError(500, "internal_error", "user_row_insert_failed", "회원가입 처리 중 오류가 발생했습니다.");
   }
 
   // Trigger Supabase's templated signup-confirmation email. admin.createUser
@@ -109,7 +125,24 @@ authRoutes.post("/logout", async (c) => {
 
   if (accessToken) {
     const admin = getAdminClient();
-    await admin.auth.admin.signOut(accessToken).catch(() => {});
+    // Still always respond 204 (idempotent per contract) even on failure,
+    // but log a real revocation failure instead of silently discarding it —
+    // otherwise a genuine GoTrue outage/error on a VALID token is
+    // indistinguishable from the expected "already invalid token" case,
+    // with zero way to ever detect the session wasn't actually revoked.
+    //
+    // NOTE: like the other auth.* calls in this file, signOut() resolves
+    // with `{ error }` on API-level failures (e.g. a 403 bad_jwt) rather
+    // than rejecting — confirmed by observing the deployed function's logs
+    // for a garbage-token call, where a bare `.catch()` never fired. So we
+    // must check the resolved `error`, not just catch a thrown exception
+    // (kept as a fallback for genuine network-level failures).
+    const { error: signOutError } = await admin.auth.admin
+      .signOut(accessToken)
+      .catch((err) => ({ error: err }));
+    if (signOutError) {
+      console.error("logout signOut failed:", signOutError);
+    }
   }
 
   return c.body(null, 204);
