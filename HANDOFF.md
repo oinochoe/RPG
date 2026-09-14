@@ -30,6 +30,7 @@ BackendX가 API 문서를 업데이트했고, 같은 날 서버도 재배포됨(
 - 새 엔드포인트 추가: **`POST /admin/master-data/{template_type}`**(생성, FR-026), **`DELETE /admin/master-data/{template_type}/{template_id}`**(삭제, FR-027).
 - 계정 상태 enum에 `purged` 추가 (`active|suspended|deactivated|purged`).
 - ⚠️ **재배포에도 불구하고 캐릭터 생성 500 버그는 그대로임** (위 시도 3 참고) — 이번 재배포는 API 스펙 확장 반영이었지, 이 버그 수정은 아니었던 것으로 보임.
+- ⚠️ **2026-09-14 추가 재배포 이후 재확인 — 시도 4: 여전히 500.** `{"name":"DeployCheck","character_class":"warrior"}` → 500, trace_id `9373a5c6e4bd4f749c6a3a81fbb71c79`. 로그인은 정상 동작해서 기존 DB 데이터(가입 계정)는 유지됨. 이번 배포도 이 버그와는 무관한 변경이었던 것으로 보임 — 총 4회 재현.
 
 → 이제 `POST /admin/master-data/maps`로 시작 맵을 직접 만들 수 있으니, 캐릭터 생성 버그가 "시작 맵 미시딩" 때문이라면 **어드민 계정만 있으면 우리가 직접 고칠 수 있음.**
 
