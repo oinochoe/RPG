@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import * as authApi from '../api/auth';
 import { translateApiError } from './errorMessages';
@@ -10,6 +10,7 @@ export function VerifyEmailPage() {
   const token = searchParams.get('token');
   const [status, setStatus] = useState<Status>('pending');
   const [error, setError] = useState<string | null>(null);
+  const verifiedTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -17,6 +18,11 @@ export function VerifyEmailPage() {
       setError('인증 토큰이 없습니다. 이메일의 링크를 다시 확인해주세요.');
       return;
     }
+    // React 18 StrictMode double-invokes effects in dev; the verification
+    // token is single-use server-side, so a second call would fail even
+    // though the first already succeeded. Only send it once per token.
+    if (verifiedTokenRef.current === token) return;
+    verifiedTokenRef.current = token;
     authApi
       .verifyEmail(token)
       .then(() => setStatus('success'))
