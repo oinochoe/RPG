@@ -1,6 +1,37 @@
 # Handoff — R3F RPG 클라이언트
 
-마지막 업데이트: 2026-09-14
+마지막 업데이트: 2026-09-15
+
+## Supabase Auth site_url / 이메일 확인 링크 — 수동 조치 필요 (2026-09-15)
+
+Phase 1 최종 전체 브랜치 리뷰에서 발견: `supabase/config.toml`의 `[auth]` 블록에
+있던 `site_url`/`additional_redirect_urls`가 `supabase init` 템플릿 기본값
+(`http://127.0.0.1:3000`)인 채로 방치되어 있었음. 클라이언트 실제 dev 서버
+포트(`5173`)와 맞지 않아, 실제 사용자에게 발송되는 이메일 인증 링크가 깨진
+URL로 리다이렉트됨.
+
+- (a) `supabase/config.toml`을 `site_url = "http://localhost:5173"`,
+  `additional_redirect_urls = ["http://localhost:5173/**"]`로 커밋해둠 — 이제
+  의도한 값이 저장소에 기록되어 있음.
+- (b) **중요: `config.toml`의 `[auth]` 블록은 `supabase db push` 등으로 자동
+  반영되지 않고, 실제 라이브 GoTrue 설정에 반영하려면 명시적으로
+  `supabase config push`를 실행해야 함.** 이 CLI 버전(`supabase config
+  --help`로 확인)에 실제로 `config push`/`config diff` 커맨드가 존재하는 걸
+  확인했지만, `config push --help`가 스스로 경고하듯 "`supabase init`
+  템플릿이 써놓은 값(로컬 개발용 site_url 등)이 실수로 실제 커스터마이징된
+  라이브 설정을 덮어쓸 수 있다" — 그리고 `config.toml`에는 site_url 외에도
+  다른 `[auth]`/`[storage]` 등 설정이 다수 있어 전체를 한 번에 push하면 의도치
+  않은 값까지 라이브에 반영될 위험이 있음. 이번 수정 작업에서는 이 push를
+  실행하지 않았음 — **실제 사용자가 가입하기 전에 반드시 Supabase Dashboard →
+  Authentication → URL Configuration에서 Site URL/Redirect URLs를 수동으로
+  확인·적용할 것** (또는 `supabase config diff`로 먼저 차이를 검토한 뒤 신중하게
+  `config push`를 실행할 것).
+- (c) 이메일 확인 템플릿도 Dashboard에서 수동 커스터마이징 필요: GoTrue
+  기본값은 "호스팅된 verify 페이지 → 리다이렉트" 플로우라서 현재 깨진 URL로
+  사용자를 보냄. Authentication → Email Templates → Confirm signup에서 확인
+  링크를 `{{ .SiteURL }}/verify-email?token={{ .TokenHash }}` 형태로 바꿔서
+  프론트엔드의 `/verify-email` 라우트(`src/pages/VerifyEmailPage.tsx`)로 직접
+  토큰을 넘기도록 해야 함.
 
 ## 현재 상태
 
