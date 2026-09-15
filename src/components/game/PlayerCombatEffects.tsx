@@ -18,6 +18,11 @@ interface FloatPopup {
  * player back here rather than leaving them to be immediately re-aggroed on the spot. */
 const RESPAWN_POINT: [number, number] = [VILLAGE_CENTER[0], VILLAGE_CENTER[1] + 2];
 
+// Monster movement (chase/wander) is ticked on its own slower cadence rather than every
+// frame — smooth enough at these walking speeds, and cuts the re-render churn from N
+// monsters' positions changing 60 times a second down to 10.
+const MOVEMENT_TICK_SEC = 0.1;
+
 /**
  * Runs the monster-vs-player side of combat (monsters standing near the player periodically
  * hit back — see combatStore.monsterAttackTick) and handles death/respawn, plus floating
@@ -29,6 +34,7 @@ export function PlayerCombatEffects({ fieldMonsters }: { fieldMonsters: MonsterI
   const [popups, setPopups] = useState<FloatPopup[]>([]);
   const prevHpRef = useRef(useCombatStore.getState().player.currentHp);
   const prevGoldRef = useRef(useCombatStore.getState().player.gold);
+  const movementAccumRef = useRef(0);
 
   function pushPopup(text: string, color: string) {
     const popup: FloatPopup = { id: Date.now() + Math.random(), text, color };
@@ -56,9 +62,16 @@ export function PlayerCombatEffects({ fieldMonsters }: { fieldMonsters: MonsterI
     [],
   );
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (groupRef.current) {
       groupRef.current.position.set(playerPosition.x, 0, playerPosition.z);
+    }
+
+    movementAccumRef.current += delta;
+    if (movementAccumRef.current >= MOVEMENT_TICK_SEC) {
+      const step = movementAccumRef.current;
+      movementAccumRef.current = 0;
+      useCombatStore.getState().tickMonsterMovement(playerPosition.x, playerPosition.z, step);
     }
 
     const { died } = useCombatStore.getState().monsterAttackTick(playerPosition.x, playerPosition.z);

@@ -185,11 +185,27 @@ export function MonsterMesh({
   const [popups, setPopups] = useState<DamagePopup[]>([]);
   const [dying, setDying] = useState(false);
   const wasAliveRef = useRef(true);
-  const basePosition: [number, number, number] = [
+  const facingRef = useRef(0);
+  const prevPosRef = useRef<[number, number, number]>([
+    monster.position_x,
+    monster.position_y,
+    monster.position_z,
+  ]);
+  const basePosition: [number, number, number] = combat?.position ?? [
     monster.position_x,
     monster.position_y,
     monster.position_z,
   ];
+
+  useEffect(() => {
+    const [px, , pz] = prevPosRef.current;
+    const dx = basePosition[0] - px;
+    const dz = basePosition[2] - pz;
+    if (Math.hypot(dx, dz) > 0.01) {
+      facingRef.current = Math.atan2(dx, dz);
+    }
+    prevPosRef.current = basePosition;
+  }, [basePosition[0], basePosition[2]]);
 
   useEffect(() => {
     if (!combat) return;
@@ -238,7 +254,7 @@ export function MonsterMesh({
   const labelHeight = variant.labelHeight ?? 1.05;
 
   return (
-    <group position={basePosition} scale={scale}>
+    <group position={basePosition} rotation={[0, facingRef.current, 0]} scale={scale}>
       {!dying && (
         <mesh visible={false} onClick={handleClick}>
           <cylinderGeometry args={[0.55, 0.55, labelHeight, 8]} />

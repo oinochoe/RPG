@@ -11,10 +11,19 @@ const ATTACK_RANGE_BY_CLASS: Record<CharacterProfile['character_class'], number>
 const ATTACK_COOLDOWN_MS = 550;
 const RESPAWN_DELAY_MS = 8000;
 
-// Monsters aggro and hit back once the player is standing this close, on their own cooldown
-// separate from the player's attack cooldown.
-const MONSTER_AGGRO_RANGE = 3.2;
+// Monsters notice the player (and, if already engaged, keep chasing) within this range, but
+// have to actually close to MONSTER_ATTACK_REACH before a hit can land — otherwise they'd
+// attack from a standstill without ever moving.
+const MONSTER_DETECT_RANGE = 6;
+const MONSTER_ATTACK_REACH = 1.3;
 const MONSTER_ATTACK_COOLDOWN_MS = 1200;
+const MONSTER_CHASE_SPEED = 2.4;
+const MONSTER_WANDER_SPEED = 1;
+// How far a monster will chase from its spawn point before giving up and walking back —
+// keeps dungeon goblins from chasing straight through the far wall of their room.
+const MONSTER_LEASH_RANGE = 6;
+const MONSTER_WANDER_RADIUS = 2.5;
+const MONSTER_WANDER_INTERVAL_MS: [number, number] = [2500, 5000];
 
 function monsterAttackPower(level: number): number {
   return 4 + level * 2;
@@ -28,13 +37,17 @@ export interface MonsterCombatState {
   currentHp: number;
   alive: boolean;
   position: [number, number, number];
+  spawnPosition: [number, number, number];
   respawnAt: number | null;
   lastHitAt: number | null;
   attackPower: number;
   lastAttackAt: number | null;
-  // Aggressive monsters attack on sight (within MONSTER_AGGRO_RANGE); passive ones only
+  // Aggressive monsters attack on sight (within MONSTER_DETECT_RANGE); passive ones only
   // fight back once the player has hit them first (see monsterAttackTick).
   aggressive: boolean;
+  // Idle wander target/timer — only used while not engaged (see tickMonsterMovement).
+  wanderTarget: [number, number] | null;
+  nextWanderAt: number | null;
 }
 
 interface PlayerCombatState {
@@ -76,6 +89,7 @@ interface CombatState {
   loadMonsters: (monsters: MonsterInstanceSummary[], aggressive: boolean) => void;
   attackNearest: (playerX: number, playerZ: number) => AttackResult;
   monsterAttackTick: (playerX: number, playerZ: number) => MonsterAttackResult;
+  tickMonsterMovement: (playerX: number, playerZ: number, delta: number) => void;
   respawnPlayer: () => void;
   tickRespawns: () => void;
 }
@@ -98,11 +112,14 @@ function toMonsterCombatState(
       currentHp: monster.current_hp,
       alive: true,
       position: [monster.position_x, monster.position_y, monster.position_z],
+      spawnPosition: [monster.position_x, monster.position_y, monster.position_z],
       respawnAt: null,
       lastHitAt: null,
       attackPower: monsterAttackPower(monster.level),
       lastAttackAt: null,
       aggressive,
+      wanderTarget: null,
+      nextWanderAt: null,
     };
   }
   return monsterState;
@@ -237,7 +254,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       if (!monster.aggressive && monster.lastHitAt === null) continue;
       const dx = monster.position[0] - playerX;
       const dz = monster.position[2] - playerZ;
-      if (Math.hypot(dx, dz) > MONSTER_AGGRO_RANGE) continue;
+      // Has to actually be standing next to the player — see tickMonsterMovement, which
+      // closes this distance by chasing.
+      if (Math.hypot(dx, dz) > MONSTER_ATTACK_REACH) continue;
       if (now - (monster.lastAttackAt ?? 0) < MONSTER_ATTACK_COOLDOWN_MS) continue;
 
       const damage = Math.max(1, Math.round(monster.attackPower * (0.7 + Math.random() * 0.5)));
@@ -250,6 +269,74 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     if (!nextMonsters) return { died: false };
     set({ monsters: nextMonsters, player: { ...player, currentHp } });
     return { died: currentHp <= 0 };
+  },
+
+  tickMonsterMovement: (playerX, playerZ, delta) => {
+    const now = performance.now();
+    const { monsters } = get();
+    let next: Record<number, MonsterCombatState> | null = null;
+
+    for (const monster of Object.values(monsters)) {
+      if (!monster.alive) continue;
+      const [sx, , sz] = monster.spawnPosition;
+      const [mx, my, mz] = monster.position;
+      const engaged = monster.aggressive || monster.lastHitAt !== null;
+      const distToPlayer = Math.hypot(playerX - mx, playerZ - mz);
+      const distFromSpawn = Math.hypot(mx - sx, mz - sz);
+
+      let targetX = mx;
+      let targetZ = mz;
+      let speed = 0;
+      let wanderTarget = monster.wanderTarget;
+      let nextWanderAt = monster.nextWanderAt;
+
+      if (engaged && distToPlayer <= MONSTER_DETECT_RANGE && distFromSpawn <= MONSTER_LEASH_RANGE) {
+        wanderTarget = null;
+        nextWanderAt = null;
+        if (distToPlayer > MONSTER_ATTACK_REACH) {
+          targetX = playerX;
+          targetZ = playerZ;
+          speed = MONSTER_CHASE_SPEED;
+        }
+      } else if (distFromSpawn > MONSTER_WANDER_RADIUS) {
+        // Outside its home turf (gave up a chase, or got pushed out) — walk back before
+        // resuming normal wandering, rather than picking a wander target from way out here.
+        wanderTarget = null;
+        nextWanderAt = null;
+        targetX = sx;
+        targetZ = sz;
+        speed = MONSTER_CHASE_SPEED;
+      } else {
+        if (!wanderTarget || now >= (nextWanderAt ?? 0)) {
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * MONSTER_WANDER_RADIUS;
+          wanderTarget = [sx + Math.cos(angle) * radius, sz + Math.sin(angle) * radius];
+          const [minMs, maxMs] = MONSTER_WANDER_INTERVAL_MS;
+          nextWanderAt = now + minMs + Math.random() * (maxMs - minMs);
+        }
+        targetX = wanderTarget[0];
+        targetZ = wanderTarget[1];
+        speed = MONSTER_WANDER_SPEED;
+      }
+
+      const dx = targetX - mx;
+      const dz = targetZ - mz;
+      const dist = Math.hypot(dx, dz);
+      let nx = mx;
+      let nz = mz;
+      if (dist > 0.02 && speed > 0) {
+        const step = Math.min(dist, speed * delta);
+        nx = mx + (dx / dist) * step;
+        nz = mz + (dz / dist) * step;
+      }
+
+      if (nx !== mx || nz !== mz || wanderTarget !== monster.wanderTarget || nextWanderAt !== monster.nextWanderAt) {
+        if (!next) next = { ...monsters };
+        next[monster.instanceId] = { ...monster, position: [nx, my, nz], wanderTarget, nextWanderAt };
+      }
+    }
+
+    if (next) set({ monsters: next });
   },
 
   respawnPlayer: () => {
@@ -268,8 +355,11 @@ export const useCombatStore = create<CombatState>((set, get) => ({
           ...monster,
           alive: true,
           currentHp: monster.maxHp,
+          position: monster.spawnPosition,
           respawnAt: null,
           lastHitAt: null,
+          wanderTarget: null,
+          nextWanderAt: null,
         };
         changed = true;
       }
