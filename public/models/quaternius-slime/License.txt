@@ -1,0 +1,12 @@
+	Slime Enemy (rigged, animated: Idle/Walk/Jump/Bite_Front/Bite_InPlace/HitRecieve/Death/Dance/Yes/No)
+
+	Created/distributed by Quaternius (quaternius.com)
+	Source: https://poly.pizza/m/eSLKTsbl7F
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	This content is free to use in personal, educational and commercial
+	projects, with no attribution required.
