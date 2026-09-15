@@ -11,6 +11,15 @@ const ATTACK_RANGE_BY_CLASS: Record<CharacterProfile['character_class'], number>
 const ATTACK_COOLDOWN_MS = 550;
 const RESPAWN_DELAY_MS = 8000;
 
+// Monsters aggro and hit back once the player is standing this close, on their own cooldown
+// separate from the player's attack cooldown.
+const MONSTER_AGGRO_RANGE = 3.2;
+const MONSTER_ATTACK_COOLDOWN_MS = 1200;
+
+function monsterAttackPower(level: number): number {
+  return 4 + level * 2;
+}
+
 export interface MonsterCombatState {
   instanceId: number;
   name: string;
@@ -21,6 +30,8 @@ export interface MonsterCombatState {
   position: [number, number, number];
   respawnAt: number | null;
   lastHitAt: number | null;
+  attackPower: number;
+  lastAttackAt: number | null;
 }
 
 interface PlayerCombatState {
@@ -31,6 +42,7 @@ interface PlayerCombatState {
   maxHp: number;
   attackPower: number;
   attackRange: number;
+  gold: number;
 }
 
 interface AttackResult {
@@ -39,6 +51,11 @@ interface AttackResult {
   damage?: number;
   killed?: boolean;
   leveledUp?: boolean;
+  goldDropped?: number;
+}
+
+interface MonsterAttackResult {
+  died: boolean;
 }
 
 interface CombatState {
@@ -55,6 +72,8 @@ interface CombatState {
    */
   loadMonsters: (monsters: MonsterInstanceSummary[]) => void;
   attackNearest: (playerX: number, playerZ: number) => AttackResult;
+  monsterAttackTick: (playerX: number, playerZ: number) => MonsterAttackResult;
+  respawnPlayer: () => void;
   tickRespawns: () => void;
 }
 
@@ -75,6 +94,8 @@ function toMonsterCombatState(monsters: MonsterInstanceSummary[]): Record<number
       position: [monster.position_x, monster.position_y, monster.position_z],
       respawnAt: null,
       lastHitAt: null,
+      attackPower: monsterAttackPower(monster.level),
+      lastAttackAt: null,
     };
   }
   return monsterState;
@@ -91,6 +112,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     maxHp: 1,
     attackPower: 10,
     attackRange: ATTACK_RANGE_BY_CLASS.warrior,
+    gold: 0,
   },
   lastAttackAt: 0,
 
@@ -106,6 +128,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         maxHp: character.max_hp,
         attackPower: character.attack_power,
         attackRange: ATTACK_RANGE_BY_CLASS[character.character_class],
+        gold: character.gold,
       },
       lastAttackAt: 0,
     });
@@ -148,7 +171,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
     let nextPlayer = player;
     let leveledUp = false;
+    let goldDropped: number | undefined;
     if (killed) {
+      goldDropped = nearest.level * (4 + Math.floor(Math.random() * 8));
       const gainedExp = nearest.level * 20;
       let experience = player.experience + gainedExp;
       let level = player.level;
@@ -167,7 +192,16 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         leveledUp = true;
       }
 
-      nextPlayer = { level, experience, expToNext, currentHp, maxHp, attackPower, attackRange: player.attackRange };
+      nextPlayer = {
+        level,
+        experience,
+        expToNext,
+        currentHp,
+        maxHp,
+        attackPower,
+        attackRange: player.attackRange,
+        gold: player.gold + goldDropped,
+      };
     }
 
     set({
@@ -176,7 +210,41 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       lastAttackAt: now,
     });
 
-    return { hit: true, instanceId: nearest.instanceId, damage, killed, leveledUp };
+    return { hit: true, instanceId: nearest.instanceId, damage, killed, leveledUp, goldDropped };
+  },
+
+  monsterAttackTick: (playerX, playerZ) => {
+    const now = performance.now();
+    const { monsters, player } = get();
+    // Player is already at 0 HP waiting for the respawn effect to run — ignore further hits
+    // until respawnPlayer() heals them back up, so we don't double-trigger death handling.
+    if (player.currentHp <= 0) return { died: false };
+
+    let nextMonsters: Record<number, MonsterCombatState> | null = null;
+    let currentHp = player.currentHp;
+
+    for (const monster of Object.values(monsters)) {
+      if (!monster.alive) continue;
+      const dx = monster.position[0] - playerX;
+      const dz = monster.position[2] - playerZ;
+      if (Math.hypot(dx, dz) > MONSTER_AGGRO_RANGE) continue;
+      if (now - (monster.lastAttackAt ?? 0) < MONSTER_ATTACK_COOLDOWN_MS) continue;
+
+      const damage = Math.max(1, Math.round(monster.attackPower * (0.7 + Math.random() * 0.5)));
+      currentHp = Math.max(0, currentHp - damage);
+      if (!nextMonsters) nextMonsters = { ...monsters };
+      nextMonsters[monster.instanceId] = { ...monster, lastAttackAt: now };
+      if (currentHp <= 0) break;
+    }
+
+    if (!nextMonsters) return { died: false };
+    set({ monsters: nextMonsters, player: { ...player, currentHp } });
+    return { died: currentHp <= 0 };
+  },
+
+  respawnPlayer: () => {
+    const { player } = get();
+    set({ player: { ...player, currentHp: player.maxHp } });
   },
 
   tickRespawns: () => {
