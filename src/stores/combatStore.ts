@@ -280,9 +280,17 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       if (!monster.alive) continue;
       const [sx, , sz] = monster.spawnPosition;
       const [mx, my, mz] = monster.position;
-      const engaged = monster.aggressive || monster.lastHitAt !== null;
       const distToPlayer = Math.hypot(playerX - mx, playerZ - mz);
       const distFromSpawn = Math.hypot(mx - sx, mz - sz);
+
+      let lastHitAt = monster.lastHitAt;
+      // Passive monsters only chase because they were provoked (lastHitAt) — once they've
+      // fully made it back home and the player isn't around anymore, let that provocation
+      // expire so they're genuinely passive again, not permanently "in combat" from one hit.
+      if (!monster.aggressive && lastHitAt !== null && distFromSpawn <= 0.2 && distToPlayer > MONSTER_DETECT_RANGE) {
+        lastHitAt = null;
+      }
+      const engaged = monster.aggressive || lastHitAt !== null;
 
       let targetX = mx;
       let targetZ = mz;
@@ -330,9 +338,15 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         nz = mz + (dz / dist) * step;
       }
 
-      if (nx !== mx || nz !== mz || wanderTarget !== monster.wanderTarget || nextWanderAt !== monster.nextWanderAt) {
+      if (
+        nx !== mx ||
+        nz !== mz ||
+        wanderTarget !== monster.wanderTarget ||
+        nextWanderAt !== monster.nextWanderAt ||
+        lastHitAt !== monster.lastHitAt
+      ) {
         if (!next) next = { ...monsters };
-        next[monster.instanceId] = { ...monster, position: [nx, my, nz], wanderTarget, nextWanderAt };
+        next[monster.instanceId] = { ...monster, position: [nx, my, nz], wanderTarget, nextWanderAt, lastHitAt };
       }
     }
 

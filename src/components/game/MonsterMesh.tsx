@@ -202,10 +202,19 @@ export function MonsterMesh({
     const dx = basePosition[0] - px;
     const dz = basePosition[2] - pz;
     if (Math.hypot(dx, dz) > 0.01) {
+      // Moving — face the direction of travel.
       facingRef.current = Math.atan2(dx, dz);
+    } else if (combat && (combat.aggressive || combat.lastHitAt !== null)) {
+      // Stopped while engaged (close enough to attack) — face the player instead of
+      // freezing at whatever heading it happened to approach from.
+      const fdx = playerPosition.x - basePosition[0];
+      const fdz = playerPosition.z - basePosition[2];
+      if (Math.hypot(fdx, fdz) > 0.01) {
+        facingRef.current = Math.atan2(fdx, fdz);
+      }
     }
     prevPosRef.current = basePosition;
-  }, [basePosition[0], basePosition[2]]);
+  }, [basePosition[0], basePosition[2], combat?.lastAttackAt, combat?.lastHitAt]);
 
   useEffect(() => {
     if (!combat) return;
