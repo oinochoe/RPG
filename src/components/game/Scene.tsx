@@ -48,7 +48,7 @@ export function Scene({
   const dungeonFloor = useWorldStore((s) => s.dungeonFloor);
 
   useEffect(() => {
-    initCombat(character, map.monsters);
+    initCombat(character, map.monsters, false);
     // Combat state is local-only for now (no backend combat API yet) and should only be
     // (re)seeded when a genuinely new map/character session starts, not on every re-render
     // or area transition (entering/leaving the dungeon swaps monsters via loadMonsters

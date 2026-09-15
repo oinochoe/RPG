@@ -17,7 +17,8 @@ const FIELD_RETURN_POINT: [number, number] = [FIELD_ENTRANCE_POINT[0], FIELD_ENT
 function enterFloor(floor: number) {
   clearMoveTarget();
   activeColliders.list = getDungeonColliders(floor);
-  useCombatStore.getState().loadMonsters(buildFloorMonsters(floor));
+  // Dungeon goblins are aggressive (attack on sight) — field/village monsters are passive.
+  useCombatStore.getState().loadMonsters(buildFloorMonsters(floor), true);
   playerPosition.set(DUNGEON_SPAWN[0], 0, DUNGEON_SPAWN[1]);
 }
 
@@ -57,7 +58,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   exitDungeon: (fieldMonsters) => {
     clearMoveTarget();
     activeColliders.list = [...rockColliders, ...villageColliders];
-    useCombatStore.getState().loadMonsters(fieldMonsters);
+    useCombatStore.getState().loadMonsters(fieldMonsters, false);
     playerPosition.set(FIELD_RETURN_POINT[0], 0, FIELD_RETURN_POINT[1]);
     set({ currentArea: 'field', dungeonFloor: 1 });
   },

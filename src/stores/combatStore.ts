@@ -32,6 +32,9 @@ export interface MonsterCombatState {
   lastHitAt: number | null;
   attackPower: number;
   lastAttackAt: number | null;
+  // Aggressive monsters attack on sight (within MONSTER_AGGRO_RANGE); passive ones only
+  // fight back once the player has hit them first (see monsterAttackTick).
+  aggressive: boolean;
 }
 
 interface PlayerCombatState {
@@ -63,14 +66,14 @@ interface CombatState {
   monsters: Record<number, MonsterCombatState>;
   player: PlayerCombatState;
   lastAttackAt: number;
-  init: (character: CharacterProfile, monsters: MonsterInstanceSummary[]) => void;
+  init: (character: CharacterProfile, monsters: MonsterInstanceSummary[], aggressive: boolean) => void;
   /**
    * Swaps in a different monster roster without touching player stats — used when
    * traveling between areas that keep separate monster pools (e.g. field vs. dungeon) so
    * neither area's kills/respawn timers leak into the other, and neither resets the
    * player's local level/exp progress the way a second `init` call would.
    */
-  loadMonsters: (monsters: MonsterInstanceSummary[]) => void;
+  loadMonsters: (monsters: MonsterInstanceSummary[], aggressive: boolean) => void;
   attackNearest: (playerX: number, playerZ: number) => AttackResult;
   monsterAttackTick: (playerX: number, playerZ: number) => MonsterAttackResult;
   respawnPlayer: () => void;
@@ -81,7 +84,10 @@ function expToNextForLevel(level: number): number {
   return level * 100;
 }
 
-function toMonsterCombatState(monsters: MonsterInstanceSummary[]): Record<number, MonsterCombatState> {
+function toMonsterCombatState(
+  monsters: MonsterInstanceSummary[],
+  aggressive: boolean,
+): Record<number, MonsterCombatState> {
   const monsterState: Record<number, MonsterCombatState> = {};
   for (const monster of monsters) {
     monsterState[monster.instance_id] = {
@@ -96,6 +102,7 @@ function toMonsterCombatState(monsters: MonsterInstanceSummary[]): Record<number
       lastHitAt: null,
       attackPower: monsterAttackPower(monster.level),
       lastAttackAt: null,
+      aggressive,
     };
   }
   return monsterState;
@@ -116,10 +123,10 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   },
   lastAttackAt: 0,
 
-  init: (character, monsters) => {
+  init: (character, monsters, aggressive) => {
     set({
       ready: true,
-      monsters: toMonsterCombatState(monsters),
+      monsters: toMonsterCombatState(monsters, aggressive),
       player: {
         level: character.level,
         experience: character.experience,
@@ -134,8 +141,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     });
   },
 
-  loadMonsters: (monsters) => {
-    set({ monsters: toMonsterCombatState(monsters), lastAttackAt: 0 });
+  loadMonsters: (monsters, aggressive) => {
+    set({ monsters: toMonsterCombatState(monsters, aggressive), lastAttackAt: 0 });
   },
 
   attackNearest: (playerX, playerZ) => {
@@ -225,6 +232,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
     for (const monster of Object.values(monsters)) {
       if (!monster.alive) continue;
+      // Passive monsters (e.g. field slimes) leave the player alone until hit first —
+      // only aggressive ones (e.g. dungeon goblins) or anything already provoked engage.
+      if (!monster.aggressive && monster.lastHitAt === null) continue;
       const dx = monster.position[0] - playerX;
       const dz = monster.position[2] - playerZ;
       if (Math.hypot(dx, dz) > MONSTER_AGGRO_RANGE) continue;
@@ -259,6 +269,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
           alive: true,
           currentHp: monster.maxHp,
           respawnAt: null,
+          lastHitAt: null,
         };
         changed = true;
       }
