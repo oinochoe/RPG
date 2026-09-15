@@ -1,8 +1,8 @@
 import { mulberry32 } from './proceduralTextures';
 
 const SEED = 42;
-const DECORATION_COUNT = 260;
-const FIELD_EXTENT = 100;
+const DECORATION_COUNT = 480;
+const FIELD_EXTENT = 150;
 const CLEAR_RADIUS = 3.5;
 
 // The village sits inside this same field, not a separate scene — this box keeps rocks/tufts

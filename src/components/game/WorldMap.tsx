@@ -7,7 +7,7 @@ import { useCombatStore } from '../../stores/combatStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useWorldStore } from '../../stores/worldStore';
 
-const VIEW_HALF = 50;
+const VIEW_HALF = 75;
 const DUNGEON_VIEW_HALF = 14;
 const POLL_MS = 100;
 

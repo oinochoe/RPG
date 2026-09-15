@@ -40,7 +40,7 @@ const MOVE_SPEED = 6;
 const PLAYER_COLLISION_RADIUS = 0.4;
 // Overall playable boundary (field + village combined) — LightRig follows the player, so
 // this no longer needs to fit inside a fixed shadow frustum, just the decorated ground itself.
-const MAX_RADIUS = 46;
+const MAX_RADIUS = 68;
 const ARRIVE_EPSILON = 0.15;
 const MOVE_KEYS: Record<string, [number, number]> = {
   KeyW: [0, -1],

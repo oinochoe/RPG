@@ -7,7 +7,7 @@ import { scatterDecorations, rockColliders, activeColliders, type Decoration } f
 import { Village, villageColliders } from './Village';
 import { CaveEntrance } from './CaveEntrance';
 
-const GROUND_SIZE = 250;
+const GROUND_SIZE = 340;
 
 function Rocks({ decorations }: { decorations: Decoration[] }) {
   const rocks = useMemo(() => decorations.filter((d) => d.kind === 'rock'), [decorations]);
