@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { Loader2, ShieldCheck, ShieldX } from 'lucide-react';
 import * as authApi from '../api/auth';
 import { translateApiError } from './errorMessages';
+import { Card } from '../components/ui/card';
 
 type Status = 'pending' | 'success' | 'error';
 
@@ -32,23 +34,37 @@ export function VerifyEmailPage() {
       });
   }, [token]);
 
-  if (status === 'pending') return <p>이메일 인증 처리 중입니다...</p>;
-
-  if (status === 'error') {
-    return (
-      <div>
-        <h1>인증 실패</h1>
-        <p role="alert">{error}</p>
-      </div>
-    );
-  }
-
   return (
-    <div>
-      <h1>이메일 인증 완료</h1>
-      <p>
-        이제 로그인할 수 있습니다. <Link to="/login">로그인하러 가기</Link>
-      </p>
+    <div className="flex min-h-screen items-center justify-center px-4">
+      <Card className="text-center">
+        {status === 'pending' && (
+          <>
+            <Loader2 className="mx-auto mb-4 size-8 animate-spin text-gold" strokeWidth={1.5} />
+            <p className="text-sm text-gold-dim">이메일 인증 처리 중입니다...</p>
+          </>
+        )}
+        {status === 'error' && (
+          <>
+            <ShieldX className="mx-auto mb-4 size-8 text-danger" strokeWidth={1.5} />
+            <h1 className="text-xl font-bold text-ink">인증 실패</h1>
+            <p role="alert" className="mt-3 text-sm text-danger">
+              {error}
+            </p>
+          </>
+        )}
+        {status === 'success' && (
+          <>
+            <ShieldCheck className="mx-auto mb-4 size-8 text-gold" strokeWidth={1.5} />
+            <h1 className="text-xl font-bold text-ink">이메일 인증 완료</h1>
+            <p className="mt-3 text-sm text-gold-dim">
+              이제 로그인할 수 있습니다.{' '}
+              <Link to="/login" className="font-semibold text-gold hover:underline">
+                로그인하러 가기
+              </Link>
+            </p>
+          </>
+        )}
+      </Card>
     </div>
   );
 }

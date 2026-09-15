@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-fantasy: 'Trebuchet MS', 'Segoe UI', sans-serif;
+
+  /* Matches the in-game HUD/WorldMap/CharacterPanel palette so the auth
+     pages don't look like a different app from the game itself. */
+  --color-parchment-bg: #1a2a1c;
+  --color-parchment-panel: #15221733;
+  --color-gold: #e8c97a;
+  --color-gold-dim: #9aa08f;
+  --color-ink: #f4f1e8;
+  --color-danger: #e0538a;
+}
+
+body {
+  font-family: var(--font-fantasy);
+  background: radial-gradient(circle at 50% 20%, #24391f 0%, #0f1a0d 70%);
+  color: var(--color-ink);
+  min-height: 100vh;
+}
