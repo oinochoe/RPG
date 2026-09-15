@@ -1,0 +1,11 @@
+KayKit : Medieval Hexagon Pack (1.0)
+
+Created/distributed by Kay Lousberg (www.kaylousberg.com)
+
+License: Creative Commons Zero (CC0)
+http://creativecommons.org/publicdomain/zero/1.0/
+
+Free to use in personal, educational and commercial projects.
+Attribution is not required but appreciated: "Kay Lousberg, www.kaylousberg.com"
+
+Source: https://kaylousberg.itch.io/kaykit-medieval-hexagon

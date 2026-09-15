@@ -1,0 +1,112 @@
+import { useMemo } from 'react';
+import * as THREE from 'three';
+
+function mulberry32(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** A tileable canvas-painted grass texture: mottled base + speckled blades, no external asset needed. */
+export function useGrassTexture(): THREE.Texture {
+  return useMemo(() => {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const rng = mulberry32(1337);
+
+    ctx.fillStyle = '#5a9645';
+    ctx.fillRect(0, 0, size, size);
+
+    // Broad mottled patches for large-scale color variation (reads clearly even minified/mipmapped).
+    for (let i = 0; i < 70; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const r = 30 + rng() * 70;
+      const color = rng() < 0.5 ? 'rgba(70, 130, 52, 0.55)' : 'rgba(120, 172, 78, 0.5)';
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.65, rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Fine speckle for close-up detail.
+    for (let i = 0; i < 1400; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const r = 3 + rng() * 6;
+      const shade = rng();
+      const color =
+        shade < 0.5
+          ? `rgba(58, 104, 45, ${0.3 + rng() * 0.35})`
+          : `rgba(142, 194, 96, ${0.25 + rng() * 0.3})`;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.6, rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(16, 16);
+    texture.anisotropy = 8;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, []);
+}
+
+/** A tileable canvas-painted cobblestone texture for the village plaza. */
+export function useCobblestoneTexture(): THREE.Texture {
+  return useMemo(() => {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const rng = mulberry32(2024);
+
+    ctx.fillStyle = '#8a7f72';
+    ctx.fillRect(0, 0, size, size);
+
+    const cellSize = 42;
+    for (let gy = 0; gy < size / cellSize + 1; gy++) {
+      for (let gx = 0; gx < size / cellSize + 1; gx++) {
+        const offsetX = (gy % 2) * cellSize * 0.5;
+        const cx = gx * cellSize + offsetX + (rng() - 0.5) * 6;
+        const cy = gy * cellSize + (rng() - 0.5) * 6;
+        const w = cellSize * (0.78 + rng() * 0.16);
+        const h = cellSize * (0.78 + rng() * 0.16);
+        const shade = rng();
+        ctx.fillStyle =
+          shade < 0.5
+            ? `rgba(120, 110, 98, ${0.5 + rng() * 0.3})`
+            : `rgba(160, 150, 136, ${0.4 + rng() * 0.3})`;
+        ctx.beginPath();
+        const r = 6;
+        ctx.roundRect(cx - w / 2, cy - h / 2, w, h, r);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(60, 54, 46, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(10, 10);
+    texture.anisotropy = 8;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, []);
+}
+
+export { mulberry32 };
