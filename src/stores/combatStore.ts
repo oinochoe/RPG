@@ -57,9 +57,20 @@ interface PlayerCombatState {
   currentHp: number;
   maxHp: number;
   attackPower: number;
+  defensePower: number;
   attackRange: number;
   gold: number;
+  skillPoints: number;
 }
+
+// Stat points granted on each level-up, spent via allocateStat.
+const SKILL_POINTS_PER_LEVEL = 3;
+const STAT_GAIN = {
+  attack: { attackPower: 1 },
+  defense: { defensePower: 1 },
+  hp: { maxHp: 8 },
+} as const;
+export type AllocatableStat = keyof typeof STAT_GAIN;
 
 interface AttackResult {
   hit: boolean;
@@ -90,6 +101,7 @@ interface CombatState {
   attackNearest: (playerX: number, playerZ: number) => AttackResult;
   monsterAttackTick: (playerX: number, playerZ: number) => MonsterAttackResult;
   tickMonsterMovement: (playerX: number, playerZ: number, delta: number) => void;
+  allocateStat: (stat: AllocatableStat) => void;
   respawnPlayer: () => void;
   tickRespawns: () => void;
 }
@@ -135,8 +147,10 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     currentHp: 1,
     maxHp: 1,
     attackPower: 10,
+    defensePower: 0,
     attackRange: ATTACK_RANGE_BY_CLASS.warrior,
     gold: 0,
+    skillPoints: 0,
   },
   lastAttackAt: 0,
 
@@ -151,8 +165,10 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         currentHp: character.current_hp,
         maxHp: character.max_hp,
         attackPower: character.attack_power,
+        defensePower: character.defense_power,
         attackRange: ATTACK_RANGE_BY_CLASS[character.character_class],
         gold: character.gold,
+        skillPoints: character.skill_points,
       },
       lastAttackAt: 0,
     });
@@ -204,6 +220,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       let maxHp = player.maxHp;
       let currentHp = player.currentHp;
       let attackPower = player.attackPower;
+      let skillPoints = player.skillPoints;
       let expToNext = expToNextForLevel(level);
 
       while (experience >= expToNext) {
@@ -212,6 +229,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         maxHp += 20;
         attackPower += 2;
         currentHp = maxHp;
+        skillPoints += SKILL_POINTS_PER_LEVEL;
         expToNext = expToNextForLevel(level);
         leveledUp = true;
       }
@@ -223,8 +241,10 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         currentHp,
         maxHp,
         attackPower,
+        defensePower: player.defensePower,
         attackRange: player.attackRange,
         gold: player.gold + goldDropped,
+        skillPoints,
       };
     }
 
@@ -259,7 +279,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       if (Math.hypot(dx, dz) > MONSTER_ATTACK_REACH) continue;
       if (now - (monster.lastAttackAt ?? 0) < MONSTER_ATTACK_COOLDOWN_MS) continue;
 
-      const damage = Math.max(1, Math.round(monster.attackPower * (0.7 + Math.random() * 0.5)));
+      const rawDamage = Math.round(monster.attackPower * (0.7 + Math.random() * 0.5));
+      const damage = Math.max(1, rawDamage - player.defensePower);
       currentHp = Math.max(0, currentHp - damage);
       if (!nextMonsters) nextMonsters = { ...monsters };
       nextMonsters[monster.instanceId] = { ...monster, lastAttackAt: now };
@@ -351,6 +372,24 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     }
 
     if (next) set({ monsters: next });
+  },
+
+  allocateStat: (stat) => {
+    const { player } = get();
+    if (player.skillPoints <= 0) return;
+    const skillPoints = player.skillPoints - 1;
+    if (stat === 'attack') {
+      set({ player: { ...player, skillPoints, attackPower: player.attackPower + STAT_GAIN.attack.attackPower } });
+    } else if (stat === 'defense') {
+      set({ player: { ...player, skillPoints, defensePower: player.defensePower + STAT_GAIN.defense.defensePower } });
+    } else {
+      // Spending a point into max HP heals by the same amount, rather than leaving the
+      // player at the same currentHp/maxHp ratio they had before allocating.
+      const gain = STAT_GAIN.hp.maxHp;
+      set({
+        player: { ...player, skillPoints, maxHp: player.maxHp + gain, currentHp: player.currentHp + gain },
+      });
+    }
   },
 
   respawnPlayer: () => {

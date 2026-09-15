@@ -7,6 +7,7 @@ import { useUIStore } from '../stores/uiStore';
 import { Scene } from '../components/game/Scene';
 import { HUD } from '../components/game/HUD';
 import { WorldMap } from '../components/game/WorldMap';
+import { CharacterPanel } from '../components/game/CharacterPanel';
 import { translateApiError } from './errorMessages';
 
 export function GamePage() {
@@ -26,8 +27,11 @@ export function GamePage() {
       if (e.code === 'KeyM') {
         e.preventDefault();
         useUIStore.getState().toggleMap();
+      } else if (e.code === 'KeyC') {
+        e.preventDefault();
+        useUIStore.getState().toggleCharacterPanel();
       } else if (e.code === 'Escape') {
-        useUIStore.getState().closeMap();
+        useUIStore.getState().closeAll();
       }
     }
     window.addEventListener('keydown', onKeyDown);
@@ -49,6 +53,7 @@ export function GamePage() {
       </Canvas>
       <HUD character={activeCharacter} />
       <WorldMap />
+      <CharacterPanel character={activeCharacter} />
     </>
   );
 }

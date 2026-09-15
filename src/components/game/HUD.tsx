@@ -64,7 +64,24 @@ export function HUD({ character }: { character: CharacterProfile }) {
         </div>
         <Bar ratio={player.currentHp / player.maxHp} color="#57c25b" label={`HP ${player.currentHp}/${player.maxHp}`} />
         <Bar ratio={player.experience / player.expToNext} color="#5b9bd5" label={`EXP ${player.experience}/${player.expToNext}`} />
-        <div style={{ color: '#ffd54a', fontWeight: 700, fontSize: 12 }}>{player.gold} G</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: '#ffd54a', fontWeight: 700, fontSize: 12 }}>{player.gold} G</span>
+          {player.skillPoints > 0 && (
+            <span
+              style={{
+                color: '#e8c97a',
+                fontWeight: 700,
+                fontSize: 11,
+                padding: '2px 6px',
+                borderRadius: 999,
+                background: 'rgba(232, 201, 122, 0.2)',
+                border: '1px solid #e8c97a',
+              }}
+            >
+              스킬 포인트 {player.skillPoints}
+            </span>
+          )}
+        </div>
       </div>
 
       <div
@@ -83,6 +100,7 @@ export function HUD({ character }: { character: CharacterProfile }) {
         <div>이동: WASD / 방향키</div>
         <div>공격: Space</div>
         <div>지도: M</div>
+        <div>캐릭터: C</div>
       </div>
     </div>
   );

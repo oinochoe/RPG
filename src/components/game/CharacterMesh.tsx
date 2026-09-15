@@ -172,7 +172,8 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     }
 
     function onKeyDown(e: KeyboardEvent) {
-      if (useUIStore.getState().isMapOpen) return;
+      const ui = useUIStore.getState();
+      if (ui.isMapOpen || ui.isCharacterPanelOpen) return;
       if (e.code === 'Space') {
         e.preventDefault();
         attack();
@@ -197,7 +198,8 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
-    if (useUIStore.getState().isMapOpen) return;
+    const ui = useUIStore.getState();
+    if (ui.isMapOpen || ui.isCharacterPanelOpen) return;
 
     let dx = 0;
     let dz = 0;
