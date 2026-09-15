@@ -47,12 +47,37 @@ interface CombatState {
   player: PlayerCombatState;
   lastAttackAt: number;
   init: (character: CharacterProfile, monsters: MonsterInstanceSummary[]) => void;
+  /**
+   * Swaps in a different monster roster without touching player stats — used when
+   * traveling between areas that keep separate monster pools (e.g. field vs. dungeon) so
+   * neither area's kills/respawn timers leak into the other, and neither resets the
+   * player's local level/exp progress the way a second `init` call would.
+   */
+  loadMonsters: (monsters: MonsterInstanceSummary[]) => void;
   attackNearest: (playerX: number, playerZ: number) => AttackResult;
   tickRespawns: () => void;
 }
 
 function expToNextForLevel(level: number): number {
   return level * 100;
+}
+
+function toMonsterCombatState(monsters: MonsterInstanceSummary[]): Record<number, MonsterCombatState> {
+  const monsterState: Record<number, MonsterCombatState> = {};
+  for (const monster of monsters) {
+    monsterState[monster.instance_id] = {
+      instanceId: monster.instance_id,
+      name: monster.name,
+      level: monster.level,
+      maxHp: monster.max_hp,
+      currentHp: monster.current_hp,
+      alive: true,
+      position: [monster.position_x, monster.position_y, monster.position_z],
+      respawnAt: null,
+      lastHitAt: null,
+    };
+  }
+  return monsterState;
 }
 
 export const useCombatStore = create<CombatState>((set, get) => ({
@@ -70,23 +95,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   lastAttackAt: 0,
 
   init: (character, monsters) => {
-    const monsterState: Record<number, MonsterCombatState> = {};
-    for (const monster of monsters) {
-      monsterState[monster.instance_id] = {
-        instanceId: monster.instance_id,
-        name: monster.name,
-        level: monster.level,
-        maxHp: monster.max_hp,
-        currentHp: monster.current_hp,
-        alive: true,
-        position: [monster.position_x, monster.position_y, monster.position_z],
-        respawnAt: null,
-        lastHitAt: null,
-      };
-    }
     set({
       ready: true,
-      monsters: monsterState,
+      monsters: toMonsterCombatState(monsters),
       player: {
         level: character.level,
         experience: character.experience,
@@ -98,6 +109,10 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       },
       lastAttackAt: 0,
     });
+  },
+
+  loadMonsters: (monsters) => {
+    set({ monsters: toMonsterCombatState(monsters), lastAttackAt: 0 });
   },
 
   attackNearest: (playerX, playerZ) => {
