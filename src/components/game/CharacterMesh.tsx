@@ -33,7 +33,7 @@ const WEAPON_MODEL: Record<CharacterProfile['character_class'], string> = {
 const RIG_GENERAL = '/models/kaykit/Animations/gltf/Rig_Medium/Rig_Medium_General.glb';
 const RIG_MOVEMENT = '/models/kaykit/Animations/gltf/Rig_Medium/Rig_Medium_MovementBasic.glb';
 
-const TARGET_HEIGHT = 0.72;
+const TARGET_HEIGHT = 0.9;
 const ATTACK_DURATION_MS = 300;
 const MOVE_FADE_SEC = 0.15;
 const MOVE_SPEED = 6;

@@ -12,9 +12,9 @@ export const VILLAGE_SIZE = 22;
 const PLAZA_SIZE = VILLAGE_SIZE;
 
 // KayKit's Medieval Hexagon Pack models are modeled at roughly a 1-unit hex-tile scale;
-// this brings them up to match our character height (TARGET_HEIGHT 0.72 in CharacterMesh) —
+// this brings them up to match our character height (TARGET_HEIGHT 0.9 in CharacterMesh) —
 // buildings are still meant to tower over characters, just not fill the whole screen.
-const BUILDING_SCALE = 1.3;
+const BUILDING_SCALE = 1.6;
 
 interface BuildingDef {
   model: string;

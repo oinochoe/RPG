@@ -25,13 +25,13 @@ export interface MonsterVariant {
 const SLIME_VARIANT: MonsterVariant = {
   nameAccent: '#d38bf0',
   model: 'slime',
-  labelHeight: 0.6,
+  labelHeight: 0.75,
 };
 
 export const GOBLIN_VARIANT: MonsterVariant = {
   nameAccent: '#e0a458',
   model: 'goblin',
-  labelHeight: 0.68,
+  labelHeight: 0.85,
 };
 
 // How long the body keeps rendering (playing its Death clip) after currentHp hits 0, before
@@ -61,7 +61,7 @@ interface RiggedMonsterConfig {
 
 const GOBLIN_CONFIG: RiggedMonsterConfig = {
   modelUrl: '/models/quaternius-goblin/Goblin.glb',
-  targetHeight: 0.49,
+  targetHeight: 0.61,
   clips: {
     idle: 'EnemyArmature|EnemyArmature|EnemyArmature|Idle',
     walk: 'EnemyArmature|EnemyArmature|EnemyArmature|Walk',
@@ -76,7 +76,7 @@ const GOBLIN_CONFIG: RiggedMonsterConfig = {
 
 const SLIME_CONFIG: RiggedMonsterConfig = {
   modelUrl: '/models/quaternius-slime/Slime.glb',
-  targetHeight: 0.42,
+  targetHeight: 0.53,
   clips: {
     idle: 'MonsterArmature|Idle',
     walk: 'MonsterArmature|Walk',

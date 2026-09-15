@@ -11,7 +11,7 @@ const NPC_MODEL = {
 type NpcKind = keyof typeof NPC_MODEL;
 
 const RIG_GENERAL = '/models/kaykit/Animations/gltf/Rig_Medium/Rig_Medium_General.glb';
-const TARGET_HEIGHT = 0.72;
+const TARGET_HEIGHT = 0.9;
 
 /**
  * A stationary villager reusing the player's KayKit character models (no dedicated
