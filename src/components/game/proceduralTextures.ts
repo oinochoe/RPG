@@ -109,4 +109,57 @@ export function useCobblestoneTexture(): THREE.Texture {
   }, []);
 }
 
+/** A tileable canvas-painted dark stone-slab texture for the dungeon floor. */
+export function useStoneTexture(): THREE.Texture {
+  return useMemo(() => {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const rng = mulberry32(777);
+
+    ctx.fillStyle = '#3a3a3f';
+    ctx.fillRect(0, 0, size, size);
+
+    const cellSize = 64;
+    for (let gy = 0; gy < size / cellSize + 1; gy++) {
+      for (let gx = 0; gx < size / cellSize + 1; gx++) {
+        const cx = gx * cellSize + (rng() - 0.5) * 8;
+        const cy = gy * cellSize + (rng() - 0.5) * 8;
+        const w = cellSize * (0.82 + rng() * 0.14);
+        const h = cellSize * (0.82 + rng() * 0.14);
+        const shade = rng();
+        ctx.fillStyle =
+          shade < 0.5 ? `rgba(52, 52, 58, ${0.5 + rng() * 0.3})` : `rgba(68, 68, 76, ${0.4 + rng() * 0.3})`;
+        ctx.beginPath();
+        ctx.roundRect(cx - w / 2, cy - h / 2, w, h, 4);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(10, 10, 12, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
+    // Sparse moss/grime speckle so it doesn't read as too uniform/clean.
+    for (let i = 0; i < 300; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const r = 2 + rng() * 4;
+      ctx.fillStyle = `rgba(45, 58, 40, ${0.15 + rng() * 0.2})`;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.7, rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(8, 8);
+    texture.anisotropy = 8;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, []);
+}
+
 export { mulberry32 };

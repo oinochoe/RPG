@@ -5,6 +5,7 @@ import { useGrassTexture } from './proceduralTextures';
 import { setMoveTarget } from './moveTarget';
 import { scatterDecorations, rockColliders, activeColliders, type Decoration } from './worldColliders';
 import { Village, villageColliders } from './Village';
+import { CaveEntrance } from './CaveEntrance';
 
 const GROUND_SIZE = 250;
 
@@ -80,6 +81,7 @@ export function Ground() {
       <Rocks decorations={decorations} />
       <GrassTufts decorations={decorations} />
       <Village />
+      <CaveEntrance />
     </group>
   );
 }

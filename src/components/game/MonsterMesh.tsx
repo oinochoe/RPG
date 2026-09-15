@@ -15,7 +15,31 @@ interface DamagePopup {
   createdAt: number;
 }
 
-export function MonsterMesh({ monster }: { monster: MonsterInstanceSummary }) {
+export interface MonsterVariant {
+  bodyColor: string;
+  emissiveColor: string;
+  nameAccent: string;
+}
+
+const SLIME_VARIANT: MonsterVariant = {
+  bodyColor: '#8b3fae',
+  emissiveColor: '#4a1868',
+  nameAccent: '#d38bf0',
+};
+
+export const GOBLIN_VARIANT: MonsterVariant = {
+  bodyColor: '#5a7a3a',
+  emissiveColor: '#8a2a1a',
+  nameAccent: '#e0a458',
+};
+
+export function MonsterMesh({
+  monster,
+  variant = SLIME_VARIANT,
+}: {
+  monster: MonsterInstanceSummary;
+  variant?: MonsterVariant;
+}) {
   const combat = useCombatStore((s) => s.monsters[monster.instance_id]);
   const attackRange = useCombatStore((s) => s.player.attackRange);
   const bodyRef = useRef<THREE.Mesh>(null);
@@ -73,8 +97,8 @@ export function MonsterMesh({ monster }: { monster: MonsterInstanceSummary }) {
       <mesh ref={bodyRef} castShadow onClick={handleClick}>
         <sphereGeometry args={[0.5, 24, 24]} />
         <meshStandardMaterial
-          color="#8b3fae"
-          emissive="#4a1868"
+          color={variant.bodyColor}
+          emissive={variant.emissiveColor}
           emissiveIntensity={0.35}
           roughness={0.25}
           metalness={0.1}
@@ -93,7 +117,7 @@ export function MonsterMesh({ monster }: { monster: MonsterInstanceSummary }) {
       <NameTag
         position={[0, 1.05, 0]}
         label={`${monster.name} Lv.${monster.level}`}
-        accent="#d38bf0"
+        accent={variant.nameAccent}
       />
       <HealthBar position={[0, 0.9, 0]} ratio={combat.currentHp / combat.maxHp} color="#e0538a" />
       {popups.map((popup) => (

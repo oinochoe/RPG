@@ -14,6 +14,19 @@ function inVillageClearZone(x: number, z: number): boolean {
   return x >= VILLAGE_CLEAR_X[0] && x <= VILLAGE_CLEAR_X[1] && z >= VILLAGE_CLEAR_Z[0] && z <= VILLAGE_CLEAR_Z[1];
 }
 
+// The dungeon cave mouth in the field — walk within FIELD_ENTRANCE_RADIUS of this point to
+// enter (see worldStore.ts). Placed away from the village and the field's own monster
+// spawns. A clear zone keeps rocks from spawning on top of the entrance decoration.
+export const FIELD_ENTRANCE_POINT: [number, number] = [34, 22];
+export const FIELD_ENTRANCE_RADIUS = 1.8;
+const CAVE_CLEAR_RADIUS = 5;
+
+function inCaveClearZone(x: number, z: number): boolean {
+  const dx = x - FIELD_ENTRANCE_POINT[0];
+  const dz = z - FIELD_ENTRANCE_POINT[1];
+  return Math.hypot(dx, dz) < CAVE_CLEAR_RADIUS;
+}
+
 export interface Decoration {
   position: [number, number, number];
   rotationY: number;
@@ -30,6 +43,7 @@ export function scatterDecorations(): Decoration[] {
     const z = (rng() - 0.5) * FIELD_EXTENT;
     if (Math.hypot(x, z) < CLEAR_RADIUS) continue;
     if (inVillageClearZone(x, z)) continue;
+    if (inCaveClearZone(x, z)) continue;
     decorations.push({
       position: [x, 0, z],
       rotationY: rng() * Math.PI * 2,
