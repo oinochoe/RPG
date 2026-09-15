@@ -28,7 +28,7 @@ export function CameraRig() {
       ref={camRef}
       makeDefault
       position={[18, 16, 18]}
-      zoom={75}
+      zoom={52}
       near={0.1}
       far={200}
     />
