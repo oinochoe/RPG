@@ -1,6 +1,9 @@
 import { create } from 'zustand';
 import { configureApiClient } from '../api/client';
 import * as authApi from '../api/auth';
+import { updateCharacterPosition } from '../api/characters';
+import { useSessionStore } from './sessionStore';
+import { playerPosition } from '../components/game/playerTransform';
 
 interface StoredTokens {
   accessToken: string;
@@ -57,6 +60,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     const { refreshToken } = get();
+    // Best-effort position save before the token is revoked below — covers the common
+    // explicit-logout path without waiting for PositionSync's next periodic tick. Only
+    // meaningful if a game session was actually entered (currentMap set); skip otherwise
+    // (e.g. logging out from the character-select screen before ever loading the world).
+    const currentMap = useSessionStore.getState().currentMap;
+    if (currentMap) {
+      try {
+        await updateCharacterPosition({
+          position_x: Math.round(playerPosition.x),
+          position_y: Math.round(playerPosition.y),
+          position_z: Math.round(playerPosition.z),
+          current_map_id: currentMap.map_id,
+        });
+      } catch {
+        // best-effort; don't block logout on this
+      }
+    }
     if (refreshToken) {
       try {
         await authApi.logout(refreshToken);

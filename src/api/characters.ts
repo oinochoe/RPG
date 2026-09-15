@@ -34,3 +34,14 @@ export function deleteCharacter(characterId: number): Promise<void> {
 export function getActiveCharacterProfile(): Promise<CharacterProfile> {
   return apiRequest('/characters/me');
 }
+
+export interface CharacterPositionUpdate {
+  position_x: number;
+  position_y: number;
+  position_z: number;
+  current_map_id?: number;
+}
+
+export function updateCharacterPosition(position: CharacterPositionUpdate): Promise<void> {
+  return apiRequest('/characters/me/position', { method: 'PATCH', body: position });
+}

@@ -29,6 +29,9 @@ interface MockState {
   nextCharacterId: number;
   characters: CharacterSummary[];
   activeCharacterId: number | null;
+  // Keyed by character id — mirrors the real backend's PATCH /characters/me/position, which
+  // persists last-known position separately from the rest of the character row.
+  characterPositions: Record<number, { x: number; y: number; z: number; mapId: number }>;
   // The mock has no real per-request auth/session lookup (the login handler hands out a
   // fixed 'mock-access' token regardless of which user logged in), so there is no way to
   // identify "the calling user" from a request alone. For this single-session local mock,
@@ -44,6 +47,7 @@ function defaultState(): MockState {
     nextCharacterId: 1,
     characters: [],
     activeCharacterId: null,
+    characterPositions: {},
     currentUserEmail: null,
   };
 }
@@ -59,6 +63,8 @@ function loadState(): MockState {
 }
 
 const state = loadState();
+// Backfill for state persisted by an older session shape that predates this field.
+state.characterPositions ??= {};
 const users = new Map<string, StoredUser>(state.users);
 
 function persist(): void {
@@ -71,6 +77,7 @@ function persist(): void {
 }
 
 function toProfile(summary: CharacterSummary): CharacterProfile {
+  const savedPosition = state.characterPositions[summary.id];
   return {
     id: summary.id,
     user_id: 1,
@@ -86,10 +93,10 @@ function toProfile(summary: CharacterSummary): CharacterProfile {
     defense_power: 5,
     gold: 100,
     skill_points: 0,
-    current_map_id: summary.current_map_id,
-    position_x: 0,
-    position_y: 0,
-    position_z: 0,
+    current_map_id: savedPosition?.mapId ?? summary.current_map_id,
+    position_x: savedPosition?.x ?? 0,
+    position_y: savedPosition?.y ?? 0,
+    position_z: savedPosition?.z ?? 0,
     created_at: new Date().toISOString(),
     equipped_items: [],
     inventory: [],
@@ -217,6 +224,30 @@ export const handlers = [
       );
     }
     return HttpResponse.json(toProfile(active));
+  }),
+
+  http.patch(`${BASE}/characters/me/position`, async ({ request }) => {
+    const active = state.characters.find((c) => c.id === state.activeCharacterId);
+    if (!active) {
+      return HttpResponse.json(
+        { error: 'not_found', reason: 'no_active_character', message: 'No active character.' },
+        { status: 404 },
+      );
+    }
+    const body = (await request.json()) as {
+      position_x: number;
+      position_y: number;
+      position_z: number;
+      current_map_id?: number;
+    };
+    state.characterPositions[active.id] = {
+      x: body.position_x,
+      y: body.position_y,
+      z: body.position_z,
+      mapId: body.current_map_id ?? active.current_map_id,
+    };
+    persist();
+    return HttpResponse.json({}, { status: 200 });
   }),
 
   http.post(`${BASE}/exploration/enter-map`, async ({ request }) => {

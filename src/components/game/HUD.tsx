@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
+import { useAuthStore } from '../../stores/authStore';
 import type { CharacterProfile } from '../../types/api';
 
 const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
@@ -34,6 +36,22 @@ function Bar({ ratio, color, label }: { ratio: number; color: string; label: str
 export function HUD({ character }: { character: CharacterProfile }) {
   const player = useCombatStore((s) => s.player);
   const accent = CLASS_ACCENT[character.character_class];
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      // authStore.logout() saves the player's current position before revoking the
+      // session (see PositionSync for the periodic version) — this only works if it
+      // runs through the SPA's own in-memory state rather than a hard page reload, which
+      // is why this is a same-page button instead of a link to the character-select
+      // page's separate logout button. RequireAuth reacts to isAuthenticated flipping to
+      // false and redirects to /login on its own; no manual navigation needed here.
+      await useAuthStore.getState().logout();
+    } finally {
+      setLoggingOut(false);
+    }
+  }
 
   return (
     <div
@@ -101,6 +119,25 @@ export function HUD({ character }: { character: CharacterProfile }) {
         <div>공격: Space</div>
         <div>지도: M</div>
         <div>캐릭터: C</div>
+        <button
+          onClick={handleLogout}
+          disabled={loggingOut}
+          style={{
+            pointerEvents: 'auto',
+            marginTop: 6,
+            width: '100%',
+            padding: '4px 0',
+            borderRadius: 6,
+            border: '1px solid rgba(244, 241, 232, 0.35)',
+            background: 'rgba(0,0,0,0.25)',
+            color: '#f4f1e8',
+            fontSize: 11,
+            cursor: loggingOut ? 'default' : 'pointer',
+            opacity: loggingOut ? 0.6 : 1,
+          }}
+        >
+          {loggingOut ? '로그아웃 중...' : '로그아웃'}
+        </button>
       </div>
     </div>
   );

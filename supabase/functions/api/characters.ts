@@ -167,6 +167,61 @@ charactersRoutes.delete("/:id", async (c) => {
   return c.json({}, 200);
 });
 
+// Persists the caller's active character's last-known world position (and the map it was
+// taken on) so a later login resumes roughly where they left off, instead of always
+// spawning back at the character's creation-time position. Called periodically and on
+// logout by the client — see PositionSync.tsx and authStore.ts respectively. Dungeon floors
+// aren't a distinct backend map yet, so saves while inside one still carry the field map id
+// the client was last on; that's an accepted simplification until the backend grows real
+// dungeon-instance tracking.
+charactersRoutes.patch("/me/position", async (c) => {
+  const appUser = c.get("appUser");
+  const body = await readJsonBody(c);
+  const { position_x, position_y, position_z, current_map_id } = body;
+
+  for (const [field, value] of [
+    ["position_x", position_x],
+    ["position_y", position_y],
+    ["position_z", position_z],
+  ] as const) {
+    if (typeof value !== "number" || !Number.isInteger(value)) {
+      throw new ApiError(400, "validation_failed", "invalid_position", `${field}는 정수여야 합니다.`, field);
+    }
+  }
+  if (current_map_id !== undefined && (typeof current_map_id !== "number" || !Number.isInteger(current_map_id))) {
+    throw new ApiError(400, "validation_failed", "invalid_map_id", "current_map_id는 정수여야 합니다.", "current_map_id");
+  }
+
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from("characters")
+    .update({
+      position_x,
+      position_y,
+      position_z,
+      ...(current_map_id !== undefined ? { current_map_id } : {}),
+    })
+    .eq("user_id", appUser.id)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    // Don't leak raw Postgres error text to the client (Task 6 lesson).
+    console.error("character position update failed:", error.code, error.message);
+    if (error.code === "23503") {
+      throw new ApiError(400, "validation_failed", "invalid_map_id", "존재하지 않는 맵입니다.", "current_map_id");
+    }
+    throw new ApiError(500, "internal_error", "position_update_failed", "위치 저장 중 오류가 발생했습니다.");
+  }
+  if (!data) {
+    throw new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
+  }
+
+  return c.json({}, 200);
+});
+
 charactersRoutes.get("/me", async (c) => {
   const appUser = c.get("appUser");
   const admin = getAdminClient();
