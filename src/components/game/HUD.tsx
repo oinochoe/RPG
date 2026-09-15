@@ -64,6 +64,7 @@ export function HUD({ character }: { character: CharacterProfile }) {
         </div>
         <Bar ratio={player.currentHp / player.maxHp} color="#57c25b" label={`HP ${player.currentHp}/${player.maxHp}`} />
         <Bar ratio={player.experience / player.expToNext} color="#5b9bd5" label={`EXP ${player.experience}/${player.expToNext}`} />
+        <div style={{ color: '#ffd54a', fontWeight: 700, fontSize: 12 }}>{player.gold} G</div>
       </div>
 
       <div

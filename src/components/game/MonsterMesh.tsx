@@ -36,9 +36,11 @@ export const GOBLIN_VARIANT: MonsterVariant = {
 export function MonsterMesh({
   monster,
   variant = SLIME_VARIANT,
+  scale = 1,
 }: {
   monster: MonsterInstanceSummary;
   variant?: MonsterVariant;
+  scale?: number;
 }) {
   const combat = useCombatStore((s) => s.monsters[monster.instance_id]);
   const attackRange = useCombatStore((s) => s.player.attackRange);
@@ -93,7 +95,7 @@ export function MonsterMesh({
   }
 
   return (
-    <group position={basePosition}>
+    <group position={basePosition} scale={scale}>
       <mesh ref={bodyRef} castShadow onClick={handleClick}>
         <sphereGeometry args={[0.5, 24, 24]} />
         <meshStandardMaterial

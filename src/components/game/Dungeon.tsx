@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useStoneTexture } from './proceduralTextures';
 import type { Collider } from './worldColliders';
 import type { MonsterInstanceSummary } from '../../types/api';
@@ -9,54 +10,87 @@ const WALL_HEIGHT = 3;
 const WALL_SPACING = 1.8;
 const WALL_RADIUS = 1;
 
+export const DUNGEON_MAX_FLOOR = 3;
 export const DUNGEON_SPAWN: [number, number] = [0, 0];
-// Where the player has to walk back to in order to leave — the gap left in the south wall.
+// Gap in the south wall — floor 1's exit leads back to the field, deeper floors lead up one level.
 export const DUNGEON_EXIT_TRIGGER: [number, number] = [0, -ROOM_HALF_Z + 1];
 export const DUNGEON_EXIT_RADIUS = 1.8;
+// Gap in the north wall (only present on floors below the last) — leads one level deeper.
+export const DUNGEON_DESCEND_TRIGGER: [number, number] = [0, ROOM_HALF_Z - 1];
+export const DUNGEON_DESCEND_RADIUS = 1.8;
 
-export const DUNGEON_MONSTERS: MonsterInstanceSummary[] = [
-  { instance_id: 9001, monster_template_id: 2, name: '고블린', level: 5, current_hp: 60, max_hp: 60, position_x: -6, position_y: 0, position_z: 3 },
-  { instance_id: 9002, monster_template_id: 2, name: '고블린', level: 5, current_hp: 60, max_hp: 60, position_x: 6, position_y: 0, position_z: 3 },
-  { instance_id: 9003, monster_template_id: 2, name: '고블린', level: 5, current_hp: 60, max_hp: 60, position_x: 0, position_y: 0, position_z: 6 },
-  { instance_id: 9004, monster_template_id: 2, name: '고블린 대장', level: 7, current_hp: 110, max_hp: 110, position_x: -5, position_y: 0, position_z: -4 },
-  { instance_id: 9005, monster_template_id: 2, name: '고블린', level: 5, current_hp: 60, max_hp: 60, position_x: 5, position_y: 0, position_z: -4 },
-];
+const FLOOR_BASE_LEVEL = 5;
+
+/** Deterministic per-floor monster roster — stronger the deeper you go, with a tougher
+ * captain on every floor and a named boss guarding the final floor. */
+export function buildFloorMonsters(floor: number): MonsterInstanceSummary[] {
+  const level = FLOOR_BASE_LEVEL + (floor - 1) * 3;
+  const hp = 60 + (floor - 1) * 40;
+  const idBase = 9000 + floor * 100;
+  const isLastFloor = floor === DUNGEON_MAX_FLOOR;
+  const captainHp = Math.round(hp * (isLastFloor ? 2.5 : 1.8));
+
+  return [
+    { instance_id: idBase + 1, monster_template_id: 2, name: '고블린', level, current_hp: hp, max_hp: hp, position_x: -6, position_y: 0, position_z: 3 },
+    { instance_id: idBase + 2, monster_template_id: 2, name: '고블린', level, current_hp: hp, max_hp: hp, position_x: 6, position_y: 0, position_z: 3 },
+    { instance_id: idBase + 3, monster_template_id: 2, name: '고블린', level, current_hp: hp, max_hp: hp, position_x: 0, position_y: 0, position_z: 6 },
+    { instance_id: idBase + 5, monster_template_id: 2, name: '고블린', level, current_hp: hp, max_hp: hp, position_x: 5, position_y: 0, position_z: -4 },
+    {
+      instance_id: idBase + 4,
+      monster_template_id: 2,
+      name: isLastFloor ? '고블린 군주' : '고블린 대장',
+      level: level + (isLastFloor ? 5 : 2),
+      current_hp: captainHp,
+      max_hp: captainHp,
+      position_x: -5,
+      position_y: 0,
+      position_z: -4,
+    },
+  ];
+}
 
 interface WallSegment {
   positions: [number, number][];
 }
 
-function buildWallSegments(): WallSegment[] {
+function line(from: [number, number], to: [number, number]): [number, number][] {
+  const dx = to[0] - from[0];
+  const dz = to[1] - from[1];
+  const len = Math.hypot(dx, dz);
+  const steps = Math.max(1, Math.round(len / WALL_SPACING));
+  const points: [number, number][] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    points.push([from[0] + dx * t, from[1] + dz * t]);
+  }
+  return points;
+}
+
+function buildWallSegments(hasNorthGap: boolean): WallSegment[] {
   const segments: WallSegment[] = [];
 
-  function line(from: [number, number], to: [number, number]): [number, number][] {
-    const dx = to[0] - from[0];
-    const dz = to[1] - from[1];
-    const len = Math.hypot(dx, dz);
-    const steps = Math.max(1, Math.round(len / WALL_SPACING));
-    const points: [number, number][] = [];
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps;
-      points.push([from[0] + dx * t, from[1] + dz * t]);
-    }
-    return points;
+  if (hasNorthGap) {
+    segments.push({ positions: line([-ROOM_HALF_X, ROOM_HALF_Z], [-DOOR_HALF_WIDTH, ROOM_HALF_Z]) });
+    segments.push({ positions: line([DOOR_HALF_WIDTH, ROOM_HALF_Z], [ROOM_HALF_X, ROOM_HALF_Z]) });
+  } else {
+    segments.push({ positions: line([-ROOM_HALF_X, ROOM_HALF_Z], [ROOM_HALF_X, ROOM_HALF_Z]) });
   }
-
-  segments.push({ positions: line([-ROOM_HALF_X, ROOM_HALF_Z], [ROOM_HALF_X, ROOM_HALF_Z]) }); // north
   segments.push({ positions: line([-ROOM_HALF_X, -ROOM_HALF_Z], [-ROOM_HALF_X, ROOM_HALF_Z]) }); // west
   segments.push({ positions: line([ROOM_HALF_X, -ROOM_HALF_Z], [ROOM_HALF_X, ROOM_HALF_Z]) }); // east
-  // South wall, split around the doorway gap.
+  // South wall, split around the doorway gap (always present — floor 1's way out, or the way
+  // back up for deeper floors).
   segments.push({ positions: line([-ROOM_HALF_X, -ROOM_HALF_Z], [-DOOR_HALF_WIDTH, -ROOM_HALF_Z]) });
   segments.push({ positions: line([DOOR_HALF_WIDTH, -ROOM_HALF_Z], [ROOM_HALF_X, -ROOM_HALF_Z]) });
 
   return segments;
 }
 
-const WALL_SEGMENTS = buildWallSegments();
-
-export const dungeonColliders: Collider[] = WALL_SEGMENTS.flatMap((seg) =>
-  seg.positions.map(([x, z]) => ({ x, z, radius: WALL_RADIUS })),
-);
+export function getDungeonColliders(floor: number): Collider[] {
+  const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
+  return buildWallSegments(hasNorthGap).flatMap((seg) =>
+    seg.positions.map(([x, z]) => ({ x, z, radius: WALL_RADIUS })),
+  );
+}
 
 const TORCH_POSITIONS: [number, number][] = [
   [-ROOM_HALF_X + 0.5, -ROOM_HALF_Z + 4],
@@ -94,31 +128,28 @@ function Torch({ position }: { position: [number, number] }) {
   );
 }
 
-function ExitMarker() {
+function FloorMarker({ position, color }: { position: [number, number]; color: string }) {
   return (
-    <group position={[DUNGEON_EXIT_TRIGGER[0], 0.02, DUNGEON_EXIT_TRIGGER[1]]}>
+    <group position={[position[0], 0.02, position[1]]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[1.4, 24]} />
-        <meshStandardMaterial
-          color="#bcdcf0"
-          emissive="#8fc7ea"
-          emissiveIntensity={0.6}
-          transparent
-          opacity={0.35}
-        />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} transparent opacity={0.35} />
       </mesh>
-      <pointLight position={[0, 1, 0]} color="#bcdcf0" intensity={0.5} distance={4} />
+      <pointLight position={[0, 1, 0]} color={color} intensity={0.5} distance={4} />
     </group>
   );
 }
 
 /**
  * A self-contained dungeon room — a genuinely separate instance (unlike the village), so it
- * reuses near-origin coordinates freely. Entered/exited by walking through the gap in the
- * south wall; see worldStore.ts for the actual area-switching logic.
+ * reuses near-origin coordinates freely for every floor. The south gap always leads back
+ * toward the field (floor 1) or up a floor; a north gap (present on every floor but the
+ * last) leads one floor deeper. See worldStore.ts for the actual floor-swapping logic.
  */
-export function Dungeon() {
+export function Dungeon({ floor }: { floor: number }) {
   const stoneTexture = useStoneTexture();
+  const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
+  const wallSegments = useMemo(() => buildWallSegments(hasNorthGap), [hasNorthGap]);
 
   return (
     <group>
@@ -127,7 +158,7 @@ export function Dungeon() {
         <meshStandardMaterial map={stoneTexture} roughness={0.95} metalness={0} />
       </mesh>
 
-      {WALL_SEGMENTS.map((seg, i) => (
+      {wallSegments.map((seg, i) => (
         <Wall key={i} positions={seg.positions} />
       ))}
 
@@ -135,7 +166,8 @@ export function Dungeon() {
         <Torch key={i} position={pos} />
       ))}
 
-      <ExitMarker />
+      <FloorMarker position={DUNGEON_EXIT_TRIGGER} color="#bcdcf0" />
+      {hasNorthGap && <FloorMarker position={DUNGEON_DESCEND_TRIGGER} color="#c084fc" />}
     </group>
   );
 }

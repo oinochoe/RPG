@@ -3,7 +3,7 @@ import { playerPosition } from '../components/game/playerTransform';
 import { clearMoveTarget } from '../components/game/moveTarget';
 import { activeColliders, rockColliders, FIELD_ENTRANCE_POINT } from '../components/game/worldColliders';
 import { villageColliders } from '../components/game/Village';
-import { dungeonColliders, DUNGEON_SPAWN, DUNGEON_MONSTERS } from '../components/game/Dungeon';
+import { getDungeonColliders, buildFloorMonsters, DUNGEON_SPAWN } from '../components/game/Dungeon';
 import { useCombatStore } from './combatStore';
 import type { MonsterInstanceSummary } from '../types/api';
 
@@ -14,21 +14,41 @@ export type AreaId = 'field' | 'dungeon';
 // immediately re-trigger walking back in.
 const FIELD_RETURN_POINT: [number, number] = [FIELD_ENTRANCE_POINT[0], FIELD_ENTRANCE_POINT[1] + 4];
 
+function enterFloor(floor: number) {
+  clearMoveTarget();
+  activeColliders.list = getDungeonColliders(floor);
+  useCombatStore.getState().loadMonsters(buildFloorMonsters(floor));
+  playerPosition.set(DUNGEON_SPAWN[0], 0, DUNGEON_SPAWN[1]);
+}
+
 interface WorldState {
   currentArea: AreaId;
+  dungeonFloor: number;
   enterDungeon: () => void;
+  descendFloor: () => void;
+  ascendFloor: () => void;
   exitDungeon: (fieldMonsters: MonsterInstanceSummary[]) => void;
 }
 
-export const useWorldStore = create<WorldState>((set) => ({
+export const useWorldStore = create<WorldState>((set, get) => ({
   currentArea: 'field',
+  dungeonFloor: 1,
 
   enterDungeon: () => {
-    clearMoveTarget();
-    activeColliders.list = dungeonColliders;
-    useCombatStore.getState().loadMonsters(DUNGEON_MONSTERS);
-    playerPosition.set(DUNGEON_SPAWN[0], 0, DUNGEON_SPAWN[1]);
-    set({ currentArea: 'dungeon' });
+    enterFloor(1);
+    set({ currentArea: 'dungeon', dungeonFloor: 1 });
+  },
+
+  descendFloor: () => {
+    const floor = get().dungeonFloor + 1;
+    enterFloor(floor);
+    set({ dungeonFloor: floor });
+  },
+
+  ascendFloor: () => {
+    const floor = Math.max(1, get().dungeonFloor - 1);
+    enterFloor(floor);
+    set({ dungeonFloor: floor });
   },
 
   // fieldMonsters re-seeds the field's roster fresh (see combatStore's loadMonsters) rather
@@ -39,6 +59,6 @@ export const useWorldStore = create<WorldState>((set) => ({
     activeColliders.list = [...rockColliders, ...villageColliders];
     useCombatStore.getState().loadMonsters(fieldMonsters);
     playerPosition.set(FIELD_RETURN_POINT[0], 0, FIELD_RETURN_POINT[1]);
-    set({ currentArea: 'field' });
+    set({ currentArea: 'field', dungeonFloor: 1 });
   },
 }));

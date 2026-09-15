@@ -1,9 +1,10 @@
-import { Suspense, useEffect, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { Ground } from './Ground';
-import { Dungeon, DUNGEON_MONSTERS } from './Dungeon';
+import { Dungeon, buildFloorMonsters } from './Dungeon';
 import { AreaTransitions } from './AreaTransitions';
+import { PlayerCombatEffects } from './PlayerCombatEffects';
 import { CharacterMesh } from './CharacterMesh';
 import { MonsterMesh, GOBLIN_VARIANT } from './MonsterMesh';
 import { CameraRig } from './CameraRig';
@@ -11,6 +12,12 @@ import { LightRig } from './LightRig';
 import { useCombatStore } from '../../stores/combatStore';
 import { useWorldStore } from '../../stores/worldStore';
 import type { CharacterProfile, EnterMapResponse } from '../../types/api';
+
+function monsterScale(name: string): number {
+  if (name.includes('군주')) return 1.7;
+  if (name.includes('대장')) return 1.3;
+  return 1;
+}
 
 const FIELD_FOG_COLOR = '#bcdcf0';
 const DUNGEON_FOG_COLOR = '#141014';
@@ -38,6 +45,7 @@ export function Scene({
 }) {
   const initCombat = useCombatStore((s) => s.init);
   const currentArea = useWorldStore((s) => s.currentArea);
+  const dungeonFloor = useWorldStore((s) => s.dungeonFloor);
 
   useEffect(() => {
     initCombat(character, map.monsters);
@@ -49,6 +57,10 @@ export function Scene({
   }, [character.id, map.map_id]);
 
   const isDungeon = currentArea === 'dungeon';
+  const dungeonMonsters = useMemo(
+    () => (isDungeon ? buildFloorMonsters(dungeonFloor) : []),
+    [isDungeon, dungeonFloor],
+  );
 
   return (
     <>
@@ -66,9 +78,14 @@ export function Scene({
 
       {isDungeon ? (
         <>
-          <Dungeon />
-          {DUNGEON_MONSTERS.map((monster) => (
-            <MonsterMesh key={monster.instance_id} monster={monster} variant={GOBLIN_VARIANT} />
+          <Dungeon floor={dungeonFloor} />
+          {dungeonMonsters.map((monster) => (
+            <MonsterMesh
+              key={monster.instance_id}
+              monster={monster}
+              variant={GOBLIN_VARIANT}
+              scale={monsterScale(monster.name)}
+            />
           ))}
         </>
       ) : (
@@ -84,6 +101,7 @@ export function Scene({
         <CharacterMesh character={character} />
       </Suspense>
       <AreaTransitions fieldMonsters={map.monsters} />
+      <PlayerCombatEffects fieldMonsters={map.monsters} />
       <RespawnTicker />
 
       <EffectComposer multisampling={0}>
