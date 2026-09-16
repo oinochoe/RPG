@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
-import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
+import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL } from './itemLabels';
+import { HOTBAR_DRAG_MIME } from './Hotbar';
 import type { CharacterProfile, InventorySlot } from '../../types/api';
 
 const GRID_COLUMNS = 6;
@@ -24,10 +25,21 @@ function GridCell({
   selected: boolean;
   onClick: () => void;
 }) {
+  // Only consumables are hotbar-assignable (equip/use items go through the 장착 button
+  // instead) — see Hotbar.tsx's drop handler, which expects an item_template_id for a
+  // usable item.
+  const draggable = !!item && item.heal_hp > 0;
+
   return (
     <button
       onClick={onClick}
       disabled={!item}
+      draggable={draggable}
+      onDragStart={(e) => {
+        if (!item) return;
+        e.dataTransfer.setData(HOTBAR_DRAG_MIME, String(item.item_template_id));
+        e.dataTransfer.effectAllowed = 'copy';
+      }}
       style={{
         width: 56,
         height: 56,
@@ -35,7 +47,7 @@ function GridCell({
         border: `1px solid ${selected ? '#e8c97a' : 'rgba(232, 201, 122, 0.3)'}`,
         background: item?.is_equipped ? 'rgba(232, 201, 122, 0.18)' : 'rgba(0, 0, 0, 0.35)',
         position: 'relative',
-        cursor: item ? 'pointer' : 'default',
+        cursor: item ? (draggable ? 'grab' : 'pointer') : 'default',
         padding: 2,
       }}
     >
@@ -76,7 +88,6 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
   const equipItem = useCharacterStore((s) => s.equipItem);
   const unequipItem = useCharacterStore((s) => s.unequipItem);
   const hotbar = useCharacterStore((s) => s.hotbar);
-  const setHotbarSlot = useCharacterStore((s) => s.setHotbarSlot);
   const accent = CLASS_ACCENT[character.character_class];
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -222,29 +233,14 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                 )}
 
                 {consumable && (
-                  <div>
-                    <div style={{ color: '#9aa08f', fontSize: 11, marginBottom: 4 }}>단축키 등록</div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      {Array.from({ length: HOTBAR_SIZE }).map((_, slot) => (
-                        <button
-                          key={slot}
-                          onClick={() => setHotbarSlot(slot, assignedSlot === slot ? null : selected.item_template_id)}
-                          style={{
-                            flex: 1,
-                            height: 24,
-                            borderRadius: 5,
-                            border: '1px solid #e8c97a',
-                            background: assignedSlot === slot ? 'rgba(232, 201, 122, 0.35)' : 'rgba(255,255,255,0.05)',
-                            color: '#e8c97a',
-                            fontSize: 11,
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {slot + 1}
-                        </button>
-                      ))}
-                    </div>
+                  <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.5 }}>
+                    {assignedSlot >= 0 ? (
+                      <>
+                        단축키 <span style={{ color: '#e8c97a', fontWeight: 700 }}>{assignedSlot + 1}</span>번에 등록됨
+                      </>
+                    ) : (
+                      '아이템을 아래 단축키 칸으로 드래그하면 등록됩니다.'
+                    )}
                   </div>
                 )}
               </>
