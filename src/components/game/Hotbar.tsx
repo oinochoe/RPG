@@ -1,10 +1,11 @@
 import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 
 /**
- * Bottom-center quickbar for consumables — 4 slots, keys 1-4 (wired in GamePage's keydown
- * handler). Assignments are session-local only (see characterStore's hotbar field), so
- * clicking a slot here just shows what's currently bound; assigning happens from
- * CharacterPanel's inventory tab.
+ * Quickbar for consumables — 4 slots, keys 1-4 (wired in GamePage's keydown handler).
+ * Assignments are session-local only (see characterStore's hotbar field), so clicking a
+ * slot here just shows what's currently bound; assigning happens from CharacterPanel's
+ * inventory tab. Positioned by its parent (HUD.tsx, next to the status bar) rather than
+ * self-positioning, so the two form one visual unit at the bottom of the screen.
  */
 export function Hotbar() {
   const hotbar = useCharacterStore((s) => s.hotbar);
@@ -14,14 +15,9 @@ export function Hotbar() {
   return (
     <div
       style={{
-        position: 'fixed',
-        left: '50%',
-        bottom: 16,
-        transform: 'translateX(-50%)',
         display: 'flex',
         gap: 8,
         pointerEvents: 'none',
-        fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
       }}
     >
       {Array.from({ length: HOTBAR_SIZE }).map((_, i) => {

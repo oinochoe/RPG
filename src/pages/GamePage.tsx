@@ -9,7 +9,7 @@ import { HUD } from '../components/game/HUD';
 import { WorldMap } from '../components/game/WorldMap';
 import { CharacterPanel } from '../components/game/CharacterPanel';
 import { ShopPanel } from '../components/game/ShopPanel';
-import { Hotbar } from '../components/game/Hotbar';
+import { SystemMenu } from '../components/game/SystemMenu';
 import { translateApiError } from './errorMessages';
 
 const HOTBAR_KEYS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3 };
@@ -34,11 +34,14 @@ export function GamePage() {
       } else if (e.code === 'KeyC') {
         e.preventDefault();
         useUIStore.getState().toggleCharacterPanel();
+      } else if (e.code === 'F1') {
+        e.preventDefault();
+        useUIStore.getState().toggleSystemMenu();
       } else if (e.code === 'Escape') {
         useUIStore.getState().closeAll();
       } else if (e.code in HOTBAR_KEYS) {
         const ui = useUIStore.getState();
-        if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isShopOpen) return;
+        if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isShopOpen || ui.isSystemMenuOpen) return;
         e.preventDefault();
         useCharacterStore.getState().useHotbarSlot(HOTBAR_KEYS[e.code]);
       }
@@ -64,7 +67,7 @@ export function GamePage() {
       <WorldMap />
       <CharacterPanel character={activeCharacter} />
       <ShopPanel character={activeCharacter} />
-      <Hotbar />
+      <SystemMenu />
     </>
   );
 }
