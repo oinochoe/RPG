@@ -32,13 +32,13 @@ export function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <Card>
-        <div className="mb-6 flex flex-col items-center gap-2 text-center">
+      <Card className="flex flex-col gap-6">
+        <div className="flex flex-col items-center gap-2 text-center">
           <Swords className="size-8 text-gold" strokeWidth={1.5} />
           <h1 className="text-xl font-bold text-ink">로그인</h1>
         </div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="email">이메일</Label>
             <Input
               id="email"
@@ -49,7 +49,7 @@ export function LoginPage() {
               required
             />
           </div>
-          <div>
+          <div className="flex flex-col gap-2">
             <Label htmlFor="password">비밀번호</Label>
             <Input
               id="password"
@@ -65,11 +65,11 @@ export function LoginPage() {
               {error}
             </p>
           )}
-          <Button type="submit" disabled={submitting} className="mt-2 w-full">
+          <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? '로그인 중...' : '로그인'}
           </Button>
         </form>
-        <p className="mt-6 text-center text-xs text-gold-dim">
+        <p className="text-center text-xs text-gold-dim">
           계정이 없으신가요?{' '}
           <Link to="/register" className="font-semibold text-gold hover:underline">
             회원가입
