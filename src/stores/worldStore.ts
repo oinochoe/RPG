@@ -14,11 +14,20 @@ export type AreaId = 'field' | 'dungeon';
 // immediately re-trigger walking back in.
 const FIELD_RETURN_POINT: [number, number] = [FIELD_ENTRANCE_POINT[0], FIELD_ENTRANCE_POINT[1] + 4];
 
+// Only the floor's captain/lord aggros on sight — the regular goblins are passive like field
+// monsters (retaliate once actually hit). All five spawn within a few units of each other and
+// of the player's floor-entry point, so making every one of them aggressive meant walking in
+// instantly pulled the whole room at once; this way the player can approach individual
+// grunts without triggering a full-room swarm, while the elite is still a real threat to
+// engage carelessly.
+function isDungeonEscortAggressive(monster: MonsterInstanceSummary): boolean {
+  return monster.name.includes('대장') || monster.name.includes('군주');
+}
+
 function enterFloor(floor: number) {
   clearMoveTarget();
   activeColliders.list = getDungeonColliders(floor);
-  // Dungeon goblins are aggressive (attack on sight) — field/village monsters are passive.
-  useCombatStore.getState().loadMonsters(buildFloorMonsters(floor), true);
+  useCombatStore.getState().loadMonsters(buildFloorMonsters(floor), isDungeonEscortAggressive);
   playerPosition.set(DUNGEON_SPAWN[0], 0, DUNGEON_SPAWN[1]);
 }
 

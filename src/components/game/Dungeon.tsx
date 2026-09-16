@@ -42,9 +42,16 @@ export function buildFloorMonsters(floor: number): MonsterInstanceSummary[] {
       level: level + (isLastFloor ? 5 : 2),
       current_hp: captainHp,
       max_hp: captainHp,
-      position_x: -5,
+      // The captain is the one monster on this floor that's aggressive on sight (see
+      // worldStore's isDungeonEscortAggressive), and idle monsters wander up to
+      // MONSTER_WANDER_RADIUS (2.5) from their spawn point — so its static distance from
+      // DUNGEON_SPAWN needs to clear MONSTER_DETECT_RANGE (6) by more than that wander
+      // radius, or an unlucky wander leg can drift it into detect range and trigger an
+      // immediate chase even though the player never approached it. 10 units against the
+      // east wall leaves a safe margin either way.
+      position_x: 10,
       position_y: 0,
-      position_z: -4,
+      position_z: 0,
     },
   ];
 }

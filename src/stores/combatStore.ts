@@ -90,14 +90,14 @@ interface CombatState {
   monsters: Record<number, MonsterCombatState>;
   player: PlayerCombatState;
   lastAttackAt: number;
-  init: (character: CharacterProfile, monsters: MonsterInstanceSummary[], aggressive: boolean) => void;
+  init: (character: CharacterProfile, monsters: MonsterInstanceSummary[], aggressive: AggressivePredicate) => void;
   /**
    * Swaps in a different monster roster without touching player stats — used when
    * traveling between areas that keep separate monster pools (e.g. field vs. dungeon) so
    * neither area's kills/respawn timers leak into the other, and neither resets the
    * player's local level/exp progress the way a second `init` call would.
    */
-  loadMonsters: (monsters: MonsterInstanceSummary[], aggressive: boolean) => void;
+  loadMonsters: (monsters: MonsterInstanceSummary[], aggressive: AggressivePredicate) => void;
   attackNearest: (playerX: number, playerZ: number) => AttackResult;
   monsterAttackTick: (playerX: number, playerZ: number) => MonsterAttackResult;
   tickMonsterMovement: (playerX: number, playerZ: number, delta: number) => void;
@@ -110,9 +110,19 @@ function expToNextForLevel(level: number): number {
   return level * 100;
 }
 
+// Either a flat boolean applied to every monster, or a predicate deciding per-monster —
+// lets a roster mix passive trash with an aggressive elite (e.g. dungeon captain aggros on
+// sight, but its escort goblins only fight back once actually hit, so walking into a room
+// doesn't instantly pull the entire spawn at once).
+export type AggressivePredicate = boolean | ((monster: MonsterInstanceSummary) => boolean);
+
+function resolveAggressive(aggressive: AggressivePredicate, monster: MonsterInstanceSummary): boolean {
+  return typeof aggressive === 'function' ? aggressive(monster) : aggressive;
+}
+
 function toMonsterCombatState(
   monsters: MonsterInstanceSummary[],
-  aggressive: boolean,
+  aggressive: AggressivePredicate,
 ): Record<number, MonsterCombatState> {
   const monsterState: Record<number, MonsterCombatState> = {};
   for (const monster of monsters) {
@@ -129,7 +139,7 @@ function toMonsterCombatState(
       lastHitAt: null,
       attackPower: monsterAttackPower(monster.level),
       lastAttackAt: null,
-      aggressive,
+      aggressive: resolveAggressive(aggressive, monster),
       wanderTarget: null,
       nextWanderAt: null,
     };
