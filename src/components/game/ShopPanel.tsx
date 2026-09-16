@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useDraggablePanel } from './useDraggablePanel';
 import type { CharacterProfile } from '../../types/api';
+
+const PANEL_WIDTH = 340;
 
 const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
   warrior: '#f4c430',
@@ -85,6 +88,10 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
   const [tab, setTab] = useState<'buy' | 'sell'>('buy');
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<number | null>(null);
+  const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
+    x: window.innerWidth / 2 - PANEL_WIDTH / 2,
+    y: Math.max(16, window.innerHeight / 2 - 200),
+  }));
 
   useEffect(() => {
     if (!isOpen || !shopKind) return;
@@ -119,35 +126,54 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
   }
 
   return (
+    // Draggable via the header (see useDraggablePanel) — no full-screen dismiss-on-outside-
+    // click backdrop, for the same consistency reason as CharacterPanel/InventoryPanel:
+    // dragging and click-outside-to-close would otherwise fight over what a mouseup outside
+    // the header means.
     <div
-      onClick={closeShop}
       style={{
         position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.55)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        left: position.x,
+        top: position.y,
+        width: PANEL_WIDTH,
+        background: '#1a2a1c',
+        border: `2px solid ${accent}`,
+        borderRadius: 12,
+        padding: 16,
+        boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
         zIndex: 2147483647,
         fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
+        onMouseDown={onHeaderMouseDown}
         style={{
-          width: 340,
-          background: '#1a2a1c',
-          border: `2px solid ${accent}`,
-          borderRadius: 12,
-          padding: 16,
-          boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 4,
+          cursor: 'move',
+          userSelect: 'none',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>{SHOP_TITLE[shopKind]}</span>
-          <span style={{ color: '#9aa08f', fontSize: 12 }}>ESC로 닫기</span>
-        </div>
-        <div style={{ color: '#ffd54a', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{player.gold} G 보유</div>
+        <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>{SHOP_TITLE[shopKind]}</span>
+        <button
+          onClick={closeShop}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#9aa08f',
+            fontSize: 16,
+            cursor: 'pointer',
+            lineHeight: 1,
+            padding: 2,
+          }}
+          title="닫기 (ESC)"
+        >
+          ✕
+        </button>
+      </div>
+      <div style={{ color: '#ffd54a', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{player.gold} G 보유</div>
 
         <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
           {(['buy', 'sell'] as const).map((t) => (
@@ -230,7 +256,6 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
             ))
           )}
         </div>
-      </div>
     </div>
   );
 }

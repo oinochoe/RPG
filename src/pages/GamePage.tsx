@@ -42,7 +42,7 @@ export function GamePage() {
         e.preventDefault();
         useUIStore.getState().toggleSystemMenu();
       } else if (e.code === 'Escape') {
-        useUIStore.getState().closeAll();
+        useUIStore.getState().closeTopPanel();
       } else if (e.code in HOTBAR_KEYS) {
         const ui = useUIStore.getState();
         if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isInventoryOpen || ui.isShopOpen || ui.isSystemMenuOpen) return;

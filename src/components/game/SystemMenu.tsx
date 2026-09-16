@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useDraggablePanel } from './useDraggablePanel';
+
+const PANEL_WIDTH = 280;
 
 const KEYBINDS: [string, string][] = [
   ['이동', 'WASD / 방향키'],
@@ -22,6 +25,10 @@ export function SystemMenu() {
   const closeSystemMenu = useUIStore((s) => s.closeSystemMenu);
   const [loggingOut, setLoggingOut] = useState(false);
   const navigate = useNavigate();
+  const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
+    x: window.innerWidth / 2 - PANEL_WIDTH / 2,
+    y: Math.max(16, window.innerHeight / 2 - 180),
+  }));
 
   if (!isOpen) return null;
 
@@ -37,34 +44,51 @@ export function SystemMenu() {
   }
 
   return (
+    // Draggable via the header (see useDraggablePanel) — no full-screen dismiss-on-outside-
+    // click backdrop, same reasoning as the other panels.
     <div
-      onClick={closeSystemMenu}
       style={{
         position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.55)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        left: position.x,
+        top: position.y,
+        width: PANEL_WIDTH,
+        background: '#1a2a1c',
+        border: '2px solid #e8c97a',
+        borderRadius: 12,
+        padding: 16,
+        boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
         zIndex: 2147483647,
         fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
       }}
     >
       <div
-        onClick={(e) => e.stopPropagation()}
+        onMouseDown={onHeaderMouseDown}
         style={{
-          width: 280,
-          background: '#1a2a1c',
-          border: '2px solid #e8c97a',
-          borderRadius: 12,
-          padding: 16,
-          boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 12,
+          cursor: 'move',
+          userSelect: 'none',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>메뉴</span>
-          <span style={{ color: '#9aa08f', fontSize: 12 }}>F1 또는 ESC로 닫기</span>
-        </div>
+        <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>메뉴</span>
+        <button
+          onClick={closeSystemMenu}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#9aa08f',
+            fontSize: 16,
+            cursor: 'pointer',
+            lineHeight: 1,
+            padding: 2,
+          }}
+          title="닫기 (F1 또는 ESC)"
+        >
+          ✕
+        </button>
+      </div>
 
         <div style={{ marginBottom: 14 }}>
           {KEYBINDS.map(([label, key]) => (
@@ -117,7 +141,6 @@ export function SystemMenu() {
         >
           {loggingOut ? '로그아웃 중...' : '로그아웃'}
         </button>
-      </div>
     </div>
   );
 }

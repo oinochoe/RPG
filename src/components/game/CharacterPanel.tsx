@@ -3,7 +3,10 @@ import { useCombatStore, type AllocatableStat } from '../../stores/combatStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL } from './itemLabels';
+import { useDraggablePanel } from './useDraggablePanel';
 import type { CharacterProfile } from '../../types/api';
+
+const PANEL_WIDTH = 320;
 
 const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
   warrior: '#f4c430',
@@ -188,21 +191,27 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
   const allocateStat = useCombatStore((s) => s.allocateStat);
   const accent = CLASS_ACCENT[character.character_class];
   const [tab, setTab] = useState<'stats' | 'equipment'>('stats');
+  // Default anchor matches the old fixed left/top-centered position, expressed as plain
+  // pixel coordinates so dragging can move it freely afterward — see useDraggablePanel.
+  const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
+    x: 16,
+    y: Math.max(16, window.innerHeight / 2 - 140),
+  }));
 
   if (!isOpen) return null;
 
   const canAllocate = player.skillPoints > 0;
 
   return (
-    // Docked to the left (인벤토리 docks right — see InventoryPanel) rather than a centered
-    // modal with a dismiss-on-outside-click backdrop, so the two can be open side by side.
+    // Docked near the left by default (인벤토리 docks near the right — see InventoryPanel)
+    // rather than a centered modal with a dismiss-on-outside-click backdrop, so the two can
+    // be open side by side; draggable via the header, see useDraggablePanel.
     <div
       style={{
         position: 'fixed',
-        left: 16,
-        top: '50%',
-        transform: 'translateY(-50%)',
-        width: 320,
+        left: position.x,
+        top: position.y,
+        width: PANEL_WIDTH,
         background: '#1a2a1c',
         border: `2px solid ${accent}`,
         borderRadius: 12,
@@ -212,7 +221,17 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
         fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+      <div
+        onMouseDown={onHeaderMouseDown}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 12,
+          cursor: 'move',
+          userSelect: 'none',
+        }}
+      >
         <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>
           {character.name} <span style={{ color: accent }}>Lv.{player.level}</span>
         </span>
