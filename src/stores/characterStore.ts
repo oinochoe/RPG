@@ -26,6 +26,11 @@ interface CharacterState {
   // stack running out and being rebought (a fresh inventory row gets a new row id, but the
   // same item_template_id).
   hotbar: (number | null)[];
+  // Slots currently mid-request — guards against a double-click (or any two overlapping
+  // useHotbarSlot calls for the same slot) both reading the same pre-request inventory
+  // snapshot and each independently deciding the item is available, which used to consume
+  // two units of a stack from a single logical use.
+  hotbarPending: boolean[];
   isLoading: boolean;
   fetchCharacters: () => Promise<void>;
   createCharacter: (name: string, characterClass: CharacterClass) => Promise<void>;
@@ -47,6 +52,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   inventory: [],
   shop: [],
   hotbar: Array(HOTBAR_SIZE).fill(null),
+  hotbarPending: Array(HOTBAR_SIZE).fill(false),
   isLoading: false,
 
   fetchCharacters: async () => {
@@ -124,12 +130,27 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   },
 
   useHotbarSlot: async (slot) => {
+    if (get().hotbarPending[slot]) return;
     const itemTemplateId = get().hotbar[slot];
     if (itemTemplateId === null) return;
     const row = get().inventory.find((item) => item.item_template_id === itemTemplateId && item.quantity > 0);
     if (!row) return;
-    const { items } = await charactersApi.useItem(row.id);
-    set({ inventory: items });
-    useCombatStore.getState().heal(row.heal_hp);
+
+    set((s) => {
+      const hotbarPending = [...s.hotbarPending];
+      hotbarPending[slot] = true;
+      return { hotbarPending };
+    });
+    try {
+      const { items } = await charactersApi.useItem(row.id);
+      set({ inventory: items });
+      useCombatStore.getState().heal(row.heal_hp);
+    } finally {
+      set((s) => {
+        const hotbarPending = [...s.hotbarPending];
+        hotbarPending[slot] = false;
+        return { hotbarPending };
+      });
+    }
   },
 }));
