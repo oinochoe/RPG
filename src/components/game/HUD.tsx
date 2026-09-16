@@ -98,8 +98,8 @@ export function HUD({ character }: { character: CharacterProfile }) {
         메뉴 (F1)
       </button>
 
-      {/* Lineage1-style status bars: just HP/MP/EXP, centered — no name (already shown as
-          the nametag above the character) or gold (visible in the inventory panel). */}
+      {/* Lineage1-style status bars: level + HP/MP/EXP, centered — no name (already shown
+          as the nametag above the character) or gold (visible in the inventory panel). */}
       <div
         style={{
           position: 'absolute',
@@ -116,6 +116,7 @@ export function HUD({ character }: { character: CharacterProfile }) {
           boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
         }}
       >
+        <span style={{ color: '#e8c97a', fontWeight: 700, fontSize: 12 }}>Lv.{player.level}</span>
         <Bar ratio={player.currentHp / player.maxHp} color="#57c25b" label={`HP ${player.currentHp}/${player.maxHp}`} />
         <Bar ratio={character.max_mp > 0 ? character.current_mp / character.max_mp : 0} color="#5b8bd5" label={`MP ${character.current_mp}/${character.max_mp}`} />
         <Bar

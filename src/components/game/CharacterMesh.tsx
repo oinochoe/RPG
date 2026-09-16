@@ -292,7 +292,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       <group ref={modelGroupRef}>
         <primitive object={scene} />
       </group>
-      <NameTag position={[0, TARGET_HEIGHT + 0.35, 0]} label={`${character.name} Lv.${player.level}`} accent={accent} />
+      <NameTag position={[0, TARGET_HEIGHT + 0.35, 0]} label={character.name} accent={accent} />
       <HealthBar position={[0, TARGET_HEIGHT + 0.15, 0]} ratio={player.currentHp / player.maxHp} color="#57c25b" />
     </group>
   );
