@@ -118,35 +118,43 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
   }
 
   return (
+    // Docked to the right (캐릭터 창은 왼쪽 — see CharacterPanel) rather than a centered modal
+    // with a dismiss-on-outside-click backdrop, so the two can be open side by side.
     <div
-      onClick={closeInventory}
       style={{
         position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.55)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        right: 16,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        width: 580,
+        background: '#1a2a1c',
+        border: `2px solid ${accent}`,
+        borderRadius: 12,
+        padding: 16,
+        boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
         zIndex: 2147483647,
         fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
       }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: 580,
-          background: '#1a2a1c',
-          border: `2px solid ${accent}`,
-          borderRadius: 12,
-          padding: 16,
-          boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>인벤토리</span>
-          <span style={{ color: '#ffd54a', fontWeight: 700, fontSize: 13 }}>{player.gold} G</span>
-          <span style={{ color: '#9aa08f', fontSize: 12 }}>I 또는 ESC로 닫기</span>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>인벤토리</span>
+        <span style={{ color: '#ffd54a', fontWeight: 700, fontSize: 13 }}>{player.gold} G</span>
+        <button
+          onClick={closeInventory}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#9aa08f',
+            fontSize: 16,
+            cursor: 'pointer',
+            lineHeight: 1,
+            padding: 2,
+          }}
+          title="닫기 (I 또는 ESC)"
+        >
+          ✕
+        </button>
+      </div>
 
         {error && <p style={{ color: '#e0538a', fontSize: 12, marginBottom: 8 }}>{error}</p>}
 
@@ -245,7 +253,6 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
             )}
           </div>
         </div>
-      </div>
     </div>
   );
 }

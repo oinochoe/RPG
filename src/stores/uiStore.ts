@@ -28,9 +28,9 @@ interface UIState {
   closeAll: () => void;
 }
 
-// Any of the mutually-exclusive full-panel UI states — used to close the others whenever
-// one opens, and as the "movement/hotbar/attack should be suspended" guard elsewhere.
-function closeOtherPanels() {
+// Full set of panel states — used by closeAll() and by the "movement/hotbar/attack should
+// be suspended" guards elsewhere (any of these open means gameplay input is paused).
+function allPanelsClosed() {
   return {
     isMapOpen: false,
     isCharacterPanelOpen: false,
@@ -38,6 +38,14 @@ function closeOtherPanels() {
     isShopOpen: false,
     isSystemMenuOpen: false,
   };
+}
+
+// Character (C) and inventory (I) are meant to be viewable side by side — 캐창 left, 인창
+// right — so opening one must NOT close the other. Map/shop/system-menu are still each
+// exclusive against everything (including character+inventory), since those cover most of
+// the screen and don't have a docked position of their own.
+function closeExclusivePanels() {
+  return { isMapOpen: false, isShopOpen: false, isSystemMenuOpen: false };
 }
 
 export const useUIStore = create<UIState>((set) => ({
@@ -48,16 +56,17 @@ export const useUIStore = create<UIState>((set) => ({
   isSystemMenuOpen: false,
   shopKind: null,
   nearShopKind: null,
-  toggleMap: () => set((s) => ({ ...closeOtherPanels(), isMapOpen: !s.isMapOpen })),
+  toggleMap: () => set((s) => ({ ...allPanelsClosed(), isMapOpen: !s.isMapOpen })),
   closeMap: () => set({ isMapOpen: false }),
-  toggleCharacterPanel: () => set((s) => ({ ...closeOtherPanels(), isCharacterPanelOpen: !s.isCharacterPanelOpen })),
+  toggleCharacterPanel: () =>
+    set((s) => ({ ...closeExclusivePanels(), isCharacterPanelOpen: !s.isCharacterPanelOpen })),
   closeCharacterPanel: () => set({ isCharacterPanelOpen: false }),
-  toggleInventory: () => set((s) => ({ ...closeOtherPanels(), isInventoryOpen: !s.isInventoryOpen })),
+  toggleInventory: () => set((s) => ({ ...closeExclusivePanels(), isInventoryOpen: !s.isInventoryOpen })),
   closeInventory: () => set({ isInventoryOpen: false }),
-  openShop: (kind) => set({ ...closeOtherPanels(), isShopOpen: true, shopKind: kind }),
+  openShop: (kind) => set({ ...allPanelsClosed(), isShopOpen: true, shopKind: kind }),
   closeShop: () => set({ isShopOpen: false }),
-  toggleSystemMenu: () => set((s) => ({ ...closeOtherPanels(), isSystemMenuOpen: !s.isSystemMenuOpen })),
+  toggleSystemMenu: () => set((s) => ({ ...allPanelsClosed(), isSystemMenuOpen: !s.isSystemMenuOpen })),
   closeSystemMenu: () => set({ isSystemMenuOpen: false }),
   setNearShopKind: (kind) => set({ nearShopKind: kind }),
-  closeAll: () => set(closeOtherPanels()),
+  closeAll: () => set(allPanelsClosed()),
 }));
