@@ -34,6 +34,8 @@ interface InventoryItemRow {
   defense_bonus: number;
   required_level: number;
   required_class: string | null;
+  buy_price: number;
+  sell_price: number;
 }
 
 // Denormalizes character_inventory joined with item_templates into the shape the client
@@ -47,7 +49,7 @@ async function fetchInventory(
     .from("character_inventory")
     .select(
       "id, item_template_id, slot_index, quantity, enchant_level, is_equipped, equipped_slot, " +
-        "item_templates(name, item_type, equip_slot, attack_bonus, defense_bonus, required_level, required_class)",
+        "item_templates(name, item_type, equip_slot, attack_bonus, defense_bonus, required_level, required_class, buy_price, sell_price)",
     )
     .eq("character_id", characterId)
     .order("slot_index", { ascending: true });
@@ -63,6 +65,8 @@ async function fetchInventory(
       defense_bonus: number;
       required_level: number;
       required_class: string | null;
+      buy_price: number;
+      sell_price: number;
     };
     return {
       id: row.id,
@@ -79,6 +83,8 @@ async function fetchInventory(
       defense_bonus: item.defense_bonus,
       required_level: item.required_level,
       required_class: item.required_class,
+      buy_price: item.buy_price,
+      sell_price: item.sell_price,
     };
   });
 }
@@ -388,6 +394,112 @@ charactersRoutes.get("/me/inventory", async (c) => {
     console.error("inventory fetch failed:", (error as Error).message);
     throw new ApiError(500, "internal_error", "inventory_fetch_failed", "인벤토리 조회 중 오류가 발생했습니다.");
   }
+});
+
+// Shop catalog and buy/sell. Gold itself lives client-side only (combatStore.player.gold —
+// see the inventory/equipment design doc's note that combat/currency was never made
+// server-authoritative), so these routes deliberately do NOT validate or touch gold at
+// all — they only add/remove inventory rows. The client checks the price against its own
+// gold before calling buy, and adjusts its local gold after either call succeeds.
+charactersRoutes.get("/me/shop", async (c) => {
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from("item_templates")
+    .select("id, name, item_type, equip_slot, required_level, required_class, attack_bonus, defense_bonus, buy_price, sell_price")
+    .gt("buy_price", 0)
+    .order("id", { ascending: true });
+
+  if (error) {
+    console.error("shop catalog query failed:", error.message);
+    throw new ApiError(500, "internal_error", "shop_catalog_failed", "상점 목록을 불러오는 중 오류가 발생했습니다.");
+  }
+
+  return c.json({ items: data ?? [] });
+});
+
+charactersRoutes.post("/me/inventory/buy", async (c) => {
+  const appUser = c.get("appUser");
+  const { item_template_id } = await readJsonBody(c);
+  if (typeof item_template_id !== "number" || !Number.isInteger(item_template_id)) {
+    throw new ApiError(400, "validation_failed", "invalid_request", "item_template_id는 정수여야 합니다.", "item_template_id");
+  }
+
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  const { data: item, error: itemError } = await admin
+    .from("item_templates")
+    .select("id")
+    .eq("id", item_template_id)
+    .gt("buy_price", 0)
+    .maybeSingle();
+  if (itemError) {
+    console.error("shop item lookup failed:", itemError.message);
+    throw new ApiError(500, "internal_error", "shop_item_lookup_failed", "상점 아이템 조회 중 오류가 발생했습니다.");
+  }
+  if (!item) {
+    throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "item_template_id");
+  }
+
+  const { data: existing, error: slotError } = await admin
+    .from("character_inventory")
+    .select("slot_index")
+    .eq("character_id", characterId)
+    .order("slot_index", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (slotError) {
+    console.error("inventory slot lookup failed:", slotError.message);
+    throw new ApiError(500, "internal_error", "buy_failed", "아이템 구매 중 오류가 발생했습니다.");
+  }
+  const nextSlot = existing ? existing.slot_index + 1 : 0;
+
+  const { error: insertError } = await admin.from("character_inventory").insert({
+    character_id: characterId,
+    item_template_id,
+    storage_type: "inventory",
+    slot_index: nextSlot,
+    quantity: 1,
+    enchant_level: 0,
+    is_equipped: false,
+    equipped_slot: null,
+  });
+  if (insertError) {
+    console.error("inventory insert failed during buy:", insertError.message);
+    throw new ApiError(500, "internal_error", "buy_failed", "아이템 구매 중 오류가 발생했습니다.");
+  }
+
+  const inventory = await fetchInventory(admin, characterId);
+  return c.json({ items: inventory }, 201);
+});
+
+charactersRoutes.post("/me/inventory/:id/sell", async (c) => {
+  const appUser = c.get("appUser");
+  const inventoryId = Number(c.req.param("id"));
+  if (!Number.isInteger(inventoryId)) {
+    throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
+  }
+
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  const { data, error } = await admin
+    .from("character_inventory")
+    .delete()
+    .eq("id", inventoryId)
+    .eq("character_id", characterId)
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    console.error("inventory delete failed during sell:", error.message);
+    throw new ApiError(500, "internal_error", "sell_failed", "아이템 판매 중 오류가 발생했습니다.");
+  }
+  if (!data) {
+    throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
+  }
+
+  const inventory = await fetchInventory(admin, characterId);
+  return c.json({ items: inventory });
 });
 
 charactersRoutes.post("/me/inventory/:id/equip", async (c) => {
