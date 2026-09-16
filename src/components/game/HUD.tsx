@@ -11,6 +11,11 @@ const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
   archer: '#d7f79b',
 };
 
+const SHOP_NPC_LABEL: Record<'merchant' | 'blacksmith', string> = {
+  merchant: '상인',
+  blacksmith: '대장장이',
+};
+
 function Bar({ ratio, color, label }: { ratio: number; color: string; label: string }) {
   const clamped = Math.max(0, Math.min(1, ratio));
   return (
@@ -40,7 +45,7 @@ export function HUD({ character }: { character: CharacterProfile }) {
   const accent = CLASS_ACCENT[character.character_class];
   const [loggingOut, setLoggingOut] = useState(false);
   const navigate = useNavigate();
-  const isNearShop = useUIStore((s) => s.isNearShop);
+  const nearShopKind = useUIStore((s) => s.nearShopKind);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -122,7 +127,9 @@ export function HUD({ character }: { character: CharacterProfile }) {
         <div>이동: WASD / 방향키</div>
         <div>공격: Space</div>
         <div>지도: M</div>
-        {isNearShop && <div style={{ color: '#e8c97a', fontWeight: 700 }}>상점 열기: E</div>}
+        {nearShopKind && (
+          <div style={{ color: '#e8c97a', fontWeight: 700 }}>{SHOP_NPC_LABEL[nearShopKind]}에게 말 걸기: Space</div>
+        )}
         <div>캐릭터: C</div>
         <button
           onClick={() => navigate('/characters')}

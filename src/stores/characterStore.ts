@@ -27,7 +27,7 @@ interface CharacterState {
   fetchInventory: () => Promise<void>;
   equipItem: (inventoryId: number) => Promise<void>;
   unequipItem: (inventoryId: number) => Promise<void>;
-  fetchShop: () => Promise<void>;
+  fetchShop: (kind: 'merchant' | 'blacksmith') => Promise<void>;
   buyItem: (itemTemplateId: number, price: number) => Promise<void>;
   sellItem: (inventoryId: number, price: number) => Promise<void>;
 }
@@ -82,8 +82,8 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     useCombatStore.getState().applyEquipmentDelta(after.attack - before.attack, after.defense - before.defense);
   },
 
-  fetchShop: async () => {
-    const { items } = await charactersApi.getShop();
+  fetchShop: async (kind) => {
+    const { items } = await charactersApi.getShop(kind);
     set({ shop: items });
   },
 

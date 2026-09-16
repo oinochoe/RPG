@@ -60,8 +60,8 @@ export function unequipItem(inventoryId: number): Promise<InventoryListResponse>
   return apiRequest(`/characters/me/inventory/${inventoryId}/unequip`, { method: 'POST' });
 }
 
-export function getShop(): Promise<ShopListResponse> {
-  return apiRequest('/characters/me/shop');
+export function getShop(kind: 'merchant' | 'blacksmith'): Promise<ShopListResponse> {
+  return apiRequest(`/characters/me/shop?kind=${kind}`);
 }
 
 export function buyItem(itemTemplateId: number): Promise<InventoryListResponse> {

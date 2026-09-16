@@ -11,11 +11,16 @@ export const VILLAGE_CENTER: [number, number] = [-32, 0];
 export const VILLAGE_SIZE = 22;
 const PLAZA_SIZE = VILLAGE_SIZE;
 
-// Shop NPC positions — exported so ShopProximity.tsx can check the player's distance to
-// them without duplicating these coordinates.
-export const SHOP_NPC_POSITIONS: [number, number][] = [
-  [VILLAGE_CENTER[0] + 7, VILLAGE_CENTER[1] - 3], // 상인
-  [VILLAGE_CENTER[0] - 7, VILLAGE_CENTER[1] - 3], // 대장장이
+// Shop NPCs — exported so ShopProximity.tsx can check the player's distance to them
+// (and which one) without duplicating these coordinates. Each kind sells a different
+// item_type slice of the catalog (see characters.ts's /me/shop route): 대장장이 (blacksmith)
+// sells weapon/armor, 상인 (merchant) sells everything else (consumables etc., none seeded
+// yet, so their shop is genuinely empty for now rather than faked).
+export type ShopNpcKind = 'merchant' | 'blacksmith';
+
+export const SHOP_NPCS: { kind: ShopNpcKind; name: string; position: [number, number] }[] = [
+  { kind: 'merchant', name: '상인', position: [VILLAGE_CENTER[0] + 7, VILLAGE_CENTER[1] - 3] },
+  { kind: 'blacksmith', name: '대장장이', position: [VILLAGE_CENTER[0] - 7, VILLAGE_CENTER[1] - 3] },
 ];
 export const SHOP_INTERACT_RADIUS = 2.5;
 
@@ -141,8 +146,9 @@ export function Village() {
         {BUILDINGS.map((building, i) => (
           <Building key={i} building={building} />
         ))}
-        <NPC position={[SHOP_NPC_POSITIONS[0][0], 0, SHOP_NPC_POSITIONS[0][1]]} name="상인" kind="merchant" />
-        <NPC position={[SHOP_NPC_POSITIONS[1][0], 0, SHOP_NPC_POSITIONS[1][1]]} name="대장장이" kind="blacksmith" />
+        {SHOP_NPCS.map((npc) => (
+          <NPC key={npc.kind} position={[npc.position[0], 0, npc.position[1]]} name={npc.name} kind={npc.kind} />
+        ))}
       </Suspense>
     </group>
   );

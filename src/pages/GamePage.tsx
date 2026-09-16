@@ -31,11 +31,6 @@ export function GamePage() {
       } else if (e.code === 'KeyC') {
         e.preventDefault();
         useUIStore.getState().toggleCharacterPanel();
-      } else if (e.code === 'KeyE') {
-        if (useUIStore.getState().isNearShop) {
-          e.preventDefault();
-          useUIStore.getState().openShop();
-        }
       } else if (e.code === 'Escape') {
         useUIStore.getState().closeAll();
       }

@@ -173,10 +173,16 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
 
     function onKeyDown(e: KeyboardEvent) {
       const ui = useUIStore.getState();
-      if (ui.isMapOpen || ui.isCharacterPanelOpen) return;
+      if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isShopOpen) return;
       if (e.code === 'Space') {
         e.preventDefault();
-        attack();
+        // Context-sensitive like most action-RPGs: talking to a nearby NPC takes priority
+        // over attacking (village has no monsters anyway, so this never actually competes).
+        if (ui.nearShopKind) {
+          useUIStore.getState().openShop(ui.nearShopKind);
+        } else {
+          attack();
+        }
         return;
       }
       if (MOVE_KEYS[e.code]) {
@@ -199,7 +205,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   useFrame((_, delta) => {
     if (!groupRef.current) return;
     const ui = useUIStore.getState();
-    if (ui.isMapOpen || ui.isCharacterPanelOpen) return;
+    if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isShopOpen) return;
 
     let dx = 0;
     let dz = 0;

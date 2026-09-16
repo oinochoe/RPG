@@ -10,6 +10,11 @@ const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
   archer: '#d7f79b',
 };
 
+const SHOP_TITLE: Record<'merchant' | 'blacksmith', string> = {
+  merchant: '상인의 가게',
+  blacksmith: '대장장이의 가게',
+};
+
 function ShopRow({
   name,
   meta,
@@ -67,6 +72,7 @@ function ShopRow({
 
 export function ShopPanel({ character }: { character: CharacterProfile }) {
   const isOpen = useUIStore((s) => s.isShopOpen);
+  const shopKind = useUIStore((s) => s.shopKind);
   const closeShop = useUIStore((s) => s.closeShop);
   const player = useCombatStore((s) => s.player);
   const shop = useCharacterStore((s) => s.shop);
@@ -81,12 +87,12 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
   const [pendingId, setPendingId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !shopKind) return;
     setError(null);
-    Promise.all([fetchShop(), fetchInventory()]).catch(() => setError('상점 정보를 불러오지 못했습니다.'));
-  }, [isOpen, fetchShop, fetchInventory]);
+    Promise.all([fetchShop(shopKind), fetchInventory()]).catch(() => setError('상점 정보를 불러오지 못했습니다.'));
+  }, [isOpen, shopKind, fetchShop, fetchInventory]);
 
-  if (!isOpen) return null;
+  if (!isOpen || !shopKind) return null;
 
   async function handleBuy(itemTemplateId: number, price: number) {
     setError(null);
@@ -138,7 +144,7 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>상점</span>
+          <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>{SHOP_TITLE[shopKind]}</span>
           <span style={{ color: '#9aa08f', fontSize: 12 }}>ESC로 닫기</span>
         </div>
         <div style={{ color: '#ffd54a', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{player.gold} G 보유</div>

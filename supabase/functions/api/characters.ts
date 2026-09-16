@@ -401,13 +401,24 @@ charactersRoutes.get("/me/inventory", async (c) => {
 // server-authoritative), so these routes deliberately do NOT validate or touch gold at
 // all — they only add/remove inventory rows. The client checks the price against its own
 // gold before calling buy, and adjusts its local gold after either call succeeds.
+// 대장장이 sells equipment (weapon/armor), 상인 sells everything else (consumables etc. —
+// none seeded yet, so the merchant's shop is genuinely empty for now, matching reality,
+// rather than showing the blacksmith's items under both NPCs).
+const BLACKSMITH_ITEM_TYPES = ["weapon", "armor"];
+
 charactersRoutes.get("/me/shop", async (c) => {
+  const kind = c.req.query("kind");
+  if (kind !== "merchant" && kind !== "blacksmith") {
+    throw new ApiError(400, "validation_failed", "invalid_request", "kind은 merchant 또는 blacksmith여야 합니다.", "kind");
+  }
+
   const admin = getAdminClient();
-  const { data, error } = await admin
+  let query = admin
     .from("item_templates")
     .select("id, name, item_type, equip_slot, required_level, required_class, attack_bonus, defense_bonus, buy_price, sell_price")
-    .gt("buy_price", 0)
-    .order("id", { ascending: true });
+    .gt("buy_price", 0);
+  query = kind === "blacksmith" ? query.in("item_type", BLACKSMITH_ITEM_TYPES) : query.not("item_type", "in", `(${BLACKSMITH_ITEM_TYPES.join(",")})`);
+  const { data, error } = await query.order("id", { ascending: true });
 
   if (error) {
     console.error("shop catalog query failed:", error.message);
