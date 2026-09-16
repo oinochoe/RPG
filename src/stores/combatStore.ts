@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { CharacterProfile, MonsterInstanceSummary } from '../types/api';
+import * as charactersApi from '../api/characters';
 
 // Melee classes need to stand next to a monster; ranged classes should be able to fight
 // from a distance instead of awkwardly walking into hugging range with a bow or a staff.
@@ -56,21 +57,54 @@ interface PlayerCombatState {
   expToNext: number;
   currentHp: number;
   maxHp: number;
+  currentMp: number;
+  maxMp: number;
   attackPower: number;
   defensePower: number;
   attackRange: number;
   gold: number;
   skillPoints: number;
+  characterClass: CharacterProfile['character_class'];
+  statStr: number;
+  statDex: number;
+  statCon: number;
+  statInt: number;
+  statWis: number;
 }
 
 // Stat points granted on each level-up, spent via allocateStat.
 const SKILL_POINTS_PER_LEVEL = 3;
+
+export type AllocatableStat = 'str' | 'dex' | 'con' | 'int' | 'wis';
+
+const STAT_FIELD: Record<AllocatableStat, 'statStr' | 'statDex' | 'statCon' | 'statInt' | 'statWis'> = {
+  str: 'statStr',
+  dex: 'statDex',
+  con: 'statCon',
+  int: 'statInt',
+  wis: 'statWis',
+};
+
+// CON and WIS affect every class the same way; STR/DEX/INT only affect the class whose
+// primary attack stat they are (see PRIMARY_ATTACK_STAT below) — spending on an
+// off-class attack stat still spends the point and raises the counter, it just has no
+// numeric effect yet (design spec's explicit "off-class stats stay allocatable" call).
 const STAT_GAIN = {
-  attack: { attackPower: 1 },
-  defense: { defensePower: 1 },
-  hp: { maxHp: 8 },
+  con: { maxHp: 8, defensePower: 1 },
+  wis: { maxMp: 4 },
 } as const;
-export type AllocatableStat = keyof typeof STAT_GAIN;
+
+// Point cost to raise a stat from its current value to the next — Ragnarok-style
+// escalating cost: 1~9 costs 1, 10~19 costs 2, 20~29 costs 3, etc.
+export function statPointCost(currentValue: number): number {
+  return Math.floor(currentValue / 10) + 1;
+}
+
+const PRIMARY_ATTACK_STAT: Record<CharacterProfile['character_class'], AllocatableStat> = {
+  warrior: 'str',
+  archer: 'dex',
+  mage: 'int',
+};
 
 interface AttackResult {
   hit: boolean;
@@ -102,6 +136,14 @@ interface CombatState {
   monsterAttackTick: (playerX: number, playerZ: number) => MonsterAttackResult;
   tickMonsterMovement: (playerX: number, playerZ: number, delta: number) => void;
   allocateStat: (stat: AllocatableStat) => void;
+  /**
+   * Pushes the current progress snapshot (level/experience/stats/HP/MP/skill points) to
+   * the server. Called right after allocateStat and right after a level-up inside
+   * attackNearest — no periodic/debounced sync (design spec's "simpler" scope
+   * decision). Best-effort: a failed save just means a slightly stale resume next
+   * login, same as PositionSync.tsx's handling.
+   */
+  syncProgress: () => void;
   respawnPlayer: () => void;
   tickRespawns: () => void;
   /**
@@ -167,11 +209,19 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     expToNext: 100,
     currentHp: 1,
     maxHp: 1,
+    currentMp: 1,
+    maxMp: 1,
     attackPower: 10,
     defensePower: 0,
     attackRange: ATTACK_RANGE_BY_CLASS.warrior,
     gold: 0,
     skillPoints: 0,
+    characterClass: 'warrior',
+    statStr: 5,
+    statDex: 5,
+    statCon: 5,
+    statInt: 5,
+    statWis: 5,
   },
   lastAttackAt: 0,
 
@@ -195,11 +245,19 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         expToNext: expToNextForLevel(character.level),
         currentHp: character.current_hp,
         maxHp: character.max_hp,
+        currentMp: character.current_mp,
+        maxMp: character.max_mp,
         attackPower: character.attack_power + attackBonus,
         defensePower: character.defense_power + defenseBonus,
         attackRange: ATTACK_RANGE_BY_CLASS[character.character_class],
         gold: character.gold,
         skillPoints: character.skill_points,
+        characterClass: character.character_class,
+        statStr: character.stat_str,
+        statDex: character.stat_dex,
+        statCon: character.stat_con,
+        statInt: character.stat_int,
+        statWis: character.stat_wis,
       },
       lastAttackAt: 0,
     });
@@ -266,14 +324,13 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       }
 
       nextPlayer = {
+        ...player,
         level,
         experience,
         expToNext,
         currentHp,
         maxHp,
         attackPower,
-        defensePower: player.defensePower,
-        attackRange: player.attackRange,
         gold: player.gold + goldDropped,
         skillPoints,
       };
@@ -284,6 +341,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       player: nextPlayer,
       lastAttackAt: now,
     });
+
+    if (leveledUp) get().syncProgress();
 
     return { hit: true, instanceId: nearest.instanceId, damage, killed, leveledUp, goldDropped };
   },
@@ -407,20 +466,59 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
   allocateStat: (stat) => {
     const { player } = get();
-    if (player.skillPoints <= 0) return;
-    const skillPoints = player.skillPoints - 1;
-    if (stat === 'attack') {
-      set({ player: { ...player, skillPoints, attackPower: player.attackPower + STAT_GAIN.attack.attackPower } });
-    } else if (stat === 'defense') {
-      set({ player: { ...player, skillPoints, defensePower: player.defensePower + STAT_GAIN.defense.defensePower } });
-    } else {
-      // Spending a point into max HP heals by the same amount, rather than leaving the
-      // player at the same currentHp/maxHp ratio they had before allocating.
-      const gain = STAT_GAIN.hp.maxHp;
-      set({
-        player: { ...player, skillPoints, maxHp: player.maxHp + gain, currentHp: player.currentHp + gain },
-      });
+    const field = STAT_FIELD[stat];
+    const currentValue = player[field];
+    const cost = statPointCost(currentValue);
+    if (player.skillPoints < cost) return;
+
+    const nextPlayer: PlayerCombatState = {
+      ...player,
+      skillPoints: player.skillPoints - cost,
+      [field]: currentValue + 1,
+    };
+
+    if (stat === PRIMARY_ATTACK_STAT[player.characterClass]) {
+      nextPlayer.attackPower = player.attackPower + 1;
     }
+    if (stat === 'con') {
+      // Spending into CON heals by the HP gained, rather than leaving the player at the
+      // same currentHp/maxHp ratio they had before allocating.
+      nextPlayer.maxHp = player.maxHp + STAT_GAIN.con.maxHp;
+      nextPlayer.currentHp = player.currentHp + STAT_GAIN.con.maxHp;
+      nextPlayer.defensePower = player.defensePower + STAT_GAIN.con.defensePower;
+    }
+    if (stat === 'wis') {
+      nextPlayer.maxMp = player.maxMp + STAT_GAIN.wis.maxMp;
+      nextPlayer.currentMp = player.currentMp + STAT_GAIN.wis.maxMp;
+    }
+
+    set({ player: nextPlayer });
+    get().syncProgress();
+  },
+
+  syncProgress: () => {
+    const { player } = get();
+    charactersApi
+      .syncProgress({
+        level: player.level,
+        experience: player.experience,
+        skill_points: player.skillPoints,
+        attack_power: player.attackPower,
+        defense_power: player.defensePower,
+        max_hp: player.maxHp,
+        current_hp: player.currentHp,
+        max_mp: player.maxMp,
+        current_mp: player.currentMp,
+        stat_str: player.statStr,
+        stat_dex: player.statDex,
+        stat_con: player.statCon,
+        stat_int: player.statInt,
+        stat_wis: player.statWis,
+      })
+      .catch(() => {
+        // Best-effort — a missed save just means a slightly stale resume next login,
+        // not worth surfacing to the player (same handling as PositionSync.tsx).
+      });
   },
 
   respawnPlayer: () => {
