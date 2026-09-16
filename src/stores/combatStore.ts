@@ -111,6 +111,8 @@ interface CombatState {
    * state isn't disturbed the way a full re-init would be.
    */
   applyEquipmentDelta: (attackDelta: number, defenseDelta: number) => void;
+  /** Positive to add gold (sell), negative to spend it (buy) — gold is client-only, see shop. */
+  adjustGold: (delta: number) => void;
 }
 
 function expToNextForLevel(level: number): number {
@@ -434,6 +436,12 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         defensePower: player.defensePower + defenseDelta,
       },
     });
+  },
+
+  adjustGold: (delta) => {
+    if (delta === 0) return;
+    const { player } = get();
+    set({ player: { ...player, gold: Math.max(0, player.gold + delta) } });
   },
 
   tickRespawns: () => {

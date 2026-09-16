@@ -5,6 +5,7 @@ import type {
   CharacterSummary,
   InventoryListResponse,
   PaginatedResponse,
+  ShopListResponse,
 } from '../types/api';
 
 export function listCharacters(
@@ -57,4 +58,19 @@ export function equipItem(inventoryId: number): Promise<InventoryListResponse> {
 
 export function unequipItem(inventoryId: number): Promise<InventoryListResponse> {
   return apiRequest(`/characters/me/inventory/${inventoryId}/unequip`, { method: 'POST' });
+}
+
+export function getShop(): Promise<ShopListResponse> {
+  return apiRequest('/characters/me/shop');
+}
+
+export function buyItem(itemTemplateId: number): Promise<InventoryListResponse> {
+  return apiRequest('/characters/me/inventory/buy', {
+    method: 'POST',
+    body: { item_template_id: itemTemplateId },
+  });
+}
+
+export function sellItem(inventoryId: number): Promise<InventoryListResponse> {
+  return apiRequest(`/characters/me/inventory/${inventoryId}/sell`, { method: 'POST' });
 }

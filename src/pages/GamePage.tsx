@@ -8,6 +8,7 @@ import { Scene } from '../components/game/Scene';
 import { HUD } from '../components/game/HUD';
 import { WorldMap } from '../components/game/WorldMap';
 import { CharacterPanel } from '../components/game/CharacterPanel';
+import { ShopPanel } from '../components/game/ShopPanel';
 import { translateApiError } from './errorMessages';
 
 export function GamePage() {
@@ -30,6 +31,11 @@ export function GamePage() {
       } else if (e.code === 'KeyC') {
         e.preventDefault();
         useUIStore.getState().toggleCharacterPanel();
+      } else if (e.code === 'KeyE') {
+        if (useUIStore.getState().isNearShop) {
+          e.preventDefault();
+          useUIStore.getState().openShop();
+        }
       } else if (e.code === 'Escape') {
         useUIStore.getState().closeAll();
       }
@@ -54,6 +60,7 @@ export function GamePage() {
       <HUD character={activeCharacter} />
       <WorldMap />
       <CharacterPanel character={activeCharacter} />
+      <ShopPanel character={activeCharacter} />
     </>
   );
 }

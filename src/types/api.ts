@@ -64,10 +64,29 @@ export interface InventorySlot {
   defense_bonus: number;
   required_level: number;
   required_class: string | null;
+  buy_price: number;
+  sell_price: number;
 }
 
 export interface InventoryListResponse {
   items: InventorySlot[];
+}
+
+export interface ShopItem {
+  id: number;
+  name: string;
+  item_type: string;
+  equip_slot: string | null;
+  required_level: number;
+  required_class: string | null;
+  attack_bonus: number;
+  defense_bonus: number;
+  buy_price: number;
+  sell_price: number;
+}
+
+export interface ShopListResponse {
+  items: ShopItem[];
 }
 
 export interface CharacterProfile {

@@ -6,6 +6,7 @@ import { Dungeon, buildFloorMonsters } from './Dungeon';
 import { AreaTransitions } from './AreaTransitions';
 import { PlayerCombatEffects } from './PlayerCombatEffects';
 import { PositionSync } from './PositionSync';
+import { ShopProximity } from './ShopProximity';
 import { CharacterMesh } from './CharacterMesh';
 import { MonsterMesh, GOBLIN_VARIANT } from './MonsterMesh';
 import { CameraRig } from './CameraRig';
@@ -105,6 +106,7 @@ export function Scene({
       <PlayerCombatEffects fieldMonsters={map.monsters} />
       <RespawnTicker />
       <PositionSync mapId={map.map_id} />
+      <ShopProximity />
 
       <EffectComposer multisampling={0}>
         <Bloom luminanceThreshold={0.85} luminanceSmoothing={0.6} intensity={0.15} mipmapBlur />

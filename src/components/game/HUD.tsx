@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCombatStore } from '../../stores/combatStore';
 import { useAuthStore } from '../../stores/authStore';
+import { useUIStore } from '../../stores/uiStore';
 import type { CharacterProfile } from '../../types/api';
 
 const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
@@ -39,6 +40,7 @@ export function HUD({ character }: { character: CharacterProfile }) {
   const accent = CLASS_ACCENT[character.character_class];
   const [loggingOut, setLoggingOut] = useState(false);
   const navigate = useNavigate();
+  const isNearShop = useUIStore((s) => s.isNearShop);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -120,6 +122,7 @@ export function HUD({ character }: { character: CharacterProfile }) {
         <div>이동: WASD / 방향키</div>
         <div>공격: Space</div>
         <div>지도: M</div>
+        {isNearShop && <div style={{ color: '#e8c97a', fontWeight: 700 }}>상점 열기: E</div>}
         <div>캐릭터: C</div>
         <button
           onClick={() => navigate('/characters')}

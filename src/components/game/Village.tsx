@@ -11,6 +11,14 @@ export const VILLAGE_CENTER: [number, number] = [-32, 0];
 export const VILLAGE_SIZE = 22;
 const PLAZA_SIZE = VILLAGE_SIZE;
 
+// Shop NPC positions — exported so ShopProximity.tsx can check the player's distance to
+// them without duplicating these coordinates.
+export const SHOP_NPC_POSITIONS: [number, number][] = [
+  [VILLAGE_CENTER[0] + 7, VILLAGE_CENTER[1] - 3], // 상인
+  [VILLAGE_CENTER[0] - 7, VILLAGE_CENTER[1] - 3], // 대장장이
+];
+export const SHOP_INTERACT_RADIUS = 2.5;
+
 // KayKit's Medieval Hexagon Pack models are modeled at roughly a 1-unit hex-tile scale;
 // this brings them up to match our character height (TARGET_HEIGHT 0.9 in CharacterMesh) —
 // buildings are still meant to tower over characters, just not fill the whole screen.
@@ -133,8 +141,8 @@ export function Village() {
         {BUILDINGS.map((building, i) => (
           <Building key={i} building={building} />
         ))}
-        <NPC position={[VILLAGE_CENTER[0] + 7, 0, VILLAGE_CENTER[1] - 3]} name="상인" kind="merchant" />
-        <NPC position={[VILLAGE_CENTER[0] - 7, 0, VILLAGE_CENTER[1] - 3]} name="대장장이" kind="blacksmith" />
+        <NPC position={[SHOP_NPC_POSITIONS[0][0], 0, SHOP_NPC_POSITIONS[0][1]]} name="상인" kind="merchant" />
+        <NPC position={[SHOP_NPC_POSITIONS[1][0], 0, SHOP_NPC_POSITIONS[1][1]]} name="대장장이" kind="blacksmith" />
       </Suspense>
     </group>
   );
