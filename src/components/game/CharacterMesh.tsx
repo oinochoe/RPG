@@ -173,7 +173,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
 
     function onKeyDown(e: KeyboardEvent) {
       const ui = useUIStore.getState();
-      if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isShopOpen || ui.isSystemMenuOpen) return;
+      if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isInventoryOpen || ui.isShopOpen || ui.isSystemMenuOpen) return;
       if (e.code === 'Space') {
         e.preventDefault();
         // Context-sensitive like most action-RPGs: talking to a nearby NPC takes priority
@@ -205,7 +205,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   useFrame((_, delta) => {
     if (!groupRef.current) return;
     const ui = useUIStore.getState();
-    if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isShopOpen || ui.isSystemMenuOpen) return;
+    if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isInventoryOpen || ui.isShopOpen || ui.isSystemMenuOpen) return;
 
     let dx = 0;
     let dz = 0;

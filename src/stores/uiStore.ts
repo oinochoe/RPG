@@ -5,6 +5,7 @@ export type ShopNpcKind = 'merchant' | 'blacksmith';
 interface UIState {
   isMapOpen: boolean;
   isCharacterPanelOpen: boolean;
+  isInventoryOpen: boolean;
   isShopOpen: boolean;
   // F1 menu — keybind list + 캐릭터 선택/로그아웃, replacing the old always-on corner box.
   isSystemMenuOpen: boolean;
@@ -17,6 +18,8 @@ interface UIState {
   closeMap: () => void;
   toggleCharacterPanel: () => void;
   closeCharacterPanel: () => void;
+  toggleInventory: () => void;
+  closeInventory: () => void;
   openShop: (kind: ShopNpcKind) => void;
   closeShop: () => void;
   toggleSystemMenu: () => void;
@@ -28,12 +31,19 @@ interface UIState {
 // Any of the mutually-exclusive full-panel UI states — used to close the others whenever
 // one opens, and as the "movement/hotbar/attack should be suspended" guard elsewhere.
 function closeOtherPanels() {
-  return { isMapOpen: false, isCharacterPanelOpen: false, isShopOpen: false, isSystemMenuOpen: false };
+  return {
+    isMapOpen: false,
+    isCharacterPanelOpen: false,
+    isInventoryOpen: false,
+    isShopOpen: false,
+    isSystemMenuOpen: false,
+  };
 }
 
 export const useUIStore = create<UIState>((set) => ({
   isMapOpen: false,
   isCharacterPanelOpen: false,
+  isInventoryOpen: false,
   isShopOpen: false,
   isSystemMenuOpen: false,
   shopKind: null,
@@ -42,6 +52,8 @@ export const useUIStore = create<UIState>((set) => ({
   closeMap: () => set({ isMapOpen: false }),
   toggleCharacterPanel: () => set((s) => ({ ...closeOtherPanels(), isCharacterPanelOpen: !s.isCharacterPanelOpen })),
   closeCharacterPanel: () => set({ isCharacterPanelOpen: false }),
+  toggleInventory: () => set((s) => ({ ...closeOtherPanels(), isInventoryOpen: !s.isInventoryOpen })),
+  closeInventory: () => set({ isInventoryOpen: false }),
   openShop: (kind) => set({ ...closeOtherPanels(), isShopOpen: true, shopKind: kind }),
   closeShop: () => set({ isShopOpen: false }),
   toggleSystemMenu: () => set((s) => ({ ...closeOtherPanels(), isSystemMenuOpen: !s.isSystemMenuOpen })),

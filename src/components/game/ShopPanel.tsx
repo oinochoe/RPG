@@ -173,7 +173,7 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
 
         {error && <p style={{ color: '#e0538a', fontSize: 12, marginBottom: 8 }}>{error}</p>}
 
-        <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+        <div className="custom-scroll" style={{ maxHeight: 280, overflowY: 'auto' }}>
           {tab === 'buy' ? (
             shop.length === 0 ? (
               <p style={{ color: '#9aa08f', fontSize: 13, padding: '12px 4px' }}>판매 중인 아이템이 없습니다.</p>

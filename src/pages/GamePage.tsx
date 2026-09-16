@@ -8,6 +8,7 @@ import { Scene } from '../components/game/Scene';
 import { HUD } from '../components/game/HUD';
 import { WorldMap } from '../components/game/WorldMap';
 import { CharacterPanel } from '../components/game/CharacterPanel';
+import { InventoryPanel } from '../components/game/InventoryPanel';
 import { ShopPanel } from '../components/game/ShopPanel';
 import { SystemMenu } from '../components/game/SystemMenu';
 import { translateApiError } from './errorMessages';
@@ -34,6 +35,9 @@ export function GamePage() {
       } else if (e.code === 'KeyC') {
         e.preventDefault();
         useUIStore.getState().toggleCharacterPanel();
+      } else if (e.code === 'KeyI') {
+        e.preventDefault();
+        useUIStore.getState().toggleInventory();
       } else if (e.code === 'F1') {
         e.preventDefault();
         useUIStore.getState().toggleSystemMenu();
@@ -41,7 +45,7 @@ export function GamePage() {
         useUIStore.getState().closeAll();
       } else if (e.code in HOTBAR_KEYS) {
         const ui = useUIStore.getState();
-        if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isShopOpen || ui.isSystemMenuOpen) return;
+        if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isInventoryOpen || ui.isShopOpen || ui.isSystemMenuOpen) return;
         e.preventDefault();
         useCharacterStore.getState().useHotbarSlot(HOTBAR_KEYS[e.code]);
       }
@@ -66,6 +70,7 @@ export function GamePage() {
       <HUD character={activeCharacter} />
       <WorldMap />
       <CharacterPanel character={activeCharacter} />
+      <InventoryPanel character={activeCharacter} />
       <ShopPanel character={activeCharacter} />
       <SystemMenu />
     </>

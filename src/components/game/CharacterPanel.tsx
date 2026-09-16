@@ -1,18 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useCombatStore, type AllocatableStat } from '../../stores/combatStore';
-import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
+import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
+import { EQUIP_SLOT_LABEL } from './itemLabels';
 import type { CharacterProfile } from '../../types/api';
-
-const EQUIP_SLOT_LABEL: Record<string, string> = {
-  weapon: '무기',
-  shield: '방패',
-  helmet: '투구',
-  body_armor: '갑옷',
-  boots: '신발',
-  ring: '반지',
-  necklace: '목걸이',
-};
 
 const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
   warrior: '#f4c430',
@@ -77,134 +68,115 @@ function StatRow({
   );
 }
 
-function InventoryTab({ character }: { character: CharacterProfile }) {
+// Paper-doll layout (Lineage1-style humanoid silhouette with slot boxes positioned around
+// it) — position within a 220x300 box. Drawn with plain CSS shapes rather than an SVG/image
+// asset (none available), just enough to read as a figure.
+const SLOT_BOX: CSSProperties = {
+  position: 'absolute',
+  width: 52,
+  height: 52,
+  borderRadius: 8,
+  border: '1px solid rgba(232, 201, 122, 0.5)',
+  background: 'rgba(0, 0, 0, 0.35)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+};
+
+const SLOT_LAYOUT: { slot: string; style: CSSProperties }[] = [
+  { slot: 'helmet', style: { top: 0, left: '50%', transform: 'translateX(-50%)' } },
+  { slot: 'necklace', style: { top: 44, left: '78%', transform: 'translateX(-50%)' } },
+  { slot: 'weapon', style: { top: 120, left: 0 } },
+  { slot: 'body_armor', style: { top: 120, left: '50%', transform: 'translateX(-50%)' } },
+  { slot: 'shield', style: { top: 120, right: 0 } },
+  { slot: 'ring', style: { top: 196, left: '22%', transform: 'translateX(-50%)' } },
+  { slot: 'boots', style: { top: 196, left: '50%', transform: 'translateX(-50%)' } },
+];
+
+function EquipmentTab() {
   const inventory = useCharacterStore((s) => s.inventory);
   const fetchInventory = useCharacterStore((s) => s.fetchInventory);
-  const equipItem = useCharacterStore((s) => s.equipItem);
   const unequipItem = useCharacterStore((s) => s.unequipItem);
-  const hotbar = useCharacterStore((s) => s.hotbar);
-  const setHotbarSlot = useCharacterStore((s) => s.setHotbarSlot);
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchInventory().catch(() => setError('인벤토리를 불러오지 못했습니다.'));
-    // Only re-fetch when the panel mounts a fresh InventoryTab (i.e. reopened) — equip/unequip
-    // already update the store's inventory directly, no need to react to it here.
+    fetchInventory().catch(() => setError('장비 정보를 불러오지 못했습니다.'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleToggle(item: (typeof inventory)[number]) {
+  async function handleUnequip(inventoryId: number) {
     setError(null);
-    setPendingId(item.id);
+    setPendingId(inventoryId);
     try {
-      if (item.is_equipped) {
-        await unequipItem(item.id);
-      } else {
-        await equipItem(item.id);
-      }
+      await unequipItem(inventoryId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '처리 중 오류가 발생했습니다.');
+      setError(err instanceof Error ? err.message : '해제 중 오류가 발생했습니다.');
     } finally {
       setPendingId(null);
     }
   }
 
-  if (inventory.length === 0) {
-    return <p style={{ color: '#9aa08f', fontSize: 13, padding: '12px 4px' }}>인벤토리가 비어 있습니다.</p>;
-  }
+  const equippedBySlot = new Map(inventory.filter((item) => item.is_equipped).map((item) => [item.equipped_slot, item]));
 
   return (
     <div>
-      {error && (
-        <p style={{ color: '#e0538a', fontSize: 12, marginBottom: 8 }}>{error}</p>
-      )}
-      <div style={{ maxHeight: 280, overflowY: 'auto' }}>
-        {inventory.map((item) => {
-          const equippable = item.equip_slot !== null;
-          const consumable = item.heal_hp > 0;
-          const levelOk = character.level >= item.required_level;
-          const classOk =
-            !item.required_class || item.required_class === 'all' || item.required_class === character.character_class;
-          const canEquip = equippable && levelOk && classOk;
-          const disabled = pendingId === item.id || (!item.is_equipped && !canEquip);
-          const assignedSlot = hotbar.findIndex((id) => id === item.item_template_id);
+      {error && <p style={{ color: '#e0538a', fontSize: 12, marginBottom: 8 }}>{error}</p>}
+      <div style={{ position: 'relative', width: 220, height: 250, margin: '4px auto 8px' }}>
+        {/* Humanoid silhouette backdrop, purely decorative */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 44,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 16,
+            height: 16,
+            borderRadius: '50%',
+            background: 'rgba(232, 201, 122, 0.12)',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            top: 64,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 70,
+            height: 130,
+            borderRadius: '18px 18px 10px 10px',
+            background: 'rgba(232, 201, 122, 0.08)',
+          }}
+        />
 
+        {SLOT_LAYOUT.map(({ slot, style }) => {
+          const item = equippedBySlot.get(slot);
           return (
-            <div
-              key={item.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 4px',
-                borderBottom: '1px solid rgba(232, 201, 122, 0.15)',
-                gap: 8,
-              }}
-            >
-              <div style={{ minWidth: 0 }}>
-                <div style={{ color: '#f4f1e8', fontSize: 13, fontWeight: 600 }}>
-                  {item.item_name}
-                  {item.quantity > 1 && <span style={{ color: '#9aa08f', fontSize: 11 }}> x{item.quantity}</span>}
-                  {item.is_equipped && item.equipped_slot && (
-                    <span style={{ color: '#e8c97a', fontSize: 11 }}> · {EQUIP_SLOT_LABEL[item.equipped_slot] ?? item.equipped_slot}</span>
-                  )}
-                </div>
-                <div style={{ color: '#9aa08f', fontSize: 11 }}>
-                  {item.attack_bonus > 0 && `공격 +${item.attack_bonus} `}
-                  {item.defense_bonus > 0 && `방어 +${item.defense_bonus} `}
-                  {item.heal_hp > 0 && `체력 +${item.heal_hp} `}
-                  {!levelOk && <span style={{ color: '#e0538a' }}>Lv.{item.required_level} 필요 </span>}
-                  {!classOk && <span style={{ color: '#e0538a' }}>직업 제한</span>}
-                </div>
-              </div>
-              {consumable ? (
-                <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                  {Array.from({ length: HOTBAR_SIZE }).map((_, slot) => (
-                    <button
-                      key={slot}
-                      onClick={() => setHotbarSlot(slot, assignedSlot === slot ? null : item.item_template_id)}
-                      title={`단축키 ${slot + 1}에 등록`}
-                      style={{
-                        width: 22,
-                        height: 22,
-                        borderRadius: 5,
-                        border: '1px solid #e8c97a',
-                        background: assignedSlot === slot ? 'rgba(232, 201, 122, 0.35)' : 'rgba(255,255,255,0.05)',
-                        color: '#e8c97a',
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        padding: 0,
-                      }}
-                    >
-                      {slot + 1}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <button
-                  onClick={() => handleToggle(item)}
-                  disabled={disabled}
+            <div key={slot} style={{ ...SLOT_BOX, ...style }} onClick={() => item && handleUnequip(item.id)} title={EQUIP_SLOT_LABEL[slot]}>
+              {item ? (
+                <span
                   style={{
-                    flexShrink: 0,
-                    padding: '4px 10px',
-                    borderRadius: 6,
-                    border: '1px solid #e8c97a',
-                    background: item.is_equipped ? 'rgba(232, 201, 122, 0.25)' : 'rgba(255,255,255,0.05)',
-                    color: disabled && !item.is_equipped ? '#6a6a5f' : '#e8c97a',
-                    fontSize: 12,
+                    fontSize: 10,
                     fontWeight: 700,
-                    cursor: disabled ? 'default' : 'pointer',
+                    color: pendingId === item.id ? '#6a6a5f' : '#f4f1e8',
+                    textAlign: 'center',
+                    lineHeight: 1.2,
+                    padding: '0 2px',
                   }}
                 >
-                  {item.is_equipped ? '해제' : '장착'}
-                </button>
+                  {item.item_name}
+                </span>
+              ) : (
+                <span style={{ fontSize: 10, color: 'rgba(154, 160, 143, 0.6)' }}>{EQUIP_SLOT_LABEL[slot]}</span>
               )}
             </div>
           );
         })}
       </div>
+      <p style={{ color: '#9aa08f', fontSize: 11, textAlign: 'center' }}>
+        장착된 칸을 클릭하면 해제됩니다. 장착은 인벤토리(I)에서.
+      </p>
     </div>
   );
 }
@@ -215,7 +187,7 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
   const player = useCombatStore((s) => s.player);
   const allocateStat = useCombatStore((s) => s.allocateStat);
   const accent = CLASS_ACCENT[character.character_class];
-  const [tab, setTab] = useState<'stats' | 'inventory'>('stats');
+  const [tab, setTab] = useState<'stats' | 'equipment'>('stats');
 
   if (!isOpen) return null;
 
@@ -247,19 +219,15 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
           boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>
             {character.name} <span style={{ color: accent }}>Lv.{player.level}</span>
           </span>
           <span style={{ color: '#9aa08f', fontSize: 12 }}>C 또는 ESC로 닫기</span>
         </div>
 
-        <div style={{ color: '#9aa08f', fontSize: 12, marginBottom: 12 }}>
-          HP {player.currentHp}/{player.maxHp} · EXP {player.experience}/{player.expToNext} · {player.gold} G
-        </div>
-
         <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-          {(['stats', 'inventory'] as const).map((t) => (
+          {(['stats', 'equipment'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -275,7 +243,7 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
                 cursor: 'pointer',
               }}
             >
-              {t === 'stats' ? '스탯' : '인벤토리'}
+              {t === 'stats' ? '스탯' : '장비'}
             </button>
           ))}
         </div>
@@ -311,7 +279,7 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
             </div>
           </>
         ) : (
-          <InventoryTab character={character} />
+          <EquipmentTab />
         )}
       </div>
     </div>
