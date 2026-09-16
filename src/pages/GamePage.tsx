@@ -6,6 +6,7 @@ import { useSessionStore } from '../stores/sessionStore';
 import { useUIStore } from '../stores/uiStore';
 import { Scene } from '../components/game/Scene';
 import { HUD } from '../components/game/HUD';
+import { LevelUpToast } from '../components/game/LevelUpToast';
 import { WorldMap } from '../components/game/WorldMap';
 import { CharacterPanel } from '../components/game/CharacterPanel';
 import { InventoryPanel } from '../components/game/InventoryPanel';
@@ -68,6 +69,7 @@ export function GamePage() {
         <Scene character={activeCharacter} map={currentMap} />
       </Canvas>
       <HUD />
+      <LevelUpToast />
       <WorldMap />
       <CharacterPanel character={activeCharacter} />
       <InventoryPanel character={activeCharacter} />
