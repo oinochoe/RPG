@@ -108,6 +108,11 @@ function toProfile(row: Record<string, unknown>, inventory: InventoryItemRow[]) 
     defense_power: row.defense_power,
     gold: row.gold,
     skill_points: row.skill_points,
+    stat_str: row.stat_str,
+    stat_dex: row.stat_dex,
+    stat_con: row.stat_con,
+    stat_int: row.stat_int,
+    stat_wis: row.stat_wis,
     current_map_id: row.current_map_id,
     position_x: row.position_x,
     position_y: row.position_y,
@@ -319,6 +324,62 @@ charactersRoutes.patch("/me/position", async (c) => {
       throw new ApiError(400, "validation_failed", "invalid_map_id", "존재하지 않는 맵입니다.", "current_map_id");
     }
     throw new ApiError(500, "internal_error", "position_update_failed", "위치 저장 중 오류가 발생했습니다.");
+  }
+  if (!data) {
+    throw new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
+  }
+
+  return c.json({}, 200);
+});
+
+const PROGRESS_FIELDS = [
+  "level",
+  "experience",
+  "skill_points",
+  "attack_power",
+  "defense_power",
+  "max_hp",
+  "current_hp",
+  "max_mp",
+  "current_mp",
+  "stat_str",
+  "stat_dex",
+  "stat_con",
+  "stat_int",
+  "stat_wis",
+] as const;
+
+// Event-driven progress sync — called by the client right after allocateStat() and
+// right after a kill causes a level-up (see combatStore.ts's syncProgress action). No
+// periodic/debounced sync: this is the only writer of level/experience/stats/HP/MP back
+// to the row, matching the "PATCH /me/position" route's pattern (plain flat update, no
+// RPC/advisory-lock needed — no cross-row invariant to protect).
+charactersRoutes.patch("/me/progress", async (c) => {
+  const appUser = c.get("appUser");
+  const body = await readJsonBody(c);
+
+  const update: Record<string, number> = {};
+  for (const field of PROGRESS_FIELDS) {
+    const value = body[field];
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+      throw new ApiError(400, "validation_failed", "invalid_progress", `${field}는 0 이상의 정수여야 합니다.`, field);
+    }
+    update[field] = value;
+  }
+
+  const admin = getAdminClient();
+  const { data, error } = await admin
+    .from("characters")
+    .update(update)
+    .eq("user_id", appUser.id)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("character progress update failed:", error.code, error.message);
+    throw new ApiError(500, "internal_error", "progress_update_failed", "진행 상황 저장 중 오류가 발생했습니다.");
   }
   if (!data) {
     throw new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
