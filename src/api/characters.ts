@@ -48,6 +48,27 @@ export function updateCharacterPosition(position: CharacterPositionUpdate): Prom
   return apiRequest('/characters/me/position', { method: 'PATCH', body: position });
 }
 
+export interface CharacterProgressUpdate {
+  level: number;
+  experience: number;
+  skill_points: number;
+  attack_power: number;
+  defense_power: number;
+  max_hp: number;
+  current_hp: number;
+  max_mp: number;
+  current_mp: number;
+  stat_str: number;
+  stat_dex: number;
+  stat_con: number;
+  stat_int: number;
+  stat_wis: number;
+}
+
+export function syncProgress(progress: CharacterProgressUpdate): Promise<void> {
+  return apiRequest('/characters/me/progress', { method: 'PATCH', body: progress });
+}
+
 export function getInventory(): Promise<InventoryListResponse> {
   return apiRequest('/characters/me/inventory');
 }

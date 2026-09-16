@@ -106,6 +106,11 @@ export interface CharacterProfile {
   defense_power: number;
   gold: number;
   skill_points: number;
+  stat_str: number;
+  stat_dex: number;
+  stat_con: number;
+  stat_int: number;
+  stat_wis: number;
   current_map_id: number;
   position_x: number;
   position_y: number;
