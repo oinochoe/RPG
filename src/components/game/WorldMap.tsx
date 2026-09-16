@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { playerPosition } from './playerTransform';
-import { rockColliders } from './worldColliders';
+import { rockColliders, FIELD_ENTRANCE_POINT } from './worldColliders';
 import { VILLAGE_CENTER, VILLAGE_SIZE } from './Village';
 import { DUNGEON_MAX_FLOOR, DUNGEON_EXIT_TRIGGER, DUNGEON_DESCEND_TRIGGER } from './Dungeon';
 import { useCombatStore } from '../../stores/combatStore';
@@ -44,6 +44,25 @@ function FieldMap({ player }: { player: { x: number; z: number } }) {
         fontWeight={700}
       >
         마을
+      </text>
+
+      <circle
+        cx={FIELD_ENTRANCE_POINT[0]}
+        cy={FIELD_ENTRANCE_POINT[1]}
+        r={1.8}
+        fill="#1c1a20"
+        stroke="#c084fc"
+        strokeWidth={0.4}
+      />
+      <text
+        x={FIELD_ENTRANCE_POINT[0]}
+        y={FIELD_ENTRANCE_POINT[1] - 2.4}
+        fill="#c084fc"
+        fontSize={3}
+        textAnchor="middle"
+        fontWeight={700}
+      >
+        던전
       </text>
 
       {Object.values(monsters)

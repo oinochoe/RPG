@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
+import type { ThreeEvent } from '@react-three/fiber';
 import { useStoneTexture } from './proceduralTextures';
+import { setMoveTarget } from './moveTarget';
 import type { Collider } from './worldColliders';
 import type { MonsterInstanceSummary } from '../../types/api';
 
@@ -158,9 +160,14 @@ export function Dungeon({ floor }: { floor: number }) {
   const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
   const wallSegments = useMemo(() => buildWallSegments(hasNorthGap), [hasNorthGap]);
 
+  function handleFloorClick(event: ThreeEvent<MouseEvent>) {
+    event.stopPropagation();
+    setMoveTarget(event.point.x, event.point.z);
+  }
+
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={handleFloorClick}>
         <planeGeometry args={[ROOM_HALF_X * 2, ROOM_HALF_Z * 2]} />
         <meshStandardMaterial map={stoneTexture} roughness={0.95} metalness={0} />
       </mesh>
