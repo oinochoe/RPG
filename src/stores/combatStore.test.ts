@@ -37,6 +37,18 @@ const baseCharacter: CharacterProfile = {
   inventory: [],
 };
 
+// Carries non-zero attack/defense bonuses so payload-shape tests can actually
+// discriminate "bonus subtracted out" (correct) from "bonus baked in" (the
+// original Critical bug) — with equipped_items: [] the subtraction is always
+// against 0 and both behaviors look identical.
+const equippedCharacter: CharacterProfile = {
+  ...baseCharacter,
+  equipped_items: [
+    { id: 1, item_template_id: 1, equipped_slot: 'weapon', enchant_level: 0, attack_bonus: 3, defense_bonus: 0 },
+    { id: 2, item_template_id: 2, equipped_slot: 'armor', enchant_level: 0, attack_bonus: 0, defense_bonus: 2 },
+  ],
+};
+
 describe('statPointCost', () => {
   it('costs 1 point for values 1-9', () => {
     expect(statPointCost(1)).toBe(1);
@@ -132,6 +144,30 @@ describe('combatStore allocateStat', () => {
       stat_int: player.statInt,
       stat_wis: player.statWis,
     });
+  });
+
+  it('subtracts the equipment bonus out of the payload when items are equipped', () => {
+    useCombatStore.getState().init(equippedCharacter, [], false);
+    const { player: initialized } = useCombatStore.getState();
+    // Sanity-check the fixture actually produced a non-zero equip bonus, or
+    // this test would silently degrade back into the gap it's meant to close.
+    expect(initialized.equipAttackBonus).toBe(3);
+    expect(initialized.equipDefenseBonus).toBe(2);
+    expect(initialized.attackPower).toBe(13); // base 10 + equip bonus 3
+
+    useCombatStore.getState().allocateStat('str');
+    const { player } = useCombatStore.getState();
+    expect(player.attackPower).toBe(14); // 13 + 1 from the STR point
+
+    // Base attack_power (10) + 1 from the STR allocation, with the +3 equip
+    // bonus stripped back out. If syncProgress() were reverted to send
+    // player.attackPower directly, this call would receive 14, not 11.
+    expect(charactersApi.syncProgress).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attack_power: 11,
+        defense_power: 5, // base defense_power (5), equip's +2 stripped out; untouched by STR
+      })
+    );
   });
 });
 
