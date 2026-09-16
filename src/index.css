@@ -13,9 +13,18 @@
   --color-danger: #e0538a;
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   font-family: var(--font-fantasy);
   background: radial-gradient(circle at 50% 20%, #24391f 0%, #0f1a0d 70%);
   color: var(--color-ink);
   min-height: 100vh;
+}
+
+#root {
+  isolation: isolate;
 }
