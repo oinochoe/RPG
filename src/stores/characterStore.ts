@@ -124,6 +124,16 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   setHotbarSlot: (slot, itemTemplateId) => {
     set((s) => {
       const hotbar = [...s.hotbar];
+      // An item only ever lives in one slot at a time — assigning it to a new slot clears
+      // any other slot it already occupied. Without this, the same consumable could end up
+      // in two slots at once (e.g. clicking two different "등록" buttons for it), and since
+      // InventoryPanel's assignedSlot lookup is a findIndex (first match only), only one of
+      // the two buttons would ever show as active even though both slots actually held it.
+      if (itemTemplateId !== null) {
+        for (let i = 0; i < hotbar.length; i++) {
+          if (hotbar[i] === itemTemplateId) hotbar[i] = null;
+        }
+      }
       hotbar[slot] = itemTemplateId;
       return { hotbar };
     });
