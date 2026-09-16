@@ -2,21 +2,26 @@ import { useState } from 'react';
 import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 
 // Custom mime types for the drag payload — namespaced so they never collide with a browser
-// default type or an unrelated drag source on the page.
+// default type or an unrelated drag source on the page. Assignment itself (inventory ->
+// hotbar) goes through InventoryPanel's numbered buttons, not drag-and-drop — real-browser
+// mouse drags onto a slot turned out unreliable for at least one user, so that path was
+// reverted. These mime types now only serve hotbar-to-hotbar interactions (rearranging, and
+// dragging a slot's item out to clear it), which are self-contained within this component
+// and don't depend on any other component's drag source.
 export const HOTBAR_DRAG_MIME = 'application/x-rpg-item-template-id';
-// Only set when the drag originated from a hotbar slot itself (not the inventory grid) —
-// lets the drop handler tell "assign from inventory" (copy) apart from "rearrange/move
-// between hotbar slots" (move, clearing the source slot) without two separate code paths.
+// Set on every hotbar-originated drag so the drop handler knows to clear the source slot
+// (a move) rather than just filling the target — always present now since only hotbar
+// slots (never InventoryPanel) call setData(HOTBAR_DRAG_MIME, ...).
 const HOTBAR_SOURCE_SLOT_MIME = 'application/x-rpg-hotbar-source-slot';
 
 /**
  * Quickbar for consumables — 4 slots, keys 1-4 (wired in GamePage's keydown handler).
- * Assignments are session-local only (see characterStore's hotbar field). A slot is filled
- * by dragging a consumable from InventoryPanel's grid onto it (see GridCell's
- * draggable/onDragStart); dragging a filled slot's item out and releasing it anywhere that
- * isn't a hotbar slot clears it (same as right-click). Positioned by its parent (HUD.tsx,
- * next to the status bar) rather than self-positioning, so the two form one visual unit at
- * the bottom of the screen.
+ * Assignments are session-local only (see characterStore's hotbar field) and made from
+ * InventoryPanel's numbered buttons next to a selected consumable. A filled slot can be
+ * rearranged by dragging it onto another slot, or cleared by dragging it out and releasing
+ * anywhere that isn't a hotbar slot, or by right-clicking it. Positioned by its parent
+ * (HUD.tsx, next to the status bar) rather than self-positioning, so the two form one
+ * visual unit at the bottom of the screen.
  */
 export function Hotbar() {
   const hotbar = useCharacterStore((s) => s.hotbar);
@@ -91,7 +96,7 @@ export function Hotbar() {
               const sourceSlot = sourceRaw ? Number(sourceRaw) : NaN;
               if (Number.isInteger(sourceSlot) && sourceSlot !== i) setHotbarSlot(sourceSlot, null);
             }}
-            title={row ? `${row.item_name} — 드래그로 이동, 우클릭/드래그해서 빼기` : '아이템을 드래그해서 등록'}
+            title={row ? `${row.item_name} — 드래그로 이동, 우클릭/드래그해서 빼기` : '인벤토리에서 등록하세요'}
             style={{
               pointerEvents: 'auto',
               width: 52,

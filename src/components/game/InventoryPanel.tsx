@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
-import { useCharacterStore } from '../../stores/characterStore';
+import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL } from './itemLabels';
-import { HOTBAR_DRAG_MIME } from './Hotbar';
 import type { CharacterProfile, InventorySlot } from '../../types/api';
 
 const GRID_COLUMNS = 6;
@@ -20,26 +19,18 @@ function GridCell({
   item,
   selected,
   onClick,
+  onDoubleClick,
 }: {
   item: InventorySlot | undefined;
   selected: boolean;
   onClick: () => void;
+  onDoubleClick: () => void;
 }) {
-  // Only consumables are hotbar-assignable (equip/use items go through the 장착 button
-  // instead) — see Hotbar.tsx's drop handler, which expects an item_template_id for a
-  // usable item.
-  const draggable = !!item && item.heal_hp > 0;
-
   return (
     <button
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
       disabled={!item}
-      draggable={draggable}
-      onDragStart={(e) => {
-        if (!item) return;
-        e.dataTransfer.setData(HOTBAR_DRAG_MIME, String(item.item_template_id));
-        e.dataTransfer.effectAllowed = 'copy';
-      }}
       style={{
         width: 56,
         height: 56,
@@ -47,7 +38,7 @@ function GridCell({
         border: `1px solid ${selected ? '#e8c97a' : 'rgba(232, 201, 122, 0.3)'}`,
         background: item?.is_equipped ? 'rgba(232, 201, 122, 0.18)' : 'rgba(0, 0, 0, 0.35)',
         position: 'relative',
-        cursor: item ? (draggable ? 'grab' : 'pointer') : 'default',
+        cursor: item ? 'pointer' : 'default',
         padding: 2,
       }}
     >
@@ -88,6 +79,7 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
   const equipItem = useCharacterStore((s) => s.equipItem);
   const unequipItem = useCharacterStore((s) => s.unequipItem);
   const hotbar = useCharacterStore((s) => s.hotbar);
+  const setHotbarSlot = useCharacterStore((s) => s.setHotbarSlot);
   const accent = CLASS_ACCENT[character.character_class];
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -111,15 +103,24 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
   const canEquip = equippable && levelOk && classOk;
   const assignedSlot = selected ? hotbar.findIndex((id) => id === selected.item_template_id) : -1;
 
-  async function handleEquipToggle() {
-    if (!selected) return;
+  // Shared by the 장착/해제 button (acts on `selected`) and double-clicking any grid cell
+  // (acts on whichever item was double-clicked, which may not be the currently selected
+  // one) — always re-derives the level/class check against the specific item passed in
+  // rather than trusting the possibly-stale `canEquip`/`selected` closures.
+  async function toggleEquip(item: InventorySlot) {
+    if (!item.is_equipped) {
+      const itemLevelOk = character.level >= item.required_level;
+      const itemClassOk =
+        !item.required_class || item.required_class === 'all' || item.required_class === character.character_class;
+      if (item.equip_slot === null || !itemLevelOk || !itemClassOk) return;
+    }
     setError(null);
     setPending(true);
     try {
-      if (selected.is_equipped) {
-        await unequipItem(selected.id);
+      if (item.is_equipped) {
+        await unequipItem(item.id);
       } else {
-        await equipItem(selected.id);
+        await equipItem(item.id);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '처리 중 오류가 발생했습니다.');
@@ -191,6 +192,7 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                   item={item}
                   selected={item?.id === selectedId}
                   onClick={() => item && setSelectedId(item.id)}
+                  onDoubleClick={() => item && item.equip_slot !== null && toggleEquip(item)}
                 />
               );
             })}
@@ -213,34 +215,52 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                 </div>
 
                 {equippable && (
-                  <button
-                    onClick={handleEquipToggle}
-                    disabled={pending || (!selected.is_equipped && !canEquip)}
-                    style={{
-                      width: '100%',
-                      padding: '6px 0',
-                      borderRadius: 6,
-                      border: '1px solid #e8c97a',
-                      background: selected.is_equipped ? 'rgba(232, 201, 122, 0.25)' : 'rgba(255,255,255,0.05)',
-                      color: '#e8c97a',
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: pending ? 'default' : 'pointer',
-                    }}
-                  >
-                    {selected.is_equipped ? '해제' : '장착'}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => toggleEquip(selected)}
+                      disabled={pending || (!selected.is_equipped && !canEquip)}
+                      style={{
+                        width: '100%',
+                        padding: '6px 0',
+                        borderRadius: 6,
+                        border: '1px solid #e8c97a',
+                        background: selected.is_equipped ? 'rgba(232, 201, 122, 0.25)' : 'rgba(255,255,255,0.05)',
+                        color: '#e8c97a',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: pending ? 'default' : 'pointer',
+                      }}
+                    >
+                      {selected.is_equipped ? '해제' : '장착'}
+                    </button>
+                    <p style={{ color: '#9aa08f', fontSize: 10, marginTop: 4 }}>더블클릭으로도 장착/해제됩니다.</p>
+                  </>
                 )}
 
                 {consumable && (
-                  <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.5 }}>
-                    {assignedSlot >= 0 ? (
-                      <>
-                        단축키 <span style={{ color: '#e8c97a', fontWeight: 700 }}>{assignedSlot + 1}</span>번에 등록됨
-                      </>
-                    ) : (
-                      '아이템을 아래 단축키 칸으로 드래그하면 등록됩니다.'
-                    )}
+                  <div>
+                    <div style={{ color: '#9aa08f', fontSize: 11, marginBottom: 4 }}>단축키 등록</div>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {Array.from({ length: HOTBAR_SIZE }).map((_, slot) => (
+                        <button
+                          key={slot}
+                          onClick={() => setHotbarSlot(slot, assignedSlot === slot ? null : selected.item_template_id)}
+                          style={{
+                            flex: 1,
+                            height: 24,
+                            borderRadius: 5,
+                            border: '1px solid #e8c97a',
+                            background: assignedSlot === slot ? 'rgba(232, 201, 122, 0.35)' : 'rgba(255,255,255,0.05)',
+                            color: '#e8c97a',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {slot + 1}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </>
