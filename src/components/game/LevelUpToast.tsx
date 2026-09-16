@@ -19,12 +19,22 @@ const VISIBLE_MS = 2600;
  */
 export function LevelUpToast() {
   const level = useCombatStore((s) => s.player.level);
-  const previousLevel = useRef(level);
+  const ready = useCombatStore((s) => s.ready);
+  const previousLevel = useRef<number | null>(null);
   const [visible, setVisible] = useState(false);
   const [particles, setParticles] = useState<Particle[]>([]);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (!ready) return;
+    // The store's level starts at the default (1) before init() ever runs, so the very
+    // first observed value here is just a seed, not a real level-up — otherwise any
+    // character above level 1 would fire a spurious toast on every login (see
+    // combatStore.ts's init()).
+    if (previousLevel.current === null) {
+      previousLevel.current = level;
+      return;
+    }
     if (level > previousLevel.current) {
       setParticles(
         Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
@@ -42,7 +52,7 @@ export function LevelUpToast() {
     return () => {
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
-  }, [level]);
+  }, [level, ready]);
 
   if (!visible) return null;
 

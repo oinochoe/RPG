@@ -61,6 +61,11 @@ interface PlayerCombatState {
   maxMp: number;
   attackPower: number;
   defensePower: number;
+  // Portion of attackPower/defensePower currently contributed by equipped items — tracked
+  // separately so syncProgress can strip it back out before persisting (see the comment
+  // above init()'s equipment-bonus loop: the DB columns are base-only, pre-equipment).
+  equipAttackBonus: number;
+  equipDefenseBonus: number;
   attackRange: number;
   gold: number;
   skillPoints: number;
@@ -213,6 +218,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     maxMp: 1,
     attackPower: 10,
     defensePower: 0,
+    equipAttackBonus: 0,
+    equipDefenseBonus: 0,
     attackRange: ATTACK_RANGE_BY_CLASS.warrior,
     gold: 0,
     skillPoints: 0,
@@ -249,6 +256,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         maxMp: character.max_mp,
         attackPower: character.attack_power + attackBonus,
         defensePower: character.defense_power + defenseBonus,
+        equipAttackBonus: attackBonus,
+        equipDefenseBonus: defenseBonus,
         attackRange: ATTACK_RANGE_BY_CLASS[character.character_class],
         gold: character.gold,
         skillPoints: character.skill_points,
@@ -503,8 +512,12 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         level: player.level,
         experience: player.experience,
         skill_points: player.skillPoints,
-        attack_power: player.attackPower,
-        defense_power: player.defensePower,
+        // Strip the equipment bonus back out — the DB column is a base value, pre-equipment
+        // (see the comment above init()'s equipment-bonus loop). Sending attackPower/
+        // defensePower as-is would permanently bake the currently-equipped bonus into the
+        // base on every sync, compounding further on each subsequent login.
+        attack_power: player.attackPower - player.equipAttackBonus,
+        defense_power: player.defensePower - player.equipDefenseBonus,
         max_hp: player.maxHp,
         current_hp: player.currentHp,
         max_mp: player.maxMp,
@@ -534,6 +547,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         ...player,
         attackPower: player.attackPower + attackDelta,
         defensePower: player.defensePower + defenseDelta,
+        equipAttackBonus: player.equipAttackBonus + attackDelta,
+        equipDefenseBonus: player.equipDefenseBonus + defenseDelta,
       },
     });
   },

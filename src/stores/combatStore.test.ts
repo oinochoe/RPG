@@ -112,6 +112,27 @@ describe('combatStore allocateStat', () => {
     useCombatStore.getState().allocateStat('str');
     expect(charactersApi.syncProgress).toHaveBeenCalledTimes(1);
   });
+
+  it('calls syncProgress with the correct payload shape after allocating', () => {
+    useCombatStore.getState().allocateStat('str');
+    const { player } = useCombatStore.getState();
+    expect(charactersApi.syncProgress).toHaveBeenCalledWith({
+      level: player.level,
+      experience: player.experience,
+      skill_points: player.skillPoints,
+      attack_power: player.attackPower - player.equipAttackBonus,
+      defense_power: player.defensePower - player.equipDefenseBonus,
+      max_hp: player.maxHp,
+      current_hp: player.currentHp,
+      max_mp: player.maxMp,
+      current_mp: player.currentMp,
+      stat_str: player.statStr,
+      stat_dex: player.statDex,
+      stat_con: player.statCon,
+      stat_int: player.statInt,
+      stat_wis: player.statWis,
+    });
+  });
 });
 
 describe('combatStore attackNearest level-up sync', () => {
@@ -135,5 +156,23 @@ describe('combatStore attackNearest level-up sync', () => {
     useCombatStore.getState().attackNearest(0, 0);
 
     expect(charactersApi.syncProgress).toHaveBeenCalledTimes(1);
+
+    const { player } = useCombatStore.getState();
+    expect(charactersApi.syncProgress).toHaveBeenCalledWith({
+      level: player.level,
+      experience: player.experience,
+      skill_points: player.skillPoints,
+      attack_power: player.attackPower - player.equipAttackBonus,
+      defense_power: player.defensePower - player.equipDefenseBonus,
+      max_hp: player.maxHp,
+      current_hp: player.currentHp,
+      max_mp: player.maxMp,
+      current_mp: player.currentMp,
+      stat_str: player.statStr,
+      stat_dex: player.statDex,
+      stat_con: player.statCon,
+      stat_int: player.statInt,
+      stat_wis: player.statWis,
+    });
   });
 });

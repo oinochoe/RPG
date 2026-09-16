@@ -349,6 +349,27 @@ const PROGRESS_FIELDS = [
   "stat_wis",
 ] as const;
 
+// Per-field upper bound — the type/non-negativity checks below contain typos (negative
+// values) but not runaway magnitudes. A client bug (this project already had one, from a
+// dev-time HMR mistake, not an attacker) can otherwise write arbitrary garbage like
+// level: 1043 straight into the DB with no server-side containment.
+const PROGRESS_FIELD_MAX: Record<(typeof PROGRESS_FIELDS)[number], number> = {
+  level: 999,
+  experience: 1_000_000,
+  skill_points: 999,
+  attack_power: 100_000,
+  defense_power: 100_000,
+  max_hp: 100_000,
+  current_hp: 100_000,
+  max_mp: 100_000,
+  current_mp: 100_000,
+  stat_str: 999,
+  stat_dex: 999,
+  stat_con: 999,
+  stat_int: 999,
+  stat_wis: 999,
+};
+
 // Event-driven progress sync — called by the client right after allocateStat() and
 // right after a kill causes a level-up (see combatStore.ts's syncProgress action). No
 // periodic/debounced sync: this is the only writer of level/experience/stats/HP/MP back
@@ -364,7 +385,17 @@ charactersRoutes.patch("/me/progress", async (c) => {
     if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
       throw new ApiError(400, "validation_failed", "invalid_progress", `${field}는 0 이상의 정수여야 합니다.`, field);
     }
+    const max = PROGRESS_FIELD_MAX[field];
+    if (value > max) {
+      throw new ApiError(400, "validation_failed", "invalid_progress", `${field}는 0 이상 ${max} 이하의 정수여야 합니다.`, field);
+    }
     update[field] = value;
+  }
+  if (update.current_hp > update.max_hp) {
+    throw new ApiError(400, "validation_failed", "invalid_progress", "current_hp는 max_hp를 초과할 수 없습니다.", "current_hp");
+  }
+  if (update.current_mp > update.max_mp) {
+    throw new ApiError(400, "validation_failed", "invalid_progress", "current_mp는 max_mp를 초과할 수 없습니다.", "current_mp");
   }
 
   const admin = getAdminClient();
