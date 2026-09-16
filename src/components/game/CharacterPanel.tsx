@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { useCombatStore, type AllocatableStat } from '../../stores/combatStore';
+import { useCombatStore, statPointCost, type AllocatableStat } from '../../stores/combatStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL } from './itemLabels';
@@ -14,22 +14,24 @@ const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
   archer: '#d7f79b',
 };
 
-const STAT_ROWS: { stat: AllocatableStat; label: string; gain: string }[] = [
-  { stat: 'attack', label: '공격력', gain: '+1' },
-  { stat: 'defense', label: '방어력', gain: '+1' },
-  { stat: 'hp', label: '최대 체력', gain: '+8' },
+const STAT_ROWS: { stat: AllocatableStat; label: string }[] = [
+  { stat: 'str', label: 'STR (힘)' },
+  { stat: 'dex', label: 'DEX (민첩)' },
+  { stat: 'con', label: 'CON (체력)' },
+  { stat: 'int', label: 'INT (지식)' },
+  { stat: 'wis', label: 'WIS (정신력)' },
 ];
 
 function StatRow({
   label,
   value,
-  gain,
+  cost,
   canAllocate,
   onAllocate,
 }: {
   label: string;
   value: number;
-  gain: string;
+  cost: number;
   canAllocate: boolean;
   onAllocate: () => void;
 }) {
@@ -62,7 +64,7 @@ function StatRow({
             fontSize: 13,
             cursor: canAllocate ? 'pointer' : 'default',
           }}
-          title={`${gain} (포인트 1 소모)`}
+          title={`다음 1점: ${cost} 포인트`}
         >
           +
         </button>
@@ -202,6 +204,14 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
 
   const canAllocate = player.skillPoints > 0;
 
+  const statValue: Record<AllocatableStat, number> = {
+    str: player.statStr,
+    dex: player.statDex,
+    con: player.statCon,
+    int: player.statInt,
+    wis: player.statWis,
+  };
+
   return (
     // Docked near the left by default (인벤토리 docks near the right — see InventoryPanel)
     // rather than a centered modal with a dismiss-on-outside-click backdrop, so the two can
@@ -291,17 +301,40 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
               <span style={{ color: '#e8c97a', fontSize: 15, fontWeight: 700 }}>{player.skillPoints}</span>
             </div>
 
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 4,
+                padding: '6px 10px',
+                borderRadius: 8,
+                background: 'rgba(255,255,255,0.04)',
+                marginBottom: 10,
+                fontSize: 12,
+                color: '#cfe8d0',
+              }}
+            >
+              <span>공격력 {player.attackPower}</span>
+              <span>방어력 {player.defensePower}</span>
+              <span>최대체력 {player.maxHp}</span>
+              <span>최대마나 {player.maxMp}</span>
+            </div>
+
             <div>
-              {STAT_ROWS.map(({ stat, label, gain }) => (
-                <StatRow
-                  key={stat}
-                  label={label}
-                  value={stat === 'attack' ? player.attackPower : stat === 'defense' ? player.defensePower : player.maxHp}
-                  gain={gain}
-                  canAllocate={canAllocate}
-                  onAllocate={() => allocateStat(stat)}
-                />
-              ))}
+              {STAT_ROWS.map(({ stat, label }) => {
+                const value = statValue[stat];
+                const cost = statPointCost(value);
+                return (
+                  <StatRow
+                    key={stat}
+                    label={label}
+                    value={value}
+                    cost={cost}
+                    canAllocate={player.skillPoints >= cost}
+                    onAllocate={() => allocateStat(stat)}
+                  />
+                );
+              })}
             </div>
           </>
         ) : (
