@@ -3,11 +3,14 @@ import { useCombatStore } from '../../stores/combatStore';
 import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL } from './itemLabels';
+import { HOTBAR_DRAG_MIME } from './Hotbar';
+import { useDraggablePanel } from './useDraggablePanel';
 import type { CharacterProfile, InventorySlot } from '../../types/api';
 
 const GRID_COLUMNS = 6;
 const GRID_ROWS = 4;
 const GRID_SLOT_COUNT = GRID_COLUMNS * GRID_ROWS;
+const PANEL_WIDTH = 580;
 
 const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
   warrior: '#f4c430',
@@ -26,11 +29,21 @@ function GridCell({
   onClick: () => void;
   onDoubleClick: () => void;
 }) {
+  // Only consumables are hotbar-assignable (equip/use items go through the 장착 button or a
+  // double-click instead).
+  const draggable = !!item && item.heal_hp > 0;
+
   return (
     <button
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       disabled={!item}
+      draggable={draggable}
+      onDragStart={(e) => {
+        if (!item) return;
+        e.dataTransfer.setData(HOTBAR_DRAG_MIME, String(item.item_template_id));
+        e.dataTransfer.effectAllowed = 'copy';
+      }}
       style={{
         width: 56,
         height: 56,
@@ -38,7 +51,7 @@ function GridCell({
         border: `1px solid ${selected ? '#e8c97a' : 'rgba(232, 201, 122, 0.3)'}`,
         background: item?.is_equipped ? 'rgba(232, 201, 122, 0.18)' : 'rgba(0, 0, 0, 0.35)',
         position: 'relative',
-        cursor: item ? 'pointer' : 'default',
+        cursor: item ? (draggable ? 'grab' : 'pointer') : 'default',
         padding: 2,
       }}
     >
@@ -84,6 +97,10 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
+    x: window.innerWidth - PANEL_WIDTH - 16,
+    y: Math.max(16, window.innerHeight / 2 - 160),
+  }));
 
   useEffect(() => {
     if (!isOpen) return;
@@ -130,15 +147,15 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
   }
 
   return (
-    // Docked to the right (캐릭터 창은 왼쪽 — see CharacterPanel) rather than a centered modal
-    // with a dismiss-on-outside-click backdrop, so the two can be open side by side.
+    // Docked near the right by default (캐릭터 창은 왼쪽 — see CharacterPanel) rather than a
+    // centered modal with a dismiss-on-outside-click backdrop, so the two can be open side
+    // by side; draggable via the header, see useDraggablePanel.
     <div
       style={{
         position: 'fixed',
-        right: 16,
-        top: '50%',
-        transform: 'translateY(-50%)',
-        width: 580,
+        left: position.x,
+        top: position.y,
+        width: PANEL_WIDTH,
         background: '#1a2a1c',
         border: `2px solid ${accent}`,
         borderRadius: 12,
@@ -148,7 +165,17 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
         fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+      <div
+        onMouseDown={onHeaderMouseDown}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 10,
+          cursor: 'move',
+          userSelect: 'none',
+        }}
+      >
         <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>인벤토리</span>
         <span style={{ color: '#ffd54a', fontWeight: 700, fontSize: 13 }}>{player.gold} G</span>
         <button
@@ -239,7 +266,15 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
 
                 {consumable && (
                   <div>
-                    <div style={{ color: '#9aa08f', fontSize: 11, marginBottom: 4 }}>단축키 등록</div>
+                    <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.5, marginBottom: 6 }}>
+                      {assignedSlot >= 0 ? (
+                        <>
+                          단축키 <span style={{ color: '#e8c97a', fontWeight: 700 }}>{assignedSlot + 1}</span>번에 등록됨
+                        </>
+                      ) : (
+                        '아이템을 드래그하거나, 아래 번호를 눌러 단축키에 등록하세요.'
+                      )}
+                    </div>
                     <div style={{ display: 'flex', gap: 4 }}>
                       {Array.from({ length: HOTBAR_SIZE }).map((_, slot) => (
                         <button

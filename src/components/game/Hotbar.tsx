@@ -1,27 +1,23 @@
 import { useState } from 'react';
 import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 
-// Custom mime types for the drag payload — namespaced so they never collide with a browser
-// default type or an unrelated drag source on the page. Assignment itself (inventory ->
-// hotbar) goes through InventoryPanel's numbered buttons, not drag-and-drop — real-browser
-// mouse drags onto a slot turned out unreliable for at least one user, so that path was
-// reverted. These mime types now only serve hotbar-to-hotbar interactions (rearranging, and
-// dragging a slot's item out to clear it), which are self-contained within this component
-// and don't depend on any other component's drag source.
+// Custom mime type for the drag payload (an item_template_id) — namespaced so it never
+// collides with a browser default type or an unrelated drag source on the page. Set by a
+// consumable GridCell in InventoryPanel.tsx; read here to assign a slot.
 export const HOTBAR_DRAG_MIME = 'application/x-rpg-item-template-id';
-// Set on every hotbar-originated drag so the drop handler knows to clear the source slot
-// (a move) rather than just filling the target — always present now since only hotbar
-// slots (never InventoryPanel) call setData(HOTBAR_DRAG_MIME, ...).
-const HOTBAR_SOURCE_SLOT_MIME = 'application/x-rpg-hotbar-source-slot';
 
 /**
  * Quickbar for consumables — 4 slots, keys 1-4 (wired in GamePage's keydown handler).
- * Assignments are session-local only (see characterStore's hotbar field) and made from
- * InventoryPanel's numbered buttons next to a selected consumable. A filled slot can be
- * rearranged by dragging it onto another slot, or cleared by dragging it out and releasing
- * anywhere that isn't a hotbar slot, or by right-clicking it. Positioned by its parent
- * (HUD.tsx, next to the status bar) rather than self-positioning, so the two form one
- * visual unit at the bottom of the screen.
+ * Assignments are session-local only (see characterStore's hotbar field). A slot can be
+ * filled two ways — whichever the player prefers — both driven from InventoryPanel: drag a
+ * consumable from the grid onto a slot here, or click one of the numbered buttons next to a
+ * selected consumable there. Clearing a slot is deliberately right-click-only (not
+ * drag-out) — an earlier version also cleared a slot when its item was dragged out and
+ * released outside the bar, but that made an accidental drag (e.g. a slightly-off click)
+ * silently wipe the assignment, so it was removed per feedback; right-click is a clearer,
+ * harder-to-trigger-by-accident gesture. Positioned by its parent (HUD.tsx, next to the
+ * status bar) rather than self-positioning, so the two form one visual unit at the bottom
+ * of the screen.
  */
 export function Hotbar() {
   const hotbar = useCharacterStore((s) => s.hotbar);
@@ -52,9 +48,7 @@ export function Hotbar() {
             // slot or a used-up one shouldn't be clickable) — disabled form controls also
             // stop receiving real browser drag/drop pointer interaction in most engines, so
             // an "empty, therefore disabled" slot would silently refuse to accept a drop
-            // from a real mouse drag (a synthetic/dispatched drop event bypasses that
-            // gating, which is why this didn't show up in earlier dispatch-based testing).
-            // The click-to-use guard just lives in the handler instead.
+            // from a real mouse drag. The click-to-use guard just lives in the handler.
             onClick={() => {
               if (usable) useHotbarSlot(i);
             }}
@@ -62,25 +56,9 @@ export function Hotbar() {
               e.preventDefault();
               if (itemTemplateId != null) setHotbarSlot(i, null);
             }}
-            draggable={itemTemplateId != null}
-            onDragStart={(e) => {
-              if (itemTemplateId == null) return;
-              e.dataTransfer.setData(HOTBAR_DRAG_MIME, String(itemTemplateId));
-              e.dataTransfer.setData(HOTBAR_SOURCE_SLOT_MIME, String(i));
-              e.dataTransfer.effectAllowed = 'move';
-            }}
-            onDragEnd={(e) => {
-              // Fires on the drag SOURCE after the gesture ends. dropEffect stays 'none'
-              // unless some onDragOver along the way opted in by setting it — i.e. the item
-              // was released somewhere that doesn't accept it (empty space, the 3D canvas,
-              // outside the window). Dropping onto another hotbar slot is handled by that
-              // slot's own onDrop instead (which explicitly clears this source slot itself,
-              // covered below), so this only needs to catch the "dropped nowhere" case.
-              if (e.dataTransfer.dropEffect === 'none') setHotbarSlot(i, null);
-            }}
             onDragOver={(e) => {
               e.preventDefault();
-              e.dataTransfer.dropEffect = 'move';
+              e.dataTransfer.dropEffect = 'copy';
               if (dragOverSlot !== i) setDragOverSlot(i);
             }}
             onDragLeave={() => setDragOverSlot((s) => (s === i ? null : s))}
@@ -89,14 +67,9 @@ export function Hotbar() {
               setDragOverSlot(null);
               const raw = e.dataTransfer.getData(HOTBAR_DRAG_MIME);
               const id = Number(raw);
-              if (!raw || !Number.isInteger(id)) return;
-              setHotbarSlot(i, id);
-
-              const sourceRaw = e.dataTransfer.getData(HOTBAR_SOURCE_SLOT_MIME);
-              const sourceSlot = sourceRaw ? Number(sourceRaw) : NaN;
-              if (Number.isInteger(sourceSlot) && sourceSlot !== i) setHotbarSlot(sourceSlot, null);
+              if (raw && Number.isInteger(id)) setHotbarSlot(i, id);
             }}
-            title={row ? `${row.item_name} — 드래그로 이동, 우클릭/드래그해서 빼기` : '인벤토리에서 등록하세요'}
+            title={row ? `${row.item_name} — 우클릭으로 해제` : '인벤토리에서 드래그하거나 번호를 눌러 등록'}
             style={{
               pointerEvents: 'auto',
               width: 52,
