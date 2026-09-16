@@ -12,6 +12,10 @@ const REASON_MESSAGES: Record<string, string> = {
   max_characters_reached: '생성 가능한 최대 캐릭터 수를 초과했습니다.',
   character_not_found: '해당 캐릭터를 찾을 수 없습니다.',
   no_active_character: '선택된 활성 캐릭터가 없습니다.',
+  item_not_found: '해당 아이템을 찾을 수 없습니다.',
+  not_equippable: '장착할 수 없는 아이템입니다.',
+  insufficient_level: '레벨이 부족합니다.',
+  class_requirement_unmet: '이 직업은 착용할 수 없는 아이템입니다.',
 };
 
 export function translateApiError(err: unknown): string {

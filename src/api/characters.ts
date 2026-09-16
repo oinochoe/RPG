@@ -3,6 +3,7 @@ import type {
   CharacterClass,
   CharacterProfile,
   CharacterSummary,
+  InventoryListResponse,
   PaginatedResponse,
 } from '../types/api';
 
@@ -44,4 +45,16 @@ export interface CharacterPositionUpdate {
 
 export function updateCharacterPosition(position: CharacterPositionUpdate): Promise<void> {
   return apiRequest('/characters/me/position', { method: 'PATCH', body: position });
+}
+
+export function getInventory(): Promise<InventoryListResponse> {
+  return apiRequest('/characters/me/inventory');
+}
+
+export function equipItem(inventoryId: number): Promise<InventoryListResponse> {
+  return apiRequest(`/characters/me/inventory/${inventoryId}/equip`, { method: 'POST' });
+}
+
+export function unequipItem(inventoryId: number): Promise<InventoryListResponse> {
+  return apiRequest(`/characters/me/inventory/${inventoryId}/unequip`, { method: 'POST' });
 }

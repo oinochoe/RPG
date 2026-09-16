@@ -45,6 +45,8 @@ export interface EquippedItem {
   item_template_id: number;
   equipped_slot: string;
   enchant_level: number;
+  attack_bonus: number;
+  defense_bonus: number;
 }
 
 export interface InventorySlot {
@@ -55,6 +57,17 @@ export interface InventorySlot {
   enchant_level: number;
   is_equipped: boolean;
   equipped_slot: string | null;
+  item_name: string;
+  item_type: string;
+  equip_slot: string | null;
+  attack_bonus: number;
+  defense_bonus: number;
+  required_level: number;
+  required_class: string | null;
+}
+
+export interface InventoryListResponse {
+  items: InventorySlot[];
 }
 
 export interface CharacterProfile {

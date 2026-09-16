@@ -104,6 +104,13 @@ interface CombatState {
   allocateStat: (stat: AllocatableStat) => void;
   respawnPlayer: () => void;
   tickRespawns: () => void;
+  /**
+   * Adjusts the player's attack/defense by the given deltas without touching anything
+   * else (HP, level, etc.) — called right after a successful equip/unequip API call with
+   * the difference between the old and new total equipped-item bonuses, so mid-combat
+   * state isn't disturbed the way a full re-init would be.
+   */
+  applyEquipmentDelta: (attackDelta: number, defenseDelta: number) => void;
 }
 
 function expToNextForLevel(level: number): number {
@@ -165,6 +172,16 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   lastAttackAt: 0,
 
   init: (character, monsters, aggressive) => {
+    // character.attack_power/defense_power are the character's base stats (never touched
+    // by equipping — see the inventory/equipment design doc); equipped items' bonuses are
+    // layered on top here, the same way allocateStat layers local stat-point spending on
+    // top during a session.
+    let attackBonus = 0;
+    let defenseBonus = 0;
+    for (const item of character.equipped_items) {
+      attackBonus += item.attack_bonus;
+      defenseBonus += item.defense_bonus;
+    }
     set({
       ready: true,
       monsters: toMonsterCombatState(monsters, aggressive),
@@ -174,8 +191,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         expToNext: expToNextForLevel(character.level),
         currentHp: character.current_hp,
         maxHp: character.max_hp,
-        attackPower: character.attack_power,
-        defensePower: character.defense_power,
+        attackPower: character.attack_power + attackBonus,
+        defensePower: character.defense_power + defenseBonus,
         attackRange: ATTACK_RANGE_BY_CLASS[character.character_class],
         gold: character.gold,
         skillPoints: character.skill_points,
@@ -405,6 +422,18 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   respawnPlayer: () => {
     const { player } = get();
     set({ player: { ...player, currentHp: player.maxHp } });
+  },
+
+  applyEquipmentDelta: (attackDelta, defenseDelta) => {
+    if (attackDelta === 0 && defenseDelta === 0) return;
+    const { player } = get();
+    set({
+      player: {
+        ...player,
+        attackPower: player.attackPower + attackDelta,
+        defensePower: player.defensePower + defenseDelta,
+      },
+    });
   },
 
   tickRespawns: () => {

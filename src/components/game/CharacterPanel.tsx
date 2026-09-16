@@ -1,6 +1,18 @@
+import { useEffect, useState } from 'react';
 import { useCombatStore, type AllocatableStat } from '../../stores/combatStore';
+import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { CharacterProfile } from '../../types/api';
+
+const EQUIP_SLOT_LABEL: Record<string, string> = {
+  weapon: '무기',
+  shield: '방패',
+  helmet: '투구',
+  body_armor: '갑옷',
+  boots: '신발',
+  ring: '반지',
+  necklace: '목걸이',
+};
 
 const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
   warrior: '#f4c430',
@@ -65,12 +77,113 @@ function StatRow({
   );
 }
 
+function InventoryTab({ character }: { character: CharacterProfile }) {
+  const inventory = useCharacterStore((s) => s.inventory);
+  const fetchInventory = useCharacterStore((s) => s.fetchInventory);
+  const equipItem = useCharacterStore((s) => s.equipItem);
+  const unequipItem = useCharacterStore((s) => s.unequipItem);
+  const [error, setError] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetchInventory().catch(() => setError('인벤토리를 불러오지 못했습니다.'));
+    // Only re-fetch when the panel mounts a fresh InventoryTab (i.e. reopened) — equip/unequip
+    // already update the store's inventory directly, no need to react to it here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleToggle(item: (typeof inventory)[number]) {
+    setError(null);
+    setPendingId(item.id);
+    try {
+      if (item.is_equipped) {
+        await unequipItem(item.id);
+      } else {
+        await equipItem(item.id);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '처리 중 오류가 발생했습니다.');
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  if (inventory.length === 0) {
+    return <p style={{ color: '#9aa08f', fontSize: 13, padding: '12px 4px' }}>인벤토리가 비어 있습니다.</p>;
+  }
+
+  return (
+    <div>
+      {error && (
+        <p style={{ color: '#e0538a', fontSize: 12, marginBottom: 8 }}>{error}</p>
+      )}
+      <div style={{ maxHeight: 280, overflowY: 'auto' }}>
+        {inventory.map((item) => {
+          const levelOk = character.level >= item.required_level;
+          const classOk =
+            !item.required_class || item.required_class === 'all' || item.required_class === character.character_class;
+          const equippable = item.equip_slot !== null;
+          const canEquip = equippable && levelOk && classOk;
+          const disabled = pendingId === item.id || (!item.is_equipped && !canEquip);
+
+          return (
+            <div
+              key={item.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '8px 4px',
+                borderBottom: '1px solid rgba(232, 201, 122, 0.15)',
+                gap: 8,
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: '#f4f1e8', fontSize: 13, fontWeight: 600 }}>
+                  {item.item_name}
+                  {item.is_equipped && item.equipped_slot && (
+                    <span style={{ color: '#e8c97a', fontSize: 11 }}> · {EQUIP_SLOT_LABEL[item.equipped_slot] ?? item.equipped_slot}</span>
+                  )}
+                </div>
+                <div style={{ color: '#9aa08f', fontSize: 11 }}>
+                  {item.attack_bonus > 0 && `공격 +${item.attack_bonus} `}
+                  {item.defense_bonus > 0 && `방어 +${item.defense_bonus} `}
+                  {!levelOk && <span style={{ color: '#e0538a' }}>Lv.{item.required_level} 필요 </span>}
+                  {!classOk && <span style={{ color: '#e0538a' }}>직업 제한</span>}
+                </div>
+              </div>
+              <button
+                onClick={() => handleToggle(item)}
+                disabled={disabled}
+                style={{
+                  flexShrink: 0,
+                  padding: '4px 10px',
+                  borderRadius: 6,
+                  border: '1px solid #e8c97a',
+                  background: item.is_equipped ? 'rgba(232, 201, 122, 0.25)' : 'rgba(255,255,255,0.05)',
+                  color: disabled && !item.is_equipped ? '#6a6a5f' : '#e8c97a',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: disabled ? 'default' : 'pointer',
+                }}
+              >
+                {item.is_equipped ? '해제' : '장착'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function CharacterPanel({ character }: { character: CharacterProfile }) {
   const isOpen = useUIStore((s) => s.isCharacterPanelOpen);
   const closeCharacterPanel = useUIStore((s) => s.closeCharacterPanel);
   const player = useCombatStore((s) => s.player);
   const allocateStat = useCombatStore((s) => s.allocateStat);
   const accent = CLASS_ACCENT[character.character_class];
+  const [tab, setTab] = useState<'stats' | 'inventory'>('stats');
 
   if (!isOpen) return null;
 
@@ -113,33 +226,61 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
           HP {player.currentHp}/{player.maxHp} · EXP {player.experience}/{player.expToNext} · {player.gold} G
         </div>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '6px 10px',
-            borderRadius: 8,
-            background: canAllocate ? 'rgba(232, 201, 122, 0.15)' : 'rgba(255,255,255,0.04)',
-            marginBottom: 8,
-          }}
-        >
-          <span style={{ color: '#e8c97a', fontSize: 13, fontWeight: 700 }}>스킬 포인트</span>
-          <span style={{ color: '#e8c97a', fontSize: 15, fontWeight: 700 }}>{player.skillPoints}</span>
-        </div>
-
-        <div>
-          {STAT_ROWS.map(({ stat, label, gain }) => (
-            <StatRow
-              key={stat}
-              label={label}
-              value={stat === 'attack' ? player.attackPower : stat === 'defense' ? player.defensePower : player.maxHp}
-              gain={gain}
-              canAllocate={canAllocate}
-              onAllocate={() => allocateStat(stat)}
-            />
+        <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+          {(['stats', 'inventory'] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              style={{
+                flex: 1,
+                padding: '6px 0',
+                borderRadius: 6,
+                border: `1px solid ${tab === t ? accent : 'rgba(232, 201, 122, 0.25)'}`,
+                background: tab === t ? 'rgba(232, 201, 122, 0.15)' : 'transparent',
+                color: tab === t ? '#e8c97a' : '#9aa08f',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {t === 'stats' ? '스탯' : '인벤토리'}
+            </button>
           ))}
         </div>
+
+        {tab === 'stats' ? (
+          <>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '6px 10px',
+                borderRadius: 8,
+                background: canAllocate ? 'rgba(232, 201, 122, 0.15)' : 'rgba(255,255,255,0.04)',
+                marginBottom: 8,
+              }}
+            >
+              <span style={{ color: '#e8c97a', fontSize: 13, fontWeight: 700 }}>스킬 포인트</span>
+              <span style={{ color: '#e8c97a', fontSize: 15, fontWeight: 700 }}>{player.skillPoints}</span>
+            </div>
+
+            <div>
+              {STAT_ROWS.map(({ stat, label, gain }) => (
+                <StatRow
+                  key={stat}
+                  label={label}
+                  value={stat === 'attack' ? player.attackPower : stat === 'defense' ? player.defensePower : player.maxHp}
+                  gain={gain}
+                  canAllocate={canAllocate}
+                  onAllocate={() => allocateStat(stat)}
+                />
+              ))}
+            </div>
+          </>
+        ) : (
+          <InventoryTab character={character} />
+        )}
       </div>
     </div>
   );
