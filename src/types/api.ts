@@ -66,6 +66,7 @@ export interface InventorySlot {
   required_class: string | null;
   buy_price: number;
   sell_price: number;
+  heal_hp: number;
 }
 
 export interface InventoryListResponse {
@@ -83,6 +84,7 @@ export interface ShopItem {
   defense_bonus: number;
   buy_price: number;
   sell_price: number;
+  heal_hp: number;
 }
 
 export interface ShopListResponse {

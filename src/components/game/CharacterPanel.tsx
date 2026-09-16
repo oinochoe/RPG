@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useCombatStore, type AllocatableStat } from '../../stores/combatStore';
-import { useCharacterStore } from '../../stores/characterStore';
+import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { CharacterProfile } from '../../types/api';
 
@@ -82,6 +82,8 @@ function InventoryTab({ character }: { character: CharacterProfile }) {
   const fetchInventory = useCharacterStore((s) => s.fetchInventory);
   const equipItem = useCharacterStore((s) => s.equipItem);
   const unequipItem = useCharacterStore((s) => s.unequipItem);
+  const hotbar = useCharacterStore((s) => s.hotbar);
+  const setHotbarSlot = useCharacterStore((s) => s.setHotbarSlot);
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<number | null>(null);
 
@@ -119,12 +121,14 @@ function InventoryTab({ character }: { character: CharacterProfile }) {
       )}
       <div style={{ maxHeight: 280, overflowY: 'auto' }}>
         {inventory.map((item) => {
+          const equippable = item.equip_slot !== null;
+          const consumable = item.heal_hp > 0;
           const levelOk = character.level >= item.required_level;
           const classOk =
             !item.required_class || item.required_class === 'all' || item.required_class === character.character_class;
-          const equippable = item.equip_slot !== null;
           const canEquip = equippable && levelOk && classOk;
           const disabled = pendingId === item.id || (!item.is_equipped && !canEquip);
+          const assignedSlot = hotbar.findIndex((id) => id === item.item_template_id);
 
           return (
             <div
@@ -141,6 +145,7 @@ function InventoryTab({ character }: { character: CharacterProfile }) {
               <div style={{ minWidth: 0 }}>
                 <div style={{ color: '#f4f1e8', fontSize: 13, fontWeight: 600 }}>
                   {item.item_name}
+                  {item.quantity > 1 && <span style={{ color: '#9aa08f', fontSize: 11 }}> x{item.quantity}</span>}
                   {item.is_equipped && item.equipped_slot && (
                     <span style={{ color: '#e8c97a', fontSize: 11 }}> · {EQUIP_SLOT_LABEL[item.equipped_slot] ?? item.equipped_slot}</span>
                   )}
@@ -148,27 +153,54 @@ function InventoryTab({ character }: { character: CharacterProfile }) {
                 <div style={{ color: '#9aa08f', fontSize: 11 }}>
                   {item.attack_bonus > 0 && `공격 +${item.attack_bonus} `}
                   {item.defense_bonus > 0 && `방어 +${item.defense_bonus} `}
+                  {item.heal_hp > 0 && `체력 +${item.heal_hp} `}
                   {!levelOk && <span style={{ color: '#e0538a' }}>Lv.{item.required_level} 필요 </span>}
                   {!classOk && <span style={{ color: '#e0538a' }}>직업 제한</span>}
                 </div>
               </div>
-              <button
-                onClick={() => handleToggle(item)}
-                disabled={disabled}
-                style={{
-                  flexShrink: 0,
-                  padding: '4px 10px',
-                  borderRadius: 6,
-                  border: '1px solid #e8c97a',
-                  background: item.is_equipped ? 'rgba(232, 201, 122, 0.25)' : 'rgba(255,255,255,0.05)',
-                  color: disabled && !item.is_equipped ? '#6a6a5f' : '#e8c97a',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: disabled ? 'default' : 'pointer',
-                }}
-              >
-                {item.is_equipped ? '해제' : '장착'}
-              </button>
+              {consumable ? (
+                <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+                  {Array.from({ length: HOTBAR_SIZE }).map((_, slot) => (
+                    <button
+                      key={slot}
+                      onClick={() => setHotbarSlot(slot, assignedSlot === slot ? null : item.item_template_id)}
+                      title={`단축키 ${slot + 1}에 등록`}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 5,
+                        border: '1px solid #e8c97a',
+                        background: assignedSlot === slot ? 'rgba(232, 201, 122, 0.35)' : 'rgba(255,255,255,0.05)',
+                        color: '#e8c97a',
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                    >
+                      {slot + 1}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <button
+                  onClick={() => handleToggle(item)}
+                  disabled={disabled}
+                  style={{
+                    flexShrink: 0,
+                    padding: '4px 10px',
+                    borderRadius: 6,
+                    border: '1px solid #e8c97a',
+                    background: item.is_equipped ? 'rgba(232, 201, 122, 0.25)' : 'rgba(255,255,255,0.05)',
+                    color: disabled && !item.is_equipped ? '#6a6a5f' : '#e8c97a',
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: disabled ? 'default' : 'pointer',
+                  }}
+                >
+                  {item.is_equipped ? '해제' : '장착'}
+                </button>
+              )}
             </div>
           );
         })}

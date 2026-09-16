@@ -14,11 +14,18 @@ function sumEquippedBonus(items: InventorySlot[]): { attack: number; defense: nu
   return { attack, defense };
 }
 
+export const HOTBAR_SIZE = 4;
+
 interface CharacterState {
   characters: CharacterSummary[];
   activeCharacter: CharacterProfile | null;
   inventory: InventorySlot[];
   shop: ShopItem[];
+  // Session-local only (not server-persisted, per design decision) — item_template_id per
+  // slot, resolved against the current inventory at use-time so a slot survives a potion
+  // stack running out and being rebought (a fresh inventory row gets a new row id, but the
+  // same item_template_id).
+  hotbar: (number | null)[];
   isLoading: boolean;
   fetchCharacters: () => Promise<void>;
   createCharacter: (name: string, characterClass: CharacterClass) => Promise<void>;
@@ -30,6 +37,8 @@ interface CharacterState {
   fetchShop: (kind: 'merchant' | 'blacksmith') => Promise<void>;
   buyItem: (itemTemplateId: number, price: number) => Promise<void>;
   sellItem: (inventoryId: number, price: number) => Promise<void>;
+  setHotbarSlot: (slot: number, itemTemplateId: number | null) => void;
+  useHotbarSlot: (slot: number) => Promise<void>;
 }
 
 export const useCharacterStore = create<CharacterState>((set, get) => ({
@@ -37,6 +46,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   activeCharacter: null,
   inventory: [],
   shop: [],
+  hotbar: Array(HOTBAR_SIZE).fill(null),
   isLoading: false,
 
   fetchCharacters: async () => {
@@ -53,7 +63,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   selectCharacter: async (characterId) => {
     await charactersApi.selectCharacter(characterId);
     const profile = await charactersApi.getActiveCharacterProfile();
-    set({ activeCharacter: profile, inventory: profile.inventory });
+    set({ activeCharacter: profile, inventory: profile.inventory, hotbar: Array(HOTBAR_SIZE).fill(null) });
   },
 
   deleteCharacter: async (characterId) => {
@@ -103,5 +113,23 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     set({ inventory: items });
     useCombatStore.getState().applyEquipmentDelta(after.attack - before.attack, after.defense - before.defense);
     useCombatStore.getState().adjustGold(price);
+  },
+
+  setHotbarSlot: (slot, itemTemplateId) => {
+    set((s) => {
+      const hotbar = [...s.hotbar];
+      hotbar[slot] = itemTemplateId;
+      return { hotbar };
+    });
+  },
+
+  useHotbarSlot: async (slot) => {
+    const itemTemplateId = get().hotbar[slot];
+    if (itemTemplateId === null) return;
+    const row = get().inventory.find((item) => item.item_template_id === itemTemplateId && item.quantity > 0);
+    if (!row) return;
+    const { items } = await charactersApi.useItem(row.id);
+    set({ inventory: items });
+    useCombatStore.getState().heal(row.heal_hp);
   },
 }));

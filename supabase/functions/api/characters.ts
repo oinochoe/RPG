@@ -36,6 +36,7 @@ interface InventoryItemRow {
   required_class: string | null;
   buy_price: number;
   sell_price: number;
+  heal_hp: number;
 }
 
 // Denormalizes character_inventory joined with item_templates into the shape the client
@@ -49,7 +50,7 @@ async function fetchInventory(
     .from("character_inventory")
     .select(
       "id, item_template_id, slot_index, quantity, enchant_level, is_equipped, equipped_slot, " +
-        "item_templates(name, item_type, equip_slot, attack_bonus, defense_bonus, required_level, required_class, buy_price, sell_price)",
+        "item_templates(name, item_type, equip_slot, attack_bonus, defense_bonus, required_level, required_class, buy_price, sell_price, heal_hp)",
     )
     .eq("character_id", characterId)
     .order("slot_index", { ascending: true });
@@ -67,6 +68,7 @@ async function fetchInventory(
       required_class: string | null;
       buy_price: number;
       sell_price: number;
+      heal_hp: number;
     };
     return {
       id: row.id,
@@ -85,6 +87,7 @@ async function fetchInventory(
       required_class: item.required_class,
       buy_price: item.buy_price,
       sell_price: item.sell_price,
+      heal_hp: item.heal_hp,
     };
   });
 }
@@ -415,7 +418,9 @@ charactersRoutes.get("/me/shop", async (c) => {
   const admin = getAdminClient();
   let query = admin
     .from("item_templates")
-    .select("id, name, item_type, equip_slot, required_level, required_class, attack_bonus, defense_bonus, buy_price, sell_price")
+    .select(
+      "id, name, item_type, equip_slot, required_level, required_class, attack_bonus, defense_bonus, buy_price, sell_price, heal_hp",
+    )
     .gt("buy_price", 0);
   query = kind === "blacksmith" ? query.in("item_type", BLACKSMITH_ITEM_TYPES) : query.not("item_type", "in", `(${BLACKSMITH_ITEM_TYPES.join(",")})`);
   const { data, error } = await query.order("id", { ascending: true });
@@ -440,7 +445,7 @@ charactersRoutes.post("/me/inventory/buy", async (c) => {
 
   const { data: item, error: itemError } = await admin
     .from("item_templates")
-    .select("id")
+    .select("id, equip_slot")
     .eq("id", item_template_id)
     .gt("buy_price", 0)
     .maybeSingle();
@@ -450,6 +455,34 @@ charactersRoutes.post("/me/inventory/buy", async (c) => {
   }
   if (!item) {
     throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "item_template_id");
+  }
+
+  // Non-equippable items (consumables) stack onto an existing row instead of cluttering
+  // the list with one row per purchase — equippable gear always gets its own row since
+  // each piece may end up with its own enchant_level down the line.
+  if (item.equip_slot === null) {
+    const { data: stack, error: stackError } = await admin
+      .from("character_inventory")
+      .select("id, quantity")
+      .eq("character_id", characterId)
+      .eq("item_template_id", item_template_id)
+      .maybeSingle();
+    if (stackError) {
+      console.error("inventory stack lookup failed during buy:", stackError.message);
+      throw new ApiError(500, "internal_error", "buy_failed", "아이템 구매 중 오류가 발생했습니다.");
+    }
+    if (stack) {
+      const { error: updateError } = await admin
+        .from("character_inventory")
+        .update({ quantity: stack.quantity + 1 })
+        .eq("id", stack.id);
+      if (updateError) {
+        console.error("inventory stack update failed during buy:", updateError.message);
+        throw new ApiError(500, "internal_error", "buy_failed", "아이템 구매 중 오류가 발생했습니다.");
+      }
+      const inventory = await fetchInventory(admin, characterId);
+      return c.json({ items: inventory }, 201);
+    }
   }
 
   const { data: existing, error: slotError } = await admin
@@ -484,6 +517,32 @@ charactersRoutes.post("/me/inventory/buy", async (c) => {
   return c.json({ items: inventory }, 201);
 });
 
+// Shared by sell/use: decrements a stack by one, deleting the row once it hits zero.
+// Returns false if the row doesn't exist (or isn't owned by this character).
+async function decrementOrDeleteInventoryRow(
+  admin: ReturnType<typeof getAdminClient>,
+  inventoryId: number,
+  characterId: number,
+): Promise<boolean> {
+  const { data: row, error: rowError } = await admin
+    .from("character_inventory")
+    .select("id, quantity")
+    .eq("id", inventoryId)
+    .eq("character_id", characterId)
+    .maybeSingle();
+  if (rowError) throw rowError;
+  if (!row) return false;
+
+  if (row.quantity > 1) {
+    const { error } = await admin.from("character_inventory").update({ quantity: row.quantity - 1 }).eq("id", row.id);
+    if (error) throw error;
+  } else {
+    const { error } = await admin.from("character_inventory").delete().eq("id", row.id);
+    if (error) throw error;
+  }
+  return true;
+}
+
 charactersRoutes.post("/me/inventory/:id/sell", async (c) => {
   const appUser = c.get("appUser");
   const inventoryId = Number(c.req.param("id"));
@@ -494,19 +553,59 @@ charactersRoutes.post("/me/inventory/:id/sell", async (c) => {
   const admin = getAdminClient();
   const characterId = await getActiveCharacterId(admin, appUser.id);
 
-  const { data, error } = await admin
-    .from("character_inventory")
-    .delete()
-    .eq("id", inventoryId)
-    .eq("character_id", characterId)
-    .select("id")
-    .maybeSingle();
-  if (error) {
-    console.error("inventory delete failed during sell:", error.message);
+  let sold: boolean;
+  try {
+    sold = await decrementOrDeleteInventoryRow(admin, inventoryId, characterId);
+  } catch (error) {
+    console.error("inventory update failed during sell:", (error as Error).message);
     throw new ApiError(500, "internal_error", "sell_failed", "아이템 판매 중 오류가 발생했습니다.");
   }
-  if (!data) {
+  if (!sold) {
     throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
+  }
+
+  const inventory = await fetchInventory(admin, characterId);
+  return c.json({ items: inventory });
+});
+
+// Consuming a potion. Like buy/sell, doesn't touch HP itself — that lives in
+// combatStore.player.currentHp client-side, same as the rest of combat. The client reads
+// the item's heal_hp from its own already-loaded inventory state (this row, before the
+// call) and applies it locally once this call succeeds; the server's only job is
+// confirming the item exists, is actually consumable, and decrementing/removing it.
+charactersRoutes.post("/me/inventory/:id/use", async (c) => {
+  const appUser = c.get("appUser");
+  const inventoryId = Number(c.req.param("id"));
+  if (!Number.isInteger(inventoryId)) {
+    throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
+  }
+
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  const { data: row, error: rowError } = await admin
+    .from("character_inventory")
+    .select("id, item_templates(heal_hp)")
+    .eq("id", inventoryId)
+    .eq("character_id", characterId)
+    .maybeSingle();
+  if (rowError) {
+    console.error("inventory lookup failed during use:", rowError.message);
+    throw new ApiError(500, "internal_error", "use_failed", "아이템 사용 중 오류가 발생했습니다.");
+  }
+  if (!row) {
+    throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
+  }
+  const template = row.item_templates as unknown as { heal_hp: number } | null;
+  if (!template || template.heal_hp <= 0) {
+    throw new ApiError(400, "validation_failed", "not_usable", "사용할 수 없는 아이템입니다.", "id");
+  }
+
+  try {
+    await decrementOrDeleteInventoryRow(admin, inventoryId, characterId);
+  } catch (error) {
+    console.error("inventory update failed during use:", (error as Error).message);
+    throw new ApiError(500, "internal_error", "use_failed", "아이템 사용 중 오류가 발생했습니다.");
   }
 
   const inventory = await fetchInventory(admin, characterId);

@@ -186,7 +186,8 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
                 const disabled = pendingId === item.id || !classOk || !levelOk || !canAfford;
                 const bonus =
                   (item.attack_bonus > 0 ? `공격 +${item.attack_bonus} ` : '') +
-                  (item.defense_bonus > 0 ? `방어 +${item.defense_bonus} ` : '');
+                  (item.defense_bonus > 0 ? `방어 +${item.defense_bonus} ` : '') +
+                  (item.heal_hp > 0 ? `체력 +${item.heal_hp} ` : '');
                 const restriction = !levelOk
                   ? `Lv.${item.required_level} 필요`
                   : !classOk
@@ -214,10 +215,11 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
             inventory.map((item) => (
               <ShopRow
                 key={item.id}
-                name={item.item_name + (item.is_equipped ? ' (장착 중)' : '')}
+                name={item.item_name + (item.quantity > 1 ? ` x${item.quantity}` : '') + (item.is_equipped ? ' (장착 중)' : '')}
                 meta={
                   (item.attack_bonus > 0 ? `공격 +${item.attack_bonus} ` : '') +
-                  (item.defense_bonus > 0 ? `방어 +${item.defense_bonus}` : '')
+                  (item.defense_bonus > 0 ? `방어 +${item.defense_bonus} ` : '') +
+                  (item.heal_hp > 0 ? `체력 +${item.heal_hp}` : '')
                 }
                 price={item.sell_price}
                 priceColor="#9aa08f"

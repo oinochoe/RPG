@@ -74,3 +74,7 @@ export function buyItem(itemTemplateId: number): Promise<InventoryListResponse> 
 export function sellItem(inventoryId: number): Promise<InventoryListResponse> {
   return apiRequest(`/characters/me/inventory/${inventoryId}/sell`, { method: 'POST' });
 }
+
+export function useItem(inventoryId: number): Promise<InventoryListResponse> {
+  return apiRequest(`/characters/me/inventory/${inventoryId}/use`, { method: 'POST' });
+}
