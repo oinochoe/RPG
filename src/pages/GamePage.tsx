@@ -67,7 +67,7 @@ export function GamePage() {
       >
         <Scene character={activeCharacter} map={currentMap} />
       </Canvas>
-      <HUD character={activeCharacter} />
+      <HUD />
       <WorldMap />
       <CharacterPanel character={activeCharacter} />
       <InventoryPanel character={activeCharacter} />

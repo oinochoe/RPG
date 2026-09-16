@@ -1,7 +1,6 @@
 import { useCombatStore } from '../../stores/combatStore';
 import { useUIStore } from '../../stores/uiStore';
 import { Hotbar } from './Hotbar';
-import type { CharacterProfile } from '../../types/api';
 
 const SHOP_NPC_LABEL: Record<'merchant' | 'blacksmith', string> = {
   merchant: '상인',
@@ -44,7 +43,7 @@ function Bar({ ratio, color, label, height = 14 }: { ratio: number; color: strin
   );
 }
 
-export function HUD({ character }: { character: CharacterProfile }) {
+export function HUD() {
   const player = useCombatStore((s) => s.player);
   const nearShopKind = useUIStore((s) => s.nearShopKind);
   const toggleSystemMenu = useUIStore((s) => s.toggleSystemMenu);
@@ -118,7 +117,7 @@ export function HUD({ character }: { character: CharacterProfile }) {
       >
         <span style={{ color: '#e8c97a', fontWeight: 700, fontSize: 12 }}>Lv.{player.level}</span>
         <Bar ratio={player.currentHp / player.maxHp} color="#57c25b" label={`HP ${player.currentHp}/${player.maxHp}`} />
-        <Bar ratio={character.max_mp > 0 ? character.current_mp / character.max_mp : 0} color="#5b8bd5" label={`MP ${character.current_mp}/${character.max_mp}`} />
+        <Bar ratio={player.maxMp > 0 ? player.currentMp / player.maxMp : 0} color="#5b8bd5" label={`MP ${player.currentMp}/${player.maxMp}`} />
         <Bar
           ratio={player.experience / player.expToNext}
           color="#d5a85b"
