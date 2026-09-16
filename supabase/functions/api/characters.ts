@@ -19,7 +19,71 @@ function toSummary(row: Record<string, unknown>) {
   };
 }
 
-function toProfile(row: Record<string, unknown>) {
+interface InventoryItemRow {
+  id: number;
+  item_template_id: number;
+  slot_index: number;
+  quantity: number;
+  enchant_level: number;
+  is_equipped: boolean;
+  equipped_slot: string | null;
+  item_name: string;
+  item_type: string;
+  equip_slot: string | null;
+  attack_bonus: number;
+  defense_bonus: number;
+  required_level: number;
+  required_class: string | null;
+}
+
+// Denormalizes character_inventory joined with item_templates into the shape the client
+// needs to render the inventory panel — the client never talks to Postgres directly, so
+// item name/stats have to be embedded here rather than looked up client-side.
+async function fetchInventory(
+  admin: ReturnType<typeof getAdminClient>,
+  characterId: number,
+): Promise<InventoryItemRow[]> {
+  const { data, error } = await admin
+    .from("character_inventory")
+    .select(
+      "id, item_template_id, slot_index, quantity, enchant_level, is_equipped, equipped_slot, " +
+        "item_templates(name, item_type, equip_slot, attack_bonus, defense_bonus, required_level, required_class)",
+    )
+    .eq("character_id", characterId)
+    .order("slot_index", { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => {
+    const item = row.item_templates as unknown as {
+      name: string;
+      item_type: string;
+      equip_slot: string | null;
+      attack_bonus: number;
+      defense_bonus: number;
+      required_level: number;
+      required_class: string | null;
+    };
+    return {
+      id: row.id,
+      item_template_id: row.item_template_id,
+      slot_index: row.slot_index,
+      quantity: row.quantity,
+      enchant_level: row.enchant_level,
+      is_equipped: row.is_equipped,
+      equipped_slot: row.equipped_slot,
+      item_name: item.name,
+      item_type: item.item_type,
+      equip_slot: item.equip_slot,
+      attack_bonus: item.attack_bonus,
+      defense_bonus: item.defense_bonus,
+      required_level: item.required_level,
+      required_class: item.required_class,
+    };
+  });
+}
+
+function toProfile(row: Record<string, unknown>, inventory: InventoryItemRow[]) {
   return {
     id: row.id,
     user_id: row.user_id,
@@ -40,9 +104,41 @@ function toProfile(row: Record<string, unknown>) {
     position_y: row.position_y,
     position_z: row.position_z,
     created_at: row.created_at,
-    equipped_items: [],
-    inventory: [],
+    equipped_items: inventory
+      .filter((item) => item.is_equipped)
+      .map((item) => ({
+        id: item.id,
+        item_template_id: item.item_template_id,
+        equipped_slot: item.equipped_slot,
+        enchant_level: item.enchant_level,
+        attack_bonus: item.attack_bonus,
+        defense_bonus: item.defense_bonus,
+      })),
+    inventory,
   };
+}
+
+// Maps set_item_equipped's RAISE EXCEPTION messages (see
+// supabase/migrations/20260916050730_set_item_equipped_rpc.sql) to the API contract's
+// error envelope, the same convention create_character/select_character already use.
+function mapEquipRpcError(message: string | undefined): ApiError {
+  if (message?.includes("character_not_found")) {
+    return new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
+  }
+  if (message?.includes("item_not_found")) {
+    return new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
+  }
+  if (message?.includes("not_equippable")) {
+    return new ApiError(400, "validation_failed", "not_equippable", "장착할 수 없는 아이템입니다.", "id");
+  }
+  if (message?.includes("level_requirement_unmet")) {
+    return new ApiError(400, "level_requirement_unmet", "insufficient_level", "레벨이 부족합니다.", "id");
+  }
+  if (message?.includes("class_requirement_unmet")) {
+    return new ApiError(400, "validation_failed", "class_requirement_unmet", "이 직업은 착용할 수 없는 아이템입니다.", "id");
+  }
+  console.error("set_item_equipped RPC failed:", message);
+  return new ApiError(500, "internal_error", "equip_failed", "아이템 장착/해제 중 오류가 발생했습니다.");
 }
 
 charactersRoutes.post("/", async (c) => {
@@ -247,5 +343,93 @@ charactersRoutes.get("/me", async (c) => {
     throw new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
   }
 
-  return c.json(toProfile(data as Record<string, unknown>));
+  let inventory: InventoryItemRow[];
+  try {
+    inventory = await fetchInventory(admin, data.id as number);
+  } catch (error) {
+    console.error("inventory fetch failed:", (error as Error).message);
+    throw new ApiError(500, "internal_error", "inventory_fetch_failed", "인벤토리 조회 중 오류가 발생했습니다.");
+  }
+
+  return c.json(toProfile(data as Record<string, unknown>, inventory));
+});
+
+async function getActiveCharacterId(
+  admin: ReturnType<typeof getAdminClient>,
+  userId: number,
+): Promise<number> {
+  const { data, error } = await admin
+    .from("characters")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error) {
+    console.error("active character lookup failed:", error.message);
+    throw new ApiError(500, "internal_error", "active_character_lookup_failed", "활성 캐릭터 조회 중 오류가 발생했습니다.");
+  }
+  if (!data) {
+    throw new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
+  }
+  return data.id as number;
+}
+
+charactersRoutes.get("/me/inventory", async (c) => {
+  const appUser = c.get("appUser");
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  try {
+    const inventory = await fetchInventory(admin, characterId);
+    return c.json({ items: inventory });
+  } catch (error) {
+    console.error("inventory fetch failed:", (error as Error).message);
+    throw new ApiError(500, "internal_error", "inventory_fetch_failed", "인벤토리 조회 중 오류가 발생했습니다.");
+  }
+});
+
+charactersRoutes.post("/me/inventory/:id/equip", async (c) => {
+  const appUser = c.get("appUser");
+  const inventoryId = Number(c.req.param("id"));
+  if (!Number.isInteger(inventoryId)) {
+    throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
+  }
+
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  const { error } = await admin.rpc("set_item_equipped", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+    p_inventory_id: inventoryId,
+    p_equip: true,
+  });
+  if (error) throw mapEquipRpcError(error.message);
+
+  const inventory = await fetchInventory(admin, characterId);
+  return c.json({ items: inventory });
+});
+
+charactersRoutes.post("/me/inventory/:id/unequip", async (c) => {
+  const appUser = c.get("appUser");
+  const inventoryId = Number(c.req.param("id"));
+  if (!Number.isInteger(inventoryId)) {
+    throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
+  }
+
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  const { error } = await admin.rpc("set_item_equipped", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+    p_inventory_id: inventoryId,
+    p_equip: false,
+  });
+  if (error) throw mapEquipRpcError(error.message);
+
+  const inventory = await fetchInventory(admin, characterId);
+  return c.json({ items: inventory });
 });
