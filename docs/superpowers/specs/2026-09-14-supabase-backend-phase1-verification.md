@@ -92,3 +92,23 @@ POST /exploration/enter-map → 200 (×2)
 ## Conclusion
 
 Phase 1 of the Supabase backend migration is verified end-to-end against a real browser client and the live, deployed Edge Function backend. The core acceptance criterion for this whole plan — character creation working (the operation that failed on BackendX) — passes. One real bug (missing CORS support) was found by this browser-based test that eight prior `curl`-only verification passes could not have caught, and has been fixed and redeployed. One pre-existing, out-of-scope gap (the email confirmation template routing) was identified and documented for follow-up rather than fixed here.
+
+## Addendum (2026-09-16): email confirmation template follow-up closed out
+
+The three follow-up items from the "Known gap" section above have been resolved:
+
+1. **Site URL** — fixed via the Supabase dashboard (Authentication → URL Configuration) from `localhost:3000` to `http://localhost:5173`, plus `http://localhost:5173/**` added to Redirect URLs.
+2. **Confirmation email template** — the dashboard's "Confirm signup" template link was rewritten to `{{ .SiteURL }}/verify-email?token={{ .TokenHash }}`, matching the client's `VerifyEmailPage.tsx` (`?token=` query param) and the `POST /auth/verify-email` handler's `verifyOtp({ token_hash, type: "email" })` call.
+3. **Hash-fragment fallback** — decided **not needed**: with the template fixed, GoTrue's implicit-flow hash-fragment link is no longer what gets sent; the client only ever needs to handle `?token=...`.
+
+**`supabase config push` was deliberately not used for this.** `supabase/config.toml` was still `supabase init`'s untouched stock template, while the live project had been customized directly via the dashboard (`enable_confirmations`, `otp_length`, MFA TOTP, Twilio SMS, DB pooler sizes, storage analytics all differed from the file). `config push` overwrites every field the file declares differently from remote, so pushing it as-is would have silently reverted those real settings back to template defaults — in the Twilio case, the local schema even requires a non-empty `account_sid` to represent `enabled = true` at all, so reconciling it would have meant writing a placeholder over live credentials. Fixed both settings by hand in the dashboard instead; `supabase/config.toml` was left untouched (reverted after an initial attempt to reconcile it field-by-field, once the Twilio blocker made clear how much undocumented drift there was between the file and the live project).
+
+**Second bug found while testing this end-to-end: Resend sandbox restriction blocked delivery entirely.** Custom SMTP was set up (Resend, `smtp.resend.com`, sender `onboarding@resend.dev`) per the dashboard's SMTP form. A real registration with `copstyle@naver.com` produced a user row with `confirmation_sent_at` staying `NULL` — no email ever queued. `auth_logs` showed why:
+
+```
+gomail: could not send email 1: 550 "You can only send testing emails to your own email address
+(copstyle86@gmail.com). To send emails to other recipients, please verify a domain at
+resend.com/domains, and change the `from` address to an email using this domain."
+```
+
+Resend's sandbox mode (no verified sending domain) only allows delivery to the address the Resend account itself was signed up with — not arbitrary recipients. Re-registering with `copstyle86@gmail.com` (the Resend account owner's own address) succeeded: confirmation email delivered, link led to the client's `/verify-email` page, verification completed. **This is a standing limitation, not a one-off bug** — real users with other email addresses cannot receive confirmation mail until a domain is verified on Resend (resend.com/domains → DNS records → change the SMTP sender address to that domain). Tracked as a follow-up for whenever this project needs real user signups beyond the developer's own inbox.
