@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCombatStore } from '../../stores/combatStore';
 import { useAuthStore } from '../../stores/authStore';
 import type { CharacterProfile } from '../../types/api';
@@ -37,6 +38,7 @@ export function HUD({ character }: { character: CharacterProfile }) {
   const player = useCombatStore((s) => s.player);
   const accent = CLASS_ACCENT[character.character_class];
   const [loggingOut, setLoggingOut] = useState(false);
+  const navigate = useNavigate();
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -120,11 +122,28 @@ export function HUD({ character }: { character: CharacterProfile }) {
         <div>지도: M</div>
         <div>캐릭터: C</div>
         <button
+          onClick={() => navigate('/characters')}
+          style={{
+            pointerEvents: 'auto',
+            marginTop: 6,
+            width: '100%',
+            padding: '4px 0',
+            borderRadius: 6,
+            border: '1px solid rgba(244, 241, 232, 0.35)',
+            background: 'rgba(0,0,0,0.25)',
+            color: '#f4f1e8',
+            fontSize: 11,
+            cursor: 'pointer',
+          }}
+        >
+          캐릭터 선택
+        </button>
+        <button
           onClick={handleLogout}
           disabled={loggingOut}
           style={{
             pointerEvents: 'auto',
-            marginTop: 6,
+            marginTop: 4,
             width: '100%',
             padding: '4px 0',
             borderRadius: 6,
