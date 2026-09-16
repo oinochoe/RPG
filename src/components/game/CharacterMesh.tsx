@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF, useAnimations } from '@react-three/drei';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
 import { NameTag } from './NameTag';
 import { HealthBar } from './HealthBar';
+import { Projectile } from './Projectile';
 import { playerPosition } from './playerTransform';
 import { moveTarget, clearMoveTarget } from './moveTarget';
 import { resolveMovement } from './worldColliders';
@@ -57,6 +58,22 @@ const SWING_AXIS = new THREE.Vector3(1, 0, 0);
 const STRIKE_END = 0.4;
 const WOUND_UP_ANGLE = -2.0;
 const IMPACT_ANGLE = 1.0;
+
+// Ranged classes skip the melee swing and fire one of these instead (see handleAttackResult).
+// Height roughly matches hand/chest level so the projectile visibly leaves the caster.
+const PROJECTILE_VARIANT: Partial<Record<CharacterProfile['character_class'], 'arrow' | 'bolt'>> = {
+  archer: 'arrow',
+  mage: 'bolt',
+};
+const PROJECTILE_ORIGIN_HEIGHT = 0.75;
+const PROJECTILE_DURATION_MS = 200;
+
+interface ActiveProjectile {
+  id: number;
+  from: [number, number, number];
+  to: [number, number, number];
+  variant: 'arrow' | 'bolt';
+}
 
 function shortestAngleDelta(from: number, to: number): number {
   return Math.atan2(Math.sin(to - from), Math.cos(to - from));
@@ -152,6 +169,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
 
   const player = useCombatStore((s) => s.player);
   const attackNearest = useCombatStore((s) => s.attackNearest);
+  const [projectiles, setProjectiles] = useState<ActiveProjectile[]>([]);
 
   function beginSwing() {
     attackAnimUntil.current = performance.now() + ATTACK_DURATION_MS;
@@ -163,12 +181,36 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       .multiply(new THREE.Quaternion().setFromAxisAngle(SWING_AXIS, IMPACT_ANGLE));
   }
 
+  // Shared by both attack entry points (Space key and click-to-move-then-attack below) so a
+  // hit always resolves into the right class's basic-attack visual: warrior keeps the melee
+  // swing, archer/mage skip it and fire a projectile at the target's current position instead.
+  // Damage itself was already applied instantly inside attackNearest — this is purely visual.
+  function handleAttackResult(result: ReturnType<typeof attackNearest>) {
+    if (!result.hit) return;
+    const variant = PROJECTILE_VARIANT[character.character_class];
+    if (!variant) {
+      beginSwing();
+      return;
+    }
+    const monster = result.instanceId != null ? useCombatStore.getState().monsters[result.instanceId] : undefined;
+    if (!monster) return;
+    setProjectiles((prev) => [
+      ...prev,
+      {
+        id: performance.now() + Math.random(),
+        from: [playerPosition.x, baseY + PROJECTILE_ORIGIN_HEIGHT, playerPosition.z],
+        to: [monster.position[0], monster.position[1] + PROJECTILE_ORIGIN_HEIGHT, monster.position[2]],
+        variant,
+      },
+    ]);
+  }
+
   useEffect(() => {
     playerPosition.set(character.position_x, character.position_y, character.position_z);
 
     function attack() {
       const result = attackNearest(playerPosition.x, playerPosition.z);
-      if (result.hit) beginSwing();
+      handleAttackResult(result);
     }
 
     function onKeyDown(e: KeyboardEvent) {
@@ -256,7 +298,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     if (!usingKeyboard && !moveTarget.point && moveTarget.attackTargetId !== null) {
       const result = attackNearest(playerPosition.x, playerPosition.z);
       if (result.hit) {
-        beginSwing();
+        handleAttackResult(result);
         if (result.killed || result.instanceId !== moveTarget.attackTargetId) {
           moveTarget.attackTargetId = null;
         }
@@ -289,6 +331,17 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   });
 
   return (
+    <>
+    {projectiles.map((p) => (
+      <Projectile
+        key={p.id}
+        from={p.from}
+        to={p.to}
+        variant={p.variant}
+        duration={PROJECTILE_DURATION_MS}
+        onArrive={() => setProjectiles((prev) => prev.filter((x) => x.id !== p.id))}
+      />
+    ))}
     <group ref={groupRef} position={[character.position_x, baseY, character.position_z]}>
       <group ref={modelGroupRef}>
         <primitive object={scene} />
@@ -296,6 +349,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       <NameTag position={[0, TARGET_HEIGHT + 0.35, 0]} label={character.name} accent={accent} />
       <HealthBar position={[0, TARGET_HEIGHT + 0.15, 0]} ratio={player.currentHp / player.maxHp} color="#57c25b" />
     </group>
+    </>
   );
 }
 
