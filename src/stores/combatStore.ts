@@ -76,6 +76,8 @@ interface PlayerCombatState {
   statCon: number;
   statInt: number;
   statWis: number;
+  skillLevel: number;
+  skillCooldownUntil: number;
 }
 
 // Stat points granted on each level-up, spent via allocateStat.
@@ -112,6 +114,23 @@ const PRIMARY_ATTACK_STAT: Record<CharacterProfile['character_class'], Allocatab
   mage: 'int',
 };
 
+export const SKILL_MAX_LEVEL = 10;
+const SKILL_UPGRADE_POINTS_PER_LEVEL = 1;
+
+export const SKILL_BY_CLASS: Record<
+  CharacterProfile['character_class'],
+  { name: string; mpCost: number; cooldownMs: number; baseDamageMultiplier: number }
+> = {
+  warrior: { name: '강타', mpCost: 15, cooldownMs: 4000, baseDamageMultiplier: 2.5 },
+  archer: { name: '관통사격', mpCost: 15, cooldownMs: 4000, baseDamageMultiplier: 2.0 },
+  mage: { name: '파이어볼', mpCost: 20, cooldownMs: 5000, baseDamageMultiplier: 2.2 },
+};
+
+// Each skill level above 1 adds +10% to the template's base multiplier.
+function skillDamageMultiplier(baseDamageMultiplier: number, skillLevel: number): number {
+  return baseDamageMultiplier * (1 + (skillLevel - 1) * 0.1);
+}
+
 interface AttackResult {
   hit: boolean;
   instanceId?: number;
@@ -139,6 +158,7 @@ interface CombatState {
    */
   loadMonsters: (monsters: MonsterInstanceSummary[], aggressive: AggressivePredicate) => void;
   attackNearest: (playerX: number, playerZ: number) => AttackResult;
+  castSkill: (playerX: number, playerZ: number) => AttackResult;
   monsterAttackTick: (playerX: number, playerZ: number) => MonsterAttackResult;
   tickMonsterMovement: (playerX: number, playerZ: number, delta: number) => void;
   allocateStat: (stat: AllocatableStat) => void;
@@ -150,8 +170,12 @@ interface CombatState {
    * login, same as PositionSync.tsx's handling.
    */
   syncProgress: () => void;
+  /** Calls the server RPC and adopts its authoritative skill_level/skill_upgrade_points. */
+  upgradeSkill: () => Promise<void>;
   respawnPlayer: () => void;
   tickRespawns: () => void;
+  /** +1 MP, capped at maxMp — ticked once per elapsed second by MpRegenTicker. */
+  tickMpRegen: () => void;
   /**
    * Adjusts the player's attack/defense by the given deltas without touching anything
    * else (HP, level, etc.) — called right after a successful equip/unequip API call with
@@ -206,6 +230,52 @@ function toMonsterCombatState(
   return monsterState;
 }
 
+// Shared by attackNearest and castSkill so a kill always applies identical exp/level-
+// up/gold/skill-point logic regardless of which attack type landed the final hit.
+function applyKill(
+  player: PlayerCombatState,
+  nearest: MonsterCombatState,
+): { nextPlayer: PlayerCombatState; leveledUp: boolean; goldDropped: number } {
+  const goldDropped = nearest.level * (4 + Math.floor(Math.random() * 8));
+  const gainedExp = nearest.level * 20;
+  let experience = player.experience + gainedExp;
+  let level = player.level;
+  let maxHp = player.maxHp;
+  let currentHp = player.currentHp;
+  let attackPower = player.attackPower;
+  let skillPoints = player.skillPoints;
+  let skillUpgradePoints = player.skillUpgradePoints;
+  let expToNext = expToNextForLevel(level);
+  let leveledUp = false;
+
+  while (experience >= expToNext) {
+    experience -= expToNext;
+    level += 1;
+    maxHp += 20;
+    attackPower += 2;
+    currentHp = maxHp;
+    skillPoints += SKILL_POINTS_PER_LEVEL;
+    skillUpgradePoints += SKILL_UPGRADE_POINTS_PER_LEVEL;
+    expToNext = expToNextForLevel(level);
+    leveledUp = true;
+  }
+
+  const nextPlayer: PlayerCombatState = {
+    ...player,
+    level,
+    experience,
+    expToNext,
+    currentHp,
+    maxHp,
+    attackPower,
+    gold: player.gold + goldDropped,
+    skillPoints,
+    skillUpgradePoints,
+  };
+
+  return { nextPlayer, leveledUp, goldDropped };
+}
+
 export const useCombatStore = create<CombatState>((set, get) => ({
   ready: false,
   monsters: {},
@@ -231,6 +301,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     statCon: 5,
     statInt: 5,
     statWis: 5,
+    skillLevel: 0,
+    skillCooldownUntil: 0,
   },
   lastAttackAt: 0,
 
@@ -270,6 +342,11 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         statCon: character.stat_con,
         statInt: character.stat_int,
         statWis: character.stat_wis,
+        // character.skills contains exactly 0 or 1 rows for the caller's own character
+        // (one skill per class, and the array is scoped to this character already) — no
+        // need to match by skill_template_id, just take the one row if it exists.
+        skillLevel: character.skills[0]?.skill_level ?? 0,
+        skillCooldownUntil: 0,
       },
       lastAttackAt: 0,
     });
@@ -310,48 +387,69 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       lastHitAt: now,
     };
 
-    let nextPlayer = player;
-    let leveledUp = false;
-    let goldDropped: number | undefined;
-    if (killed) {
-      goldDropped = nearest.level * (4 + Math.floor(Math.random() * 8));
-      const gainedExp = nearest.level * 20;
-      let experience = player.experience + gainedExp;
-      let level = player.level;
-      let maxHp = player.maxHp;
-      let currentHp = player.currentHp;
-      let attackPower = player.attackPower;
-      let skillPoints = player.skillPoints;
-      let expToNext = expToNextForLevel(level);
-
-      while (experience >= expToNext) {
-        experience -= expToNext;
-        level += 1;
-        maxHp += 20;
-        attackPower += 2;
-        currentHp = maxHp;
-        skillPoints += SKILL_POINTS_PER_LEVEL;
-        expToNext = expToNextForLevel(level);
-        leveledUp = true;
-      }
-
-      nextPlayer = {
-        ...player,
-        level,
-        experience,
-        expToNext,
-        currentHp,
-        maxHp,
-        attackPower,
-        gold: player.gold + goldDropped,
-        skillPoints,
-      };
-    }
+    const { nextPlayer, leveledUp, goldDropped } = killed
+      ? applyKill(player, nearest)
+      : { nextPlayer: player, leveledUp: false, goldDropped: undefined as number | undefined };
 
     set({
       monsters: { ...monsters, [nearest.instanceId]: updatedMonster },
       player: nextPlayer,
       lastAttackAt: now,
+    });
+
+    if (leveledUp) get().syncProgress();
+
+    return { hit: true, instanceId: nearest.instanceId, damage, killed, leveledUp, goldDropped };
+  },
+
+  castSkill: (playerX, playerZ) => {
+    const now = performance.now();
+    const { monsters, player } = get();
+    if (player.skillLevel <= 0 || now < player.skillCooldownUntil) return { hit: false };
+
+    const skill = SKILL_BY_CLASS[player.characterClass];
+    if (player.currentMp < skill.mpCost) return { hit: false };
+
+    let nearest: MonsterCombatState | null = null;
+    let nearestDist = Infinity;
+    for (const monster of Object.values(monsters)) {
+      if (!monster.alive) continue;
+      const dx = monster.position[0] - playerX;
+      const dz = monster.position[2] - playerZ;
+      const dist = Math.hypot(dx, dz);
+      if (dist <= player.attackRange && dist < nearestDist) {
+        nearest = monster;
+        nearestDist = dist;
+      }
+    }
+    if (!nearest) return { hit: false };
+
+    const multiplier = skillDamageMultiplier(skill.baseDamageMultiplier, player.skillLevel);
+    const damage = Math.max(1, Math.round(player.attackPower * multiplier * (0.8 + Math.random() * 0.4)));
+    const nextHp = Math.max(0, nearest.currentHp - damage);
+    const killed = nextHp === 0;
+
+    const updatedMonster: MonsterCombatState = {
+      ...nearest,
+      currentHp: nextHp,
+      alive: !killed,
+      respawnAt: killed ? now + RESPAWN_DELAY_MS : null,
+      lastHitAt: now,
+    };
+
+    const { nextPlayer: afterKill, leveledUp, goldDropped } = killed
+      ? applyKill(player, nearest)
+      : { nextPlayer: player, leveledUp: false, goldDropped: undefined as number | undefined };
+
+    const nextPlayer: PlayerCombatState = {
+      ...afterKill,
+      currentMp: afterKill.currentMp - skill.mpCost,
+      skillCooldownUntil: now + skill.cooldownMs,
+    };
+
+    set({
+      monsters: { ...monsters, [nearest.instanceId]: updatedMonster },
+      player: nextPlayer,
     });
 
     if (leveledUp) get().syncProgress();
@@ -539,6 +637,12 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       });
   },
 
+  upgradeSkill: async () => {
+    const { skill_level, skill_upgrade_points } = await charactersApi.upgradeSkill();
+    const { player } = get();
+    set({ player: { ...player, skillLevel: skill_level, skillUpgradePoints: skill_upgrade_points } });
+  },
+
   respawnPlayer: () => {
     const { player } = get();
     set({ player: { ...player, currentHp: player.maxHp } });
@@ -591,5 +695,11 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       }
     }
     if (changed) set({ monsters: next });
+  },
+
+  tickMpRegen: () => {
+    const { player } = get();
+    if (player.currentMp >= player.maxMp) return;
+    set({ player: { ...player, currentMp: Math.min(player.maxMp, player.currentMp + 1) } });
   },
 }));

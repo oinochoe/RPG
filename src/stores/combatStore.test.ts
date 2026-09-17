@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../api/characters', () => ({
   syncProgress: vi.fn().mockResolvedValue(undefined),
+  upgradeSkill: vi.fn(),
 }));
 
 import * as charactersApi from '../api/characters';
@@ -216,5 +217,105 @@ describe('combatStore attackNearest level-up sync', () => {
       gold: player.gold,
       skill_upgrade_points: player.skillUpgradePoints,
     });
+  });
+});
+
+describe('combatStore castSkill', () => {
+  const monster: MonsterInstanceSummary = {
+    instance_id: 1,
+    monster_template_id: 1,
+    name: 'Slime',
+    level: 1,
+    current_hp: 1000,
+    max_hp: 1000,
+    position_x: 0,
+    position_y: 0,
+    position_z: 0,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useCombatStore.getState().init(baseCharacter, [monster], true);
+  });
+
+  it('does nothing when the skill is unlearned (skillLevel 0)', () => {
+    const result = useCombatStore.getState().castSkill(0, 0);
+    expect(result.hit).toBe(false);
+  });
+
+  it('does nothing when on cooldown', () => {
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, skillCooldownUntil: performance.now() + 10_000 } }));
+    const result = useCombatStore.getState().castSkill(0, 0);
+    expect(result.hit).toBe(false);
+  });
+
+  it('does nothing when MP is below the cost', () => {
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 0 } }));
+    const result = useCombatStore.getState().castSkill(0, 0);
+    expect(result.hit).toBe(false);
+  });
+
+  it('hits the nearest monster, deducts MP, and sets a cooldown when ready', () => {
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 20 } }));
+    const before = performance.now();
+    const result = useCombatStore.getState().castSkill(0, 0);
+    const { player } = useCombatStore.getState();
+    expect(result.hit).toBe(true);
+    expect(result.instanceId).toBe(1);
+    expect(player.currentMp).toBe(5); // warrior's 강타 costs 15, started at 20
+    expect(player.skillCooldownUntil).toBeGreaterThan(before);
+  });
+
+  it('applies the per-level damage bonus (level 3 hits harder than level 1)', () => {
+    // Pin the random damage-variance roll so the two casts are only comparing the
+    // per-level multiplier, not noise from the (0.8 + Math.random() * 0.4) band.
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    try {
+      useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 100 } }));
+      useCombatStore.getState().castSkill(0, 0);
+      const lowLevelDamage = useCombatStore.getState().monsters[1].maxHp - useCombatStore.getState().monsters[1].currentHp;
+
+      useCombatStore.getState().init(baseCharacter, [monster], true);
+      useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 3, currentMp: 100 } }));
+      useCombatStore.getState().castSkill(0, 0);
+      const highLevelDamage = useCombatStore.getState().monsters[1].maxHp - useCombatStore.getState().monsters[1].currentHp;
+
+      // Level 3 = base multiplier * 1.2 (per the +10%/level formula) vs level 1's bare
+      // base multiplier, with the random band now pinned identically for both casts.
+      expect(highLevelDamage).toBeGreaterThan(lowLevelDamage);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
+  it('a killing skill hit still runs the shared level-up/gold logic', () => {
+    const weakMonster: MonsterInstanceSummary = { ...monster, current_hp: 1, max_hp: 1 };
+    useCombatStore.getState().init({ ...baseCharacter, experience: 95 }, [weakMonster], true);
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 100 } }));
+    vi.clearAllMocks();
+
+    const result = useCombatStore.getState().castSkill(0, 0);
+
+    expect(result.killed).toBe(true);
+    expect(result.leveledUp).toBe(true);
+    expect(charactersApi.syncProgress).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('combatStore tickMpRegen', () => {
+  beforeEach(() => {
+    useCombatStore.getState().init(baseCharacter, [], false);
+  });
+
+  it('adds 1 MP', () => {
+    useCombatStore.setState((s) => ({ player: { ...s.player, currentMp: 10, maxMp: 20 } }));
+    useCombatStore.getState().tickMpRegen();
+    expect(useCombatStore.getState().player.currentMp).toBe(11);
+  });
+
+  it('caps at maxMp', () => {
+    useCombatStore.setState((s) => ({ player: { ...s.player, currentMp: 20, maxMp: 20 } }));
+    useCombatStore.getState().tickMpRegen();
+    expect(useCombatStore.getState().player.currentMp).toBe(20);
   });
 });
