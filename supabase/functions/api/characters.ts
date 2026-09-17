@@ -92,7 +92,25 @@ async function fetchInventory(
   });
 }
 
-function toProfile(row: Record<string, unknown>, inventory: InventoryItemRow[]) {
+interface CharacterSkillRow {
+  skill_template_id: number;
+  skill_level: number;
+}
+
+async function fetchSkills(
+  admin: ReturnType<typeof getAdminClient>,
+  characterId: number,
+): Promise<CharacterSkillRow[]> {
+  const { data, error } = await admin
+    .from("character_skills")
+    .select("skill_template_id, skill_level")
+    .eq("character_id", characterId);
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+function toProfile(row: Record<string, unknown>, inventory: InventoryItemRow[], skills: CharacterSkillRow[]) {
   return {
     id: row.id,
     user_id: row.user_id,
@@ -108,11 +126,13 @@ function toProfile(row: Record<string, unknown>, inventory: InventoryItemRow[]) 
     defense_power: row.defense_power,
     gold: row.gold,
     skill_points: row.skill_points,
+    skill_upgrade_points: row.skill_upgrade_points,
     stat_str: row.stat_str,
     stat_dex: row.stat_dex,
     stat_con: row.stat_con,
     stat_int: row.stat_int,
     stat_wis: row.stat_wis,
+    skills,
     current_map_id: row.current_map_id,
     position_x: row.position_x,
     position_y: row.position_y,
@@ -153,6 +173,26 @@ function mapEquipRpcError(message: string | undefined): ApiError {
   }
   console.error("set_item_equipped RPC failed:", message);
   return new ApiError(500, "internal_error", "equip_failed", "아이템 장착/해제 중 오류가 발생했습니다.");
+}
+
+function mapSkillUpgradeRpcError(message: string | undefined): ApiError {
+  if (message?.includes("character_not_found")) {
+    return new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
+  }
+  if (message?.includes("insufficient_points")) {
+    return new ApiError(400, "validation_failed", "insufficient_points", "스킬 강화 포인트가 부족합니다.");
+  }
+  if (message?.includes("skill_not_found")) {
+    return new ApiError(404, "not_found", "skill_not_found", "해당 직업의 스킬을 찾을 수 없습니다.");
+  }
+  if (message?.includes("level_requirement_unmet")) {
+    return new ApiError(400, "level_requirement_unmet", "insufficient_level", "레벨이 부족합니다.");
+  }
+  if (message?.includes("skill_maxed")) {
+    return new ApiError(400, "validation_failed", "skill_maxed", "이미 최대 레벨입니다.");
+  }
+  console.error("upgrade_character_skill RPC failed:", message);
+  return new ApiError(500, "internal_error", "skill_upgrade_failed", "스킬 강화 중 오류가 발생했습니다.");
 }
 
 charactersRoutes.post("/", async (c) => {
@@ -421,6 +461,21 @@ charactersRoutes.patch("/me/progress", async (c) => {
   return c.json({}, 200);
 });
 
+charactersRoutes.post("/me/skills/upgrade", async (c) => {
+  const appUser = c.get("appUser");
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  const { data, error } = await admin.rpc("upgrade_character_skill", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+  });
+  if (error) throw mapSkillUpgradeRpcError(error.message);
+
+  const row = (data as { skill_level: number; skill_upgrade_points: number }[])[0];
+  return c.json({ skill_level: row.skill_level, skill_upgrade_points: row.skill_upgrade_points });
+});
+
 charactersRoutes.get("/me", async (c) => {
   const appUser = c.get("appUser");
   const admin = getAdminClient();
@@ -447,14 +502,16 @@ charactersRoutes.get("/me", async (c) => {
   }
 
   let inventory: InventoryItemRow[];
+  let skills: CharacterSkillRow[];
   try {
     inventory = await fetchInventory(admin, data.id as number);
+    skills = await fetchSkills(admin, data.id as number);
   } catch (error) {
-    console.error("inventory fetch failed:", (error as Error).message);
+    console.error("inventory/skills fetch failed:", (error as Error).message);
     throw new ApiError(500, "internal_error", "inventory_fetch_failed", "인벤토리 조회 중 오류가 발생했습니다.");
   }
 
-  return c.json(toProfile(data as Record<string, unknown>, inventory));
+  return c.json(toProfile(data as Record<string, unknown>, inventory, skills));
 });
 
 async function getActiveCharacterId(
