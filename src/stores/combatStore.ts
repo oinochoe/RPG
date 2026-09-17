@@ -527,6 +527,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         stat_con: player.statCon,
         stat_int: player.statInt,
         stat_wis: player.statWis,
+        gold: player.gold,
       })
       .catch(() => {
         // Best-effort — a missed save just means a slightly stale resume next login,

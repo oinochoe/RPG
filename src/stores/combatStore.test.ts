@@ -143,6 +143,7 @@ describe('combatStore allocateStat', () => {
       stat_con: player.statCon,
       stat_int: player.statInt,
       stat_wis: player.statWis,
+      gold: player.gold,
     });
   });
 
@@ -209,6 +210,7 @@ describe('combatStore attackNearest level-up sync', () => {
       stat_con: player.statCon,
       stat_int: player.statInt,
       stat_wis: player.statWis,
+      gold: player.gold,
     });
   });
 });

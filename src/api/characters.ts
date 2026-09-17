@@ -63,6 +63,7 @@ export interface CharacterProgressUpdate {
   stat_con: number;
   stat_int: number;
   stat_wis: number;
+  gold: number;
 }
 
 export function syncProgress(progress: CharacterProgressUpdate): Promise<void> {
