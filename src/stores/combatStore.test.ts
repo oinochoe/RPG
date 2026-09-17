@@ -23,6 +23,7 @@ const baseCharacter: CharacterProfile = {
   defense_power: 5,
   gold: 100,
   skill_points: 3,
+  skill_upgrade_points: 0,
   current_map_id: 1,
   position_x: 0,
   position_y: 0,
@@ -32,6 +33,7 @@ const baseCharacter: CharacterProfile = {
   stat_con: 5,
   stat_int: 5,
   stat_wis: 5,
+  skills: [],
   created_at: '2026-09-16T00:00:00Z',
   equipped_items: [],
   inventory: [],
@@ -144,6 +146,7 @@ describe('combatStore allocateStat', () => {
       stat_int: player.statInt,
       stat_wis: player.statWis,
       gold: player.gold,
+      skill_upgrade_points: player.skillUpgradePoints,
     });
   });
 
@@ -211,6 +214,7 @@ describe('combatStore attackNearest level-up sync', () => {
       stat_int: player.statInt,
       stat_wis: player.statWis,
       gold: player.gold,
+      skill_upgrade_points: player.skillUpgradePoints,
     });
   });
 });

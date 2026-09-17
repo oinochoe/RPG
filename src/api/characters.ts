@@ -64,6 +64,7 @@ export interface CharacterProgressUpdate {
   stat_int: number;
   stat_wis: number;
   gold: number;
+  skill_upgrade_points: number;
 }
 
 export function syncProgress(progress: CharacterProgressUpdate): Promise<void> {
@@ -99,4 +100,8 @@ export function sellItem(inventoryId: number): Promise<InventoryListResponse> {
 
 export function useItem(inventoryId: number): Promise<InventoryListResponse> {
   return apiRequest(`/characters/me/inventory/${inventoryId}/use`, { method: 'POST' });
+}
+
+export function upgradeSkill(): Promise<{ skill_level: number; skill_upgrade_points: number }> {
+  return apiRequest('/characters/me/skills/upgrade', { method: 'POST' });
 }

@@ -69,6 +69,7 @@ interface PlayerCombatState {
   attackRange: number;
   gold: number;
   skillPoints: number;
+  skillUpgradePoints: number;
   characterClass: CharacterProfile['character_class'];
   statStr: number;
   statDex: number;
@@ -223,6 +224,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     attackRange: ATTACK_RANGE_BY_CLASS.warrior,
     gold: 0,
     skillPoints: 0,
+    skillUpgradePoints: 0,
     characterClass: 'warrior',
     statStr: 5,
     statDex: 5,
@@ -261,6 +263,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         attackRange: ATTACK_RANGE_BY_CLASS[character.character_class],
         gold: character.gold,
         skillPoints: character.skill_points,
+        skillUpgradePoints: character.skill_upgrade_points,
         characterClass: character.character_class,
         statStr: character.stat_str,
         statDex: character.stat_dex,
@@ -528,6 +531,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         stat_int: player.statInt,
         stat_wis: player.statWis,
         gold: player.gold,
+        skill_upgrade_points: player.skillUpgradePoints,
       })
       .catch(() => {
         // Best-effort — a missed save just means a slightly stale resume next login,

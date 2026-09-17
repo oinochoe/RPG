@@ -91,6 +91,11 @@ export interface ShopListResponse {
   items: ShopItem[];
 }
 
+export interface CharacterSkill {
+  skill_template_id: number;
+  skill_level: number;
+}
+
 export interface CharacterProfile {
   id: number;
   user_id: number;
@@ -106,11 +111,13 @@ export interface CharacterProfile {
   defense_power: number;
   gold: number;
   skill_points: number;
+  skill_upgrade_points: number;
   stat_str: number;
   stat_dex: number;
   stat_con: number;
   stat_int: number;
   stat_wis: number;
+  skills: CharacterSkill[];
   current_map_id: number;
   position_x: number;
   position_y: number;
