@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react';
-import { useCombatStore, statPointCost, type AllocatableStat } from '../../stores/combatStore';
+import { useCombatStore, statPointCost, SKILL_BY_CLASS, SKILL_MAX_LEVEL, type AllocatableStat } from '../../stores/combatStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL } from './itemLabels';
@@ -186,13 +186,92 @@ function EquipmentTab() {
   );
 }
 
+function SkillTab({ character }: { character: CharacterProfile }) {
+  const player = useCombatStore((s) => s.player);
+  const upgradeSkill = useCombatStore((s) => s.upgradeSkill);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const skill = SKILL_BY_CLASS[character.character_class];
+  const canUpgrade = !pending && player.skillUpgradePoints > 0 && player.skillLevel < SKILL_MAX_LEVEL;
+
+  async function handleUpgrade() {
+    setError(null);
+    setPending(true);
+    try {
+      await upgradeSkill();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '스킬 강화 중 오류가 발생했습니다.');
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 10px',
+          borderRadius: 8,
+          background: player.skillUpgradePoints > 0 ? 'rgba(232, 201, 122, 0.15)' : 'rgba(255,255,255,0.04)',
+          marginBottom: 10,
+        }}
+      >
+        <span style={{ color: '#e8c97a', fontSize: 13, fontWeight: 700 }}>스킬 강화 포인트</span>
+        <span style={{ color: '#e8c97a', fontSize: 15, fontWeight: 700 }}>{player.skillUpgradePoints}</span>
+      </div>
+
+      {error && <p style={{ color: '#e0538a', fontSize: 12, marginBottom: 8 }}>{error}</p>}
+
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px',
+          borderRadius: 8,
+          background: 'rgba(255,255,255,0.04)',
+        }}
+      >
+        <div>
+          <div style={{ color: '#f4f1e8', fontSize: 14, fontWeight: 700 }}>
+            {skill.name} — Lv.{player.skillLevel}/{SKILL_MAX_LEVEL}
+          </div>
+          <div style={{ color: '#9aa08f', fontSize: 11, marginTop: 2 }}>
+            MP {skill.mpCost} · 쿨다운 {skill.cooldownMs / 1000}초 · K로 시전
+          </div>
+        </div>
+        <button
+          onClick={handleUpgrade}
+          disabled={!canUpgrade}
+          style={{
+            padding: '6px 12px',
+            borderRadius: 6,
+            border: '1px solid #e8c97a',
+            background: canUpgrade ? 'rgba(232, 201, 122, 0.2)' : 'rgba(255,255,255,0.05)',
+            color: canUpgrade ? '#e8c97a' : '#6a6a5f',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: canUpgrade ? 'pointer' : 'default',
+            flexShrink: 0,
+          }}
+        >
+          레벨업
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function CharacterPanel({ character }: { character: CharacterProfile }) {
   const isOpen = useUIStore((s) => s.isCharacterPanelOpen);
   const closeCharacterPanel = useUIStore((s) => s.closeCharacterPanel);
   const player = useCombatStore((s) => s.player);
   const allocateStat = useCombatStore((s) => s.allocateStat);
   const accent = CLASS_ACCENT[character.character_class];
-  const [tab, setTab] = useState<'stats' | 'equipment'>('stats');
+  const [tab, setTab] = useState<'stats' | 'equipment' | 'skill'>('stats');
   // Default anchor matches the old fixed left/top-centered position, expressed as plain
   // pixel coordinates so dragging can move it freely afterward — see useDraggablePanel.
   const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
@@ -263,7 +342,7 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
       </div>
 
         <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-          {(['stats', 'equipment'] as const).map((t) => (
+          {(['stats', 'equipment', 'skill'] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -279,7 +358,7 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
                 cursor: 'pointer',
               }}
             >
-              {t === 'stats' ? '스탯' : '장비'}
+              {t === 'stats' ? '스탯' : t === 'equipment' ? '장비' : '스킬'}
             </button>
           ))}
         </div>
@@ -337,8 +416,10 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
               })}
             </div>
           </>
-        ) : (
+        ) : tab === 'equipment' ? (
           <EquipmentTab />
+        ) : (
+          <SkillTab character={character} />
         )}
     </div>
   );
