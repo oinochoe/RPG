@@ -38,6 +38,21 @@ function RespawnTicker() {
   return null;
 }
 
+const MP_REGEN_INTERVAL_SEC = 1;
+
+function MpRegenTicker() {
+  const tickMpRegen = useCombatStore((s) => s.tickMpRegen);
+  const elapsed = useRef(0);
+  useFrame((_, delta) => {
+    elapsed.current += delta;
+    if (elapsed.current >= MP_REGEN_INTERVAL_SEC) {
+      elapsed.current = 0;
+      tickMpRegen();
+    }
+  });
+  return null;
+}
+
 export function Scene({
   character,
   map,
@@ -105,6 +120,7 @@ export function Scene({
       <AreaTransitions fieldMonsters={map.monsters} />
       <PlayerCombatEffects fieldMonsters={map.monsters} />
       <RespawnTicker />
+      <MpRegenTicker />
       <PositionSync mapId={map.map_id} />
       <ShopProximity />
 
