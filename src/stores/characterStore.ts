@@ -40,8 +40,10 @@ interface CharacterState {
   equipItem: (inventoryId: number) => Promise<void>;
   unequipItem: (inventoryId: number) => Promise<void>;
   fetchShop: (kind: 'merchant' | 'blacksmith') => Promise<void>;
-  buyItem: (itemTemplateId: number, price: number) => Promise<void>;
-  sellItem: (inventoryId: number, price: number) => Promise<void>;
+  // kind threads through to the API layer as BackendX's `category` field (see
+  // src/api/characters.ts) — the shop panel already knows which kind's catalog is open.
+  buyItem: (itemTemplateId: number, price: number, kind: 'merchant' | 'blacksmith') => Promise<void>;
+  sellItem: (inventoryId: number, price: number, kind: 'merchant' | 'blacksmith') => Promise<void>;
   setHotbarSlot: (slot: number, itemTemplateId: number | null) => void;
   useHotbarSlot: (slot: number) => Promise<void>;
 }
@@ -106,15 +108,15 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   // price is passed in by the caller (already known from the ShopItem/InventorySlot the
   // button was rendered from) rather than looked up here — the server doesn't touch gold
   // at all (see characters.ts's shop routes), so this is purely a local wallet update.
-  buyItem: async (itemTemplateId, price) => {
-    const { items } = await charactersApi.buyItem(itemTemplateId);
+  buyItem: async (itemTemplateId, price, kind) => {
+    const { items } = await charactersApi.buyItem(itemTemplateId, kind);
     set({ inventory: items });
     useCombatStore.getState().adjustGold(-price);
   },
 
-  sellItem: async (inventoryId, price) => {
+  sellItem: async (inventoryId, price, kind) => {
     const before = sumEquippedBonus(get().inventory);
-    const { items } = await charactersApi.sellItem(inventoryId);
+    const { items } = await charactersApi.sellItem(inventoryId, kind);
     const after = sumEquippedBonus(items);
     set({ inventory: items });
     useCombatStore.getState().applyEquipmentDelta(after.attack - before.attack, after.defense - before.defense);

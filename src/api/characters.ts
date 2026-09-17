@@ -147,19 +147,33 @@ export async function getShop(kind: 'merchant' | 'blacksmith'): Promise<ShopList
   };
 }
 
-// NOT YET ADAPTED — still calling the old Supabase-shaped routes. BackendX's
-// POST /shops/transaction needs an `npc_id` we don't have a source for yet (our client
-// only tracks a merchant/blacksmith *category*, not individual NPC entities/IDs — see
-// ShopProximity.tsx/Village.tsx's SHOP_NPCS, which never assigns numeric ids). Ask
-// BackendX where npc_id comes from (e.g. is it in each ShopCatalogItem row, or a
-// separate NPC-listing endpoint?) before wiring these two up.
-export function buyItem(itemTemplateId: number): Promise<InventoryListResponse> {
-  return apiRequest('/characters/me/inventory/buy', {
-    method: 'POST',
-    body: { item_template_id: itemTemplateId },
-  });
+interface BackendXShopTransactionBody {
+  category: 'merchant' | 'blacksmith';
+  action: 'buy' | 'sell';
+  item_template_id?: number;
+  inventory_item_id?: number;
+  quantity: number;
 }
 
-export function sellItem(inventoryId: number): Promise<InventoryListResponse> {
-  return apiRequest(`/characters/me/inventory/${inventoryId}/sell`, { method: 'POST' });
+// BackendX (FR-018): POST /shops/transaction, not our old separate buy/sell routes.
+// npc_id was dropped from their contract in favor of category (no real NPC entity
+// exists server-side) — same result-summary-not-full-list shape as /inventory/action,
+// so refetch afterward for the same reason.
+async function performShopTransaction(body: BackendXShopTransactionBody): Promise<InventoryListResponse> {
+  await apiRequest('/shops/transaction', { method: 'POST', body });
+  return getInventory();
+}
+
+export function buyItem(
+  itemTemplateId: number,
+  category: 'merchant' | 'blacksmith',
+): Promise<InventoryListResponse> {
+  return performShopTransaction({ category, action: 'buy', item_template_id: itemTemplateId, quantity: 1 });
+}
+
+export function sellItem(
+  inventoryId: number,
+  category: 'merchant' | 'blacksmith',
+): Promise<InventoryListResponse> {
+  return performShopTransaction({ category, action: 'sell', inventory_item_id: inventoryId, quantity: 1 });
 }

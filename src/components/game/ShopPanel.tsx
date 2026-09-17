@@ -102,10 +102,14 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
   if (!isOpen || !shopKind) return null;
 
   async function handleBuy(itemTemplateId: number, price: number) {
+    // Narrows shopKind for TS — the render guard below already ensures it's non-null
+    // whenever these handlers are actually reachable (they're only wired to buttons in
+    // the JSX this function returns after that guard).
+    if (!shopKind) return;
     setError(null);
     setPendingId(itemTemplateId);
     try {
-      await buyItem(itemTemplateId, price);
+      await buyItem(itemTemplateId, price, shopKind);
     } catch (err) {
       setError(err instanceof Error ? err.message : '구매 중 오류가 발생했습니다.');
     } finally {
@@ -114,10 +118,11 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
   }
 
   async function handleSell(inventoryId: number, price: number) {
+    if (!shopKind) return;
     setError(null);
     setPendingId(inventoryId);
     try {
-      await sellItem(inventoryId, price);
+      await sellItem(inventoryId, price, shopKind);
     } catch (err) {
       setError(err instanceof Error ? err.message : '판매 중 오류가 발생했습니다.');
     } finally {
