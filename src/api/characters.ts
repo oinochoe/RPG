@@ -45,7 +45,8 @@ export interface CharacterPositionUpdate {
 }
 
 export function updateCharacterPosition(position: CharacterPositionUpdate): Promise<void> {
-  return apiRequest('/characters/me/position', { method: 'PATCH', body: position });
+  // BackendX (FR-032): POST /characters/position, not our old PATCH /characters/me/position.
+  return apiRequest('/characters/position', { method: 'POST', body: position });
 }
 
 export interface CharacterProgressUpdate {
@@ -67,7 +68,8 @@ export interface CharacterProgressUpdate {
 }
 
 export function syncProgress(progress: CharacterProgressUpdate): Promise<void> {
-  return apiRequest('/characters/me/progress', { method: 'PATCH', body: progress });
+  // BackendX (FR-031): POST /characters/progress, not our old PATCH /characters/me/progress.
+  return apiRequest('/characters/progress', { method: 'POST', body: progress });
 }
 
 export function getInventory(): Promise<InventoryListResponse> {
