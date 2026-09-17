@@ -299,6 +299,7 @@ describe('combatStore castSkill', () => {
     expect(result.killed).toBe(true);
     expect(result.leveledUp).toBe(true);
     expect(charactersApi.syncProgress).toHaveBeenCalledTimes(1);
+    expect(useCombatStore.getState().player.skillUpgradePoints).toBe(1);
   });
 });
 

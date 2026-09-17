@@ -9,6 +9,7 @@ const PANEL_WIDTH = 280;
 const KEYBINDS: [string, string][] = [
   ['이동', 'WASD / 방향키'],
   ['공격 / NPC와 대화', 'Space'],
+  ['스킬', 'K'],
   ['지도', 'M'],
   ['캐릭터 / 장비', 'C'],
   ['인벤토리', 'I'],
