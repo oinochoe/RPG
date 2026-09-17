@@ -388,6 +388,7 @@ const PROGRESS_FIELDS = [
   "stat_int",
   "stat_wis",
   "gold",
+  "skill_upgrade_points",
 ] as const;
 
 // Per-field upper bound — the type/non-negativity checks below contain typos (negative
@@ -410,6 +411,7 @@ const PROGRESS_FIELD_MAX: Record<(typeof PROGRESS_FIELDS)[number], number> = {
   stat_int: 999,
   stat_wis: 999,
   gold: 999_999_999,
+  skill_upgrade_points: 999,
 };
 
 // Event-driven progress sync — called by the client right after allocateStat() and
