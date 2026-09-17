@@ -68,8 +68,22 @@ const PROJECTILE_VARIANT: Partial<Record<CharacterProfile['character_class'], 'a
 const PROJECTILE_ORIGIN_HEIGHT = 0.75;
 const PROJECTILE_DURATION_MS = 200;
 
+// Ranged classes play a short draw/cast pose before the projectile actually leaves —
+// beginDraw() below pulls the arm back over this whole duration, and the projectile is
+// queued (not spawned) until it elapses, matching a real draw-then-release feel instead
+// of firing instantly on input. Damage was already applied instantly inside
+// attackNearest either way (see handleAttackResult) — this only delays the visual.
+const RANGED_DRAW_DURATION_MS = 150;
+const RANGED_DRAW_ANGLE = -1.3;
+
 interface ActiveProjectile {
   id: number;
+  from: [number, number, number];
+  to: [number, number, number];
+  variant: 'arrow' | 'bolt';
+}
+
+interface PendingProjectile {
   from: [number, number, number];
   to: [number, number, number];
   variant: 'arrow' | 'bolt';
@@ -166,6 +180,16 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   const keysDown = useRef<Set<string>>(new Set());
   const facing = useRef(0);
   const attackAnimUntil = useRef(0);
+  // How long the current override lasts and which pose shape it follows — melee's swing
+  // (windUp -> impact -> rest, see swingEase) and ranged's draw (rest -> windUp, holding
+  // until release) need different durations and interpolation, but share the same bone/
+  // quat refs since only one attack animation ever plays at a time per character.
+  const attackAnimDuration = useRef(ATTACK_DURATION_MS);
+  const attackAnimMode = useRef<'melee' | 'ranged' | null>(null);
+  // Set by handleAttackResult for archer/mage, consumed once the draw animation elapses
+  // (see the useFrame block below) — this is what actually delays the projectile's spawn
+  // until the release moment instead of firing it the instant the input happened.
+  const pendingProjectile = useRef<PendingProjectile | null>(null);
 
   const player = useCombatStore((s) => s.player);
   const attackNearest = useCombatStore((s) => s.attackNearest);
@@ -173,6 +197,8 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
 
   function beginSwing() {
     attackAnimUntil.current = performance.now() + ATTACK_DURATION_MS;
+    attackAnimDuration.current = ATTACK_DURATION_MS;
+    attackAnimMode.current = 'melee';
     windUpQuat.current
       .copy(restQuat.current)
       .multiply(new THREE.Quaternion().setFromAxisAngle(SWING_AXIS, WOUND_UP_ANGLE));
@@ -181,10 +207,20 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       .multiply(new THREE.Quaternion().setFromAxisAngle(SWING_AXIS, IMPACT_ANGLE));
   }
 
+  function beginDraw() {
+    attackAnimUntil.current = performance.now() + RANGED_DRAW_DURATION_MS;
+    attackAnimDuration.current = RANGED_DRAW_DURATION_MS;
+    attackAnimMode.current = 'ranged';
+    windUpQuat.current
+      .copy(restQuat.current)
+      .multiply(new THREE.Quaternion().setFromAxisAngle(SWING_AXIS, RANGED_DRAW_ANGLE));
+  }
+
   // Shared by both attack entry points (Space key and click-to-move-then-attack below) so a
   // hit always resolves into the right class's basic-attack visual: warrior keeps the melee
-  // swing, archer/mage skip it and fire a projectile at the target's current position instead.
-  // Damage itself was already applied instantly inside attackNearest — this is purely visual.
+  // swing, archer/mage play a short draw/cast pose and the projectile itself is queued to
+  // spawn once that pose finishes (see the useFrame block). Damage itself was already
+  // applied instantly inside attackNearest either way — only the visual is delayed.
   function handleAttackResult(result: ReturnType<typeof attackNearest>) {
     if (!result.hit) return;
     const variant = PROJECTILE_VARIANT[character.character_class];
@@ -194,15 +230,12 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     }
     const monster = result.instanceId != null ? useCombatStore.getState().monsters[result.instanceId] : undefined;
     if (!monster) return;
-    setProjectiles((prev) => [
-      ...prev,
-      {
-        id: performance.now() + Math.random(),
-        from: [playerPosition.x, baseY + PROJECTILE_ORIGIN_HEIGHT, playerPosition.z],
-        to: [monster.position[0], monster.position[1] + PROJECTILE_ORIGIN_HEIGHT, monster.position[2]],
-        variant,
-      },
-    ]);
+    beginDraw();
+    pendingProjectile.current = {
+      from: [playerPosition.x, baseY + PROJECTILE_ORIGIN_HEIGHT, playerPosition.z],
+      to: [monster.position[0], monster.position[1] + PROJECTILE_ORIGIN_HEIGHT, monster.position[2]],
+      variant,
+    };
   }
 
   useEffect(() => {
@@ -313,19 +346,38 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     isMoving ? playAction('Walking_A') : playAction('Idle_A');
 
     const attackRemaining = attackAnimUntil.current - performance.now();
+
+    // The draw pose finishes exactly when attackRemaining hits zero — that's the release
+    // moment, so the queued projectile spawns here rather than back when the attack input
+    // happened. No-op for melee (pendingProjectile is only ever set by the ranged path).
+    if (pendingProjectile.current && attackRemaining <= 0) {
+      const p = pendingProjectile.current;
+      pendingProjectile.current = null;
+      setProjectiles((prev) => [...prev, { id: performance.now() + Math.random(), ...p }]);
+    }
+
     if (swingBoneRef.current) {
       if (attackRemaining > 0) {
-        const t = Math.min(1, 1 - attackRemaining / ATTACK_DURATION_MS);
-        const { phase, localT } = swingEase(t);
-        if (phase === 'strike') {
-          swingBoneRef.current.quaternion.slerpQuaternions(windUpQuat.current, impactQuat.current, localT);
+        const t = Math.min(1, 1 - attackRemaining / attackAnimDuration.current);
+        if (attackAnimMode.current === 'ranged') {
+          // Draw: ease from rest into the pulled-back pose and hold there until release —
+          // no separate impact/recovery phase, the bone just snaps back to the mixer's
+          // idle/walk pose on the very next frame once attackRemaining crosses zero.
+          const eased = t * t * (3 - 2 * t);
+          swingBoneRef.current.quaternion.slerpQuaternions(restQuat.current, windUpQuat.current, eased);
         } else {
-          swingBoneRef.current.quaternion.slerpQuaternions(impactQuat.current, restQuat.current, localT);
+          const { phase, localT } = swingEase(t);
+          if (phase === 'strike') {
+            swingBoneRef.current.quaternion.slerpQuaternions(windUpQuat.current, impactQuat.current, localT);
+          } else {
+            swingBoneRef.current.quaternion.slerpQuaternions(impactQuat.current, restQuat.current, localT);
+          }
         }
       } else {
         // Not attacking: keep tracking the mixer's live idle/walk pose for this bone so the
         // next swing always winds up from (and recovers back to) wherever it actually is.
         restQuat.current.copy(swingBoneRef.current.quaternion);
+        attackAnimMode.current = null;
       }
     }
   });
