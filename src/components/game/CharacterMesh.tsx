@@ -193,6 +193,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
 
   const player = useCombatStore((s) => s.player);
   const attackNearest = useCombatStore((s) => s.attackNearest);
+  const castSkill = useCombatStore((s) => s.castSkill);
   const [projectiles, setProjectiles] = useState<ActiveProjectile[]>([]);
 
   function beginSwing() {
@@ -246,6 +247,11 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       handleAttackResult(result);
     }
 
+    function castSkillAction() {
+      const result = castSkill(playerPosition.x, playerPosition.z);
+      handleAttackResult(result);
+    }
+
     function onKeyDown(e: KeyboardEvent) {
       const ui = useUIStore.getState();
       // Movement/attack deliberately keep working while a panel is open (character/
@@ -261,6 +267,11 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
         } else {
           attack();
         }
+        return;
+      }
+      if (e.code === 'KeyK') {
+        e.preventDefault();
+        castSkillAction();
         return;
       }
       if (MOVE_KEYS[e.code]) {
