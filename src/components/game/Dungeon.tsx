@@ -25,13 +25,21 @@ const CELL_OFFSETS = Array.from({ length: GRID_CELLS }, (_, i) => (i - (GRID_CEL
 const DOOR_CELL_INDEX = (GRID_CELLS - 1) / 2;
 
 export const DUNGEON_MAX_FLOOR = 3;
-export const DUNGEON_SPAWN: [number, number] = [0, 0];
 // Gap in the south wall — floor 1's exit leads back to the field, deeper floors lead up one level.
 export const DUNGEON_EXIT_TRIGGER: [number, number] = [0, -ROOM_HALF_Z + 1];
 export const DUNGEON_EXIT_RADIUS = 1.8;
 // Gap in the north wall (only present on floors below the last) — leads one level deeper.
 export const DUNGEON_DESCEND_TRIGGER: [number, number] = [0, ROOM_HALF_Z - 1];
 export const DUNGEON_DESCEND_RADIUS = 1.8;
+
+// Spawn a few units in from whichever doorway the player would have just walked through to
+// land on this floor, rather than always the room's center — arriving via the south doorway
+// (from the field, or up from a deeper floor) lands you just inside the south door; arriving
+// via the north doorway (down from a shallower floor) lands you just inside the north door.
+// The offset (3, vs. the trigger radius of 1.8) keeps the transition cooldown from being the
+// only thing stopping an instant re-trigger.
+export const DUNGEON_SOUTH_SPAWN: [number, number] = [0, -ROOM_HALF_Z + 3];
+export const DUNGEON_NORTH_SPAWN: [number, number] = [0, ROOM_HALF_Z - 3];
 
 const FLOOR_BASE_LEVEL = 5;
 
@@ -57,13 +65,15 @@ export function buildFloorMonsters(floor: number): MonsterInstanceSummary[] {
       current_hp: captainHp,
       max_hp: captainHp,
       // The captain is the one monster on this floor that's aggressive on sight (see
-      // worldStore's isDungeonEscortAggressive), and idle monsters wander up to
-      // MONSTER_WANDER_RADIUS (2.5) from their spawn point — so its static distance from
-      // DUNGEON_SPAWN needs to clear MONSTER_DETECT_RANGE (6) by more than that wander
-      // radius, or an unlucky wander leg can drift it into detect range and trigger an
-      // immediate chase even though the player never approached it. 8 units against the
-      // east wall (ROOM_HALF_X is 10 since the KayKit visual pass) leaves a safe margin
-      // either way without sitting flush against the new wall geometry.
+      // worldStore's isDungeonEscortAggressive, and combatStore's MONSTER_LEASH_RANGE note —
+      // aggressive monsters chase without a leash once engaged), and idle monsters wander up
+      // to MONSTER_WANDER_RADIUS (2.5) from their spawn point — so its static distance from
+      // wherever the player actually enters (DUNGEON_SOUTH_SPAWN/DUNGEON_NORTH_SPAWN, both
+      // near a doorway rather than room center) needs to clear MONSTER_DETECT_RANGE (6) by
+      // more than that wander radius, or an unlucky wander leg can drift it into detect range
+      // and trigger an immediate chase even though the player never approached it. 8 units
+      // against the east wall (ROOM_HALF_X is 10 since the KayKit visual pass) leaves a safe
+      // margin either way without sitting flush against the new wall geometry.
       position_x: 8,
       position_y: 0,
       position_z: 0,

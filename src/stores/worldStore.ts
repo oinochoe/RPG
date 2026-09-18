@@ -3,7 +3,12 @@ import { playerPosition } from '../components/game/playerTransform';
 import { clearMoveTarget } from '../components/game/moveTarget';
 import { activeColliders, rockColliders, FIELD_ENTRANCE_POINT } from '../components/game/worldColliders';
 import { villageColliders } from '../components/game/Village';
-import { getDungeonColliders, buildFloorMonsters, DUNGEON_SPAWN } from '../components/game/Dungeon';
+import {
+  getDungeonColliders,
+  buildFloorMonsters,
+  DUNGEON_SOUTH_SPAWN,
+  DUNGEON_NORTH_SPAWN,
+} from '../components/game/Dungeon';
 import { useCombatStore } from './combatStore';
 import type { MonsterInstanceSummary } from '../types/api';
 
@@ -24,11 +29,15 @@ function isDungeonEscortAggressive(monster: MonsterInstanceSummary): boolean {
   return monster.name.includes('대장') || monster.name.includes('군주');
 }
 
-function enterFloor(floor: number) {
+// spawnSide is which doorway the player just walked through to get here: 'south' for
+// entering from the field or ascending from a deeper floor (both arrive via this floor's
+// south door), 'north' for descending from a shallower floor (arrives via the north door).
+function enterFloor(floor: number, spawnSide: 'south' | 'north') {
   clearMoveTarget();
   activeColliders.list = getDungeonColliders(floor);
   useCombatStore.getState().loadMonsters(buildFloorMonsters(floor), isDungeonEscortAggressive);
-  playerPosition.set(DUNGEON_SPAWN[0], 0, DUNGEON_SPAWN[1]);
+  const spawn = spawnSide === 'south' ? DUNGEON_SOUTH_SPAWN : DUNGEON_NORTH_SPAWN;
+  playerPosition.set(spawn[0], 0, spawn[1]);
 }
 
 interface WorldState {
@@ -45,19 +54,19 @@ export const useWorldStore = create<WorldState>((set, get) => ({
   dungeonFloor: 1,
 
   enterDungeon: () => {
-    enterFloor(1);
+    enterFloor(1, 'south');
     set({ currentArea: 'dungeon', dungeonFloor: 1 });
   },
 
   descendFloor: () => {
     const floor = get().dungeonFloor + 1;
-    enterFloor(floor);
+    enterFloor(floor, 'south');
     set({ dungeonFloor: floor });
   },
 
   ascendFloor: () => {
     const floor = Math.max(1, get().dungeonFloor - 1);
-    enterFloor(floor);
+    enterFloor(floor, 'north');
     set({ dungeonFloor: floor });
   },
 

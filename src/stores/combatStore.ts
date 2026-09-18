@@ -20,8 +20,14 @@ const MONSTER_ATTACK_REACH = 1.3;
 const MONSTER_ATTACK_COOLDOWN_MS = 1200;
 const MONSTER_CHASE_SPEED = 2.4;
 const MONSTER_WANDER_SPEED = 1;
-// How far a monster will chase from its spawn point before giving up and walking back —
-// keeps dungeon goblins from chasing straight through the far wall of their room.
+// How far a PASSIVE monster will chase from its spawn point before giving up and walking
+// back. Aggressive monsters (대장/군주) skip this check entirely and chase as long as the
+// player stays within MONSTER_DETECT_RANGE — safe to let them roam their own spawn point
+// this way since the player's own movement is already wall-constrained (resolveMovement in
+// worldColliders.ts), so an aggressive monster chasing the player can never end up clipping
+// through a wall the player themselves couldn't have crossed. Previously this leash applied
+// to every monster regardless of aggressive, which made a chasing captain/lord visibly snap
+// back and forth right at the 6-unit boundary instead of committing to the chase.
 const MONSTER_LEASH_RANGE = 6;
 const MONSTER_WANDER_RADIUS = 2.5;
 const MONSTER_WANDER_INTERVAL_MS: [number, number] = [2500, 5000];
@@ -519,7 +525,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       let wanderTarget = monster.wanderTarget;
       let nextWanderAt = monster.nextWanderAt;
 
-      if (engaged && distToPlayer <= MONSTER_DETECT_RANGE && distFromSpawn <= MONSTER_LEASH_RANGE) {
+      if (engaged && distToPlayer <= MONSTER_DETECT_RANGE && (monster.aggressive || distFromSpawn <= MONSTER_LEASH_RANGE)) {
         wanderTarget = null;
         nextWanderAt = null;
         if (distToPlayer > MONSTER_ATTACK_REACH) {
