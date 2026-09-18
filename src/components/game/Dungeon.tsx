@@ -1,16 +1,28 @@
-import { useMemo } from 'react';
+import { Suspense, useEffect, useMemo } from 'react';
+import { useGLTF } from '@react-three/drei';
+import * as THREE from 'three';
 import type { ThreeEvent } from '@react-three/fiber';
-import { useStoneTexture } from './proceduralTextures';
 import { setMoveTarget } from './moveTarget';
 import type { Collider } from './worldColliders';
 import type { MonsterInstanceSummary } from '../../types/api';
 
-const ROOM_HALF_X = 12;
-const ROOM_HALF_Z = 10;
-const DOOR_HALF_WIDTH = 2;
-const WALL_HEIGHT = 3;
-const WALL_SPACING = 1.8;
-const WALL_RADIUS = 1;
+// KayKit Dungeon Pack — every structural piece (wall/wall_doorway/floor_tile_large) is
+// modeled on a 4-unit grid (see each .gltf's own bounding box: width 4, height 4, depth 1 for
+// walls; 4x4 for floor tiles). The room is sized to an exact 5x5 cell grid of that size so a
+// doorway cell can sit dead-center in a wall run without needing a half-width filler piece.
+const KAYKIT_DUNGEON = '/models/kaykit-dungeon/Assets/gltf';
+const WALL_MODEL = `${KAYKIT_DUNGEON}/wall.gltf`;
+const DOORWAY_MODEL = `${KAYKIT_DUNGEON}/wall_doorway.gltf`;
+const FLOOR_TILE_MODEL = `${KAYKIT_DUNGEON}/floor_tile_large.gltf`;
+const COLUMN_MODEL = `${KAYKIT_DUNGEON}/column.gltf`;
+const TORCH_MODEL = `${KAYKIT_DUNGEON}/torch_lit.gltf`;
+
+const CELL_SIZE = 4;
+const GRID_CELLS = 5; // odd, so the middle cell (the doorway) sits exactly on the room's center line
+export const ROOM_HALF_X = (GRID_CELLS * CELL_SIZE) / 2;
+export const ROOM_HALF_Z = (GRID_CELLS * CELL_SIZE) / 2;
+const CELL_OFFSETS = Array.from({ length: GRID_CELLS }, (_, i) => (i - (GRID_CELLS - 1) / 2) * CELL_SIZE);
+const DOOR_CELL_INDEX = (GRID_CELLS - 1) / 2;
 
 export const DUNGEON_MAX_FLOOR = 3;
 export const DUNGEON_SPAWN: [number, number] = [0, 0];
@@ -49,90 +61,129 @@ export function buildFloorMonsters(floor: number): MonsterInstanceSummary[] {
       // MONSTER_WANDER_RADIUS (2.5) from their spawn point — so its static distance from
       // DUNGEON_SPAWN needs to clear MONSTER_DETECT_RANGE (6) by more than that wander
       // radius, or an unlucky wander leg can drift it into detect range and trigger an
-      // immediate chase even though the player never approached it. 10 units against the
-      // east wall leaves a safe margin either way.
-      position_x: 10,
+      // immediate chase even though the player never approached it. 8 units against the
+      // east wall (ROOM_HALF_X is 10 since the KayKit visual pass) leaves a safe margin
+      // either way without sitting flush against the new wall geometry.
+      position_x: 8,
       position_y: 0,
       position_z: 0,
     },
   ];
 }
 
-interface WallSegment {
-  positions: [number, number][];
+type WallCellType = 'wall' | 'doorway';
+
+interface WallCell {
+  x: number;
+  z: number;
+  rotationY: number;
+  type: WallCellType;
 }
 
-function line(from: [number, number], to: [number, number]): [number, number][] {
-  const dx = to[0] - from[0];
-  const dz = to[1] - from[1];
-  const len = Math.hypot(dx, dz);
-  const steps = Math.max(1, Math.round(len / WALL_SPACING));
-  const points: [number, number][] = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    points.push([from[0] + dx * t, from[1] + dz * t]);
-  }
-  return points;
+/** One cell per CELL_SIZE step along each of the room's 4 edges. West/east runs are the
+ * south/north wall module rotated 90° (the model's own width axis is X, so a run along Z
+ * needs that turn). Corner cells are left as plain wall modules on both intersecting runs —
+ * KayKit ships dedicated corner pieces with their own asymmetric pivot per rotation, which
+ * needs eyes-on-the-render tuning to get right; two plain modules overlapping by their
+ * shared 1-unit thickness at each corner reads fine and never leaves a gap. */
+function buildWallCells(hasNorthGap: boolean): WallCell[] {
+  const cells: WallCell[] = [];
+
+  CELL_OFFSETS.forEach((x, i) => {
+    cells.push({ x, z: -ROOM_HALF_Z, rotationY: 0, type: i === DOOR_CELL_INDEX ? 'doorway' : 'wall' });
+    cells.push({
+      x,
+      z: ROOM_HALF_Z,
+      rotationY: 0,
+      type: i === DOOR_CELL_INDEX && hasNorthGap ? 'doorway' : 'wall',
+    });
+  });
+  CELL_OFFSETS.forEach((z) => {
+    cells.push({ x: -ROOM_HALF_X, z, rotationY: Math.PI / 2, type: 'wall' });
+    cells.push({ x: ROOM_HALF_X, z, rotationY: Math.PI / 2, type: 'wall' });
+  });
+
+  return cells;
 }
 
-function buildWallSegments(hasNorthGap: boolean): WallSegment[] {
-  const segments: WallSegment[] = [];
-
-  if (hasNorthGap) {
-    segments.push({ positions: line([-ROOM_HALF_X, ROOM_HALF_Z], [-DOOR_HALF_WIDTH, ROOM_HALF_Z]) });
-    segments.push({ positions: line([DOOR_HALF_WIDTH, ROOM_HALF_Z], [ROOM_HALF_X, ROOM_HALF_Z]) });
-  } else {
-    segments.push({ positions: line([-ROOM_HALF_X, ROOM_HALF_Z], [ROOM_HALF_X, ROOM_HALF_Z]) });
-  }
-  segments.push({ positions: line([-ROOM_HALF_X, -ROOM_HALF_Z], [-ROOM_HALF_X, ROOM_HALF_Z]) }); // west
-  segments.push({ positions: line([ROOM_HALF_X, -ROOM_HALF_Z], [ROOM_HALF_X, ROOM_HALF_Z]) }); // east
-  // South wall, split around the doorway gap (always present — floor 1's way out, or the way
-  // back up for deeper floors).
-  segments.push({ positions: line([-ROOM_HALF_X, -ROOM_HALF_Z], [-DOOR_HALF_WIDTH, -ROOM_HALF_Z]) });
-  segments.push({ positions: line([DOOR_HALF_WIDTH, -ROOM_HALF_Z], [ROOM_HALF_X, -ROOM_HALF_Z]) });
-
-  return segments;
-}
+const COLLIDER_RADIUS = 1.3;
+const COLLIDER_OFFSET = 1;
 
 export function getDungeonColliders(floor: number): Collider[] {
   const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
-  return buildWallSegments(hasNorthGap).flatMap((seg) =>
-    seg.positions.map(([x, z]) => ({ x, z, radius: WALL_RADIUS })),
-  );
+  const colliders: Collider[] = [];
+
+  for (const cell of buildWallCells(hasNorthGap)) {
+    if (cell.type === 'doorway') continue;
+    // Two circles per module, offset along its length axis, approximate the 4-unit-wide
+    // wall well enough for the simple circle-based collision in worldColliders.ts.
+    const alongX = cell.rotationY === 0;
+    for (const offset of [-COLLIDER_OFFSET, COLLIDER_OFFSET]) {
+      colliders.push({
+        x: cell.x + (alongX ? offset : 0),
+        z: cell.z + (alongX ? 0 : offset),
+        radius: COLLIDER_RADIUS,
+      });
+    }
+  }
+
+  for (const [x, z] of COLUMN_POSITIONS) {
+    colliders.push({ x, z, radius: 0.5 });
+  }
+
+  return colliders;
 }
 
 const TORCH_POSITIONS: [number, number][] = [
-  [-ROOM_HALF_X + 0.5, -ROOM_HALF_Z + 4],
-  [-ROOM_HALF_X + 0.5, ROOM_HALF_Z - 4],
-  [ROOM_HALF_X - 0.5, -ROOM_HALF_Z + 4],
-  [ROOM_HALF_X - 0.5, ROOM_HALF_Z - 4],
+  [-ROOM_HALF_X + 1, -ROOM_HALF_Z + 4],
+  [-ROOM_HALF_X + 1, ROOM_HALF_Z - 4],
+  [ROOM_HALF_X - 1, -ROOM_HALF_Z + 4],
+  [ROOM_HALF_X - 1, ROOM_HALF_Z - 4],
 ];
 
-function Wall({ positions }: { positions: [number, number][] }) {
+const COLUMN_POSITIONS: [number, number][] = [
+  [-ROOM_HALF_X + 2.5, -ROOM_HALF_Z + 2.5],
+  [ROOM_HALF_X - 2.5, -ROOM_HALF_Z + 2.5],
+  [-ROOM_HALF_X + 2.5, ROOM_HALF_Z - 2.5],
+  [ROOM_HALF_X - 2.5, ROOM_HALF_Z - 2.5],
+];
+
+/** Generic static (non-rigged) KayKit prop — matches Village.tsx's Building component. */
+function DungeonProp({
+  url,
+  position,
+  rotationY = 0,
+  scale = 1,
+}: {
+  url: string;
+  position: [number, number, number];
+  rotationY?: number;
+  scale?: number;
+}) {
+  const gltf = useGLTF(url);
+  const scene = useMemo(() => gltf.scene.clone(), [gltf.scene]);
+
+  useEffect(() => {
+    scene.traverse((obj) => {
+      if ((obj as THREE.Mesh).isMesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
+    });
+  }, [scene]);
+
   return (
-    <>
-      {positions.map(([x, z], i) => (
-        <mesh key={i} castShadow receiveShadow position={[x, WALL_HEIGHT / 2, z]}>
-          <boxGeometry args={[WALL_SPACING * 1.05, WALL_HEIGHT, WALL_SPACING * 1.05]} />
-          <meshStandardMaterial color="#4a4750" roughness={0.9} />
-        </mesh>
-      ))}
-    </>
+    <group position={position} rotation={[0, rotationY, 0]} scale={scale}>
+      <primitive object={scene} />
+    </group>
   );
 }
 
 function Torch({ position }: { position: [number, number] }) {
   return (
     <group position={[position[0], 0, position[1]]}>
-      <mesh castShadow position={[0, 1.2, 0]}>
-        <cylinderGeometry args={[0.06, 0.08, 1.4, 6]} />
-        <meshStandardMaterial color="#3a2a1a" roughness={0.8} />
-      </mesh>
-      <mesh position={[0, 1.95, 0]}>
-        <sphereGeometry args={[0.14, 8, 8]} />
-        <meshStandardMaterial color="#ff9a3c" emissive="#ff6a1a" emissiveIntensity={2} roughness={0.4} />
-      </mesh>
-      <pointLight position={[0, 1.95, 0]} color="#ff9a3c" intensity={1.4} distance={9} />
+      <DungeonProp url={TORCH_MODEL} position={[0, 0.4, 0]} />
+      <pointLight position={[0, 1.4, 0]} color="#ff9a3c" intensity={1.4} distance={9} />
     </group>
   );
 }
@@ -156,9 +207,8 @@ function FloorMarker({ position, color }: { position: [number, number]; color: s
  * last) leads one floor deeper. See worldStore.ts for the actual floor-swapping logic.
  */
 export function Dungeon({ floor }: { floor: number }) {
-  const stoneTexture = useStoneTexture();
   const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
-  const wallSegments = useMemo(() => buildWallSegments(hasNorthGap), [hasNorthGap]);
+  const wallCells = useMemo(() => buildWallCells(hasNorthGap), [hasNorthGap]);
 
   function handleFloorClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
@@ -167,21 +217,46 @@ export function Dungeon({ floor }: { floor: number }) {
 
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={handleFloorClick}>
+      {/* Invisible click-to-move plane, sized to the room — the real floor visuals are the
+          floor_tile_large instances below, but those are Suspense-boundary GLTF loads and
+          shouldn't gate click-to-move working immediately on floor entry. */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} onClick={handleFloorClick} visible={false}>
         <planeGeometry args={[ROOM_HALF_X * 2, ROOM_HALF_Z * 2]} />
-        <meshStandardMaterial map={stoneTexture} roughness={0.95} metalness={0} />
       </mesh>
 
-      {wallSegments.map((seg, i) => (
-        <Wall key={i} positions={seg.positions} />
-      ))}
+      <Suspense fallback={null}>
+        {CELL_OFFSETS.map((x) =>
+          CELL_OFFSETS.map((z) => (
+            <DungeonProp key={`floor-${x}-${z}`} url={FLOOR_TILE_MODEL} position={[x, 0, z]} />
+          )),
+        )}
 
-      {TORCH_POSITIONS.map((pos, i) => (
-        <Torch key={i} position={pos} />
-      ))}
+        {wallCells.map((cell, i) => (
+          <DungeonProp
+            key={`wall-${i}`}
+            url={cell.type === 'doorway' ? DOORWAY_MODEL : WALL_MODEL}
+            position={[cell.x, 0, cell.z]}
+            rotationY={cell.rotationY}
+          />
+        ))}
+
+        {COLUMN_POSITIONS.map(([x, z], i) => (
+          <DungeonProp key={`column-${i}`} url={COLUMN_MODEL} position={[x, 0, z]} />
+        ))}
+
+        {TORCH_POSITIONS.map((pos, i) => (
+          <Torch key={i} position={pos} />
+        ))}
+      </Suspense>
 
       <FloorMarker position={DUNGEON_EXIT_TRIGGER} color="#bcdcf0" />
       {hasNorthGap && <FloorMarker position={DUNGEON_DESCEND_TRIGGER} color="#c084fc" />}
     </group>
   );
 }
+
+useGLTF.preload(WALL_MODEL);
+useGLTF.preload(DOORWAY_MODEL);
+useGLTF.preload(FLOOR_TILE_MODEL);
+useGLTF.preload(COLUMN_MODEL);
+useGLTF.preload(TORCH_MODEL);
