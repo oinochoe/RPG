@@ -30,10 +30,22 @@ const PARCHMENT_PANEL_STYLE: CSSProperties = {
   backgroundColor: '#e8d3ab',
   backgroundImage: `linear-gradient(160deg, rgba(255, 244, 222, 0.55), rgba(163, 116, 68, 0.3)), ${PARCHMENT_GRAIN_URL}`,
   backgroundBlendMode: 'overlay, soft-light',
-  border: '3px solid #5a2a1f',
+  border: '4px solid #5a2a1f',
   borderRadius: 12,
-  padding: 16,
-  boxShadow: '0 12px 32px rgba(0,0,0,0.5), inset 0 0 24px rgba(90, 42, 31, 0.25)',
+  // A thin frame around a 480px map reads as "barely changed" — this needs to be a real
+  // margin of visible parchment, not a sliver, or the map's own green/dark fill dominates.
+  padding: 28,
+  boxShadow: '0 12px 32px rgba(0,0,0,0.5), inset 0 0 30px rgba(90, 42, 31, 0.3)',
+};
+
+// The map SVG's own border/inset — separate from the panel's outer border so the parchment
+// margin between the two is clearly visible rather than the two frames touching.
+const MAP_FRAME_STYLE: CSSProperties = {
+  border: '4px solid #5a2a1f',
+  borderRadius: 8,
+  padding: 8,
+  boxShadow: 'inset 0 0 16px rgba(0, 0, 0, 0.45)',
+  background: '#5a2a1f',
 };
 
 /** Shared glow/gradient defs — a soft outer blur behind the player/monster markers and a
@@ -239,7 +251,7 @@ export function WorldMap() {
           </span>
           <span style={{ color: '#6b4a35', fontSize: 12 }}>M 또는 ESC로 닫기</span>
         </div>
-        <div style={{ border: '2px solid #5a2a1f', borderRadius: 8, padding: 3 }}>
+        <div style={MAP_FRAME_STYLE}>
           {currentArea === 'dungeon' ? (
             <DungeonMap player={player} floor={dungeonFloor} />
           ) : (
