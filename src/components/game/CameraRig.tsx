@@ -4,7 +4,10 @@ import { OrthographicCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { playerPosition } from './playerTransform';
 
-const OFFSET = new THREE.Vector3(18, 16, 18);
+// Exported so CharacterMesh can derive camera-relative movement directions from the same
+// offset — WASD needs to move the character relative to what's "up"/"right" on screen under
+// this angled view, not raw world axes (see CAMERA_FORWARD/CAMERA_RIGHT there).
+export const OFFSET = new THREE.Vector3(18, 16, 18);
 
 export function CameraRig() {
   const camRef = useRef<THREE.OrthographicCamera>(null);

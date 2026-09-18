@@ -9,6 +9,7 @@ import { Projectile } from './Projectile';
 import { playerPosition } from './playerTransform';
 import { moveTarget, clearMoveTarget } from './moveTarget';
 import { resolveMovement } from './worldColliders';
+import { OFFSET as CAMERA_OFFSET } from './CameraRig';
 import { useCombatStore } from '../../stores/combatStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { CharacterProfile } from '../../types/api';
@@ -43,15 +44,28 @@ const PLAYER_COLLISION_RADIUS = 0.4;
 // this no longer needs to fit inside a fixed shadow frustum, just the decorated ground itself.
 const MAX_RADIUS = 68;
 const ARRIVE_EPSILON = 0.15;
+
+// The camera sits at a fixed diagonal offset (CameraRig's OFFSET, e.g. (18,16,18)) rather
+// than straight overhead, so "up" on screen isn't world -Z and "right" isn't world +X —
+// pressing A/left needs to move the character toward screen-left, not diagonally, the same
+// way Lineage-style angled cameras handle movement. Derive that screen basis from the same
+// offset CameraRig uses, instead of hardcoding the resulting ~45° rotation, so the two stay
+// in sync if the camera angle ever changes.
+const CAMERA_FORWARD_X = -CAMERA_OFFSET.x;
+const CAMERA_FORWARD_Z = -CAMERA_OFFSET.z;
+const CAMERA_FORWARD_LEN = Math.hypot(CAMERA_FORWARD_X, CAMERA_FORWARD_Z) || 1;
+const FORWARD: [number, number] = [CAMERA_FORWARD_X / CAMERA_FORWARD_LEN, CAMERA_FORWARD_Z / CAMERA_FORWARD_LEN];
+const RIGHT: [number, number] = [-FORWARD[1], FORWARD[0]];
+
 const MOVE_KEYS: Record<string, [number, number]> = {
-  KeyW: [0, -1],
-  ArrowUp: [0, -1],
-  KeyS: [0, 1],
-  ArrowDown: [0, 1],
-  KeyA: [-1, 0],
-  ArrowLeft: [-1, 0],
-  KeyD: [1, 0],
-  ArrowRight: [1, 0],
+  KeyW: FORWARD,
+  ArrowUp: FORWARD,
+  KeyS: [-FORWARD[0], -FORWARD[1]],
+  ArrowDown: [-FORWARD[0], -FORWARD[1]],
+  KeyA: [-RIGHT[0], -RIGHT[1]],
+  ArrowLeft: [-RIGHT[0], -RIGHT[1]],
+  KeyD: RIGHT,
+  ArrowRight: RIGHT,
 };
 
 const SWING_AXIS = new THREE.Vector3(1, 0, 0);
