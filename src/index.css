@@ -50,17 +50,3 @@ body {
 .custom-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(232, 201, 122, 0.8);
 }
-
-/* Inventory grid slots (Fantasy Inventory Pack by camaquer, itch.io) — background-image
-   swapped by state instead of the plain border/fill InventoryPanel used before. Plain <img>
-   can't do :hover, so this has to be a CSS class rather than an inline style. */
-.inv-slot {
-  background-image: url('/image/fantasy-inventory/slot_normal.png');
-  background-size: 100% 100%;
-}
-.inv-slot:hover:not(:disabled) {
-  background-image: url('/image/fantasy-inventory/slot_hover.png');
-}
-.inv-slot.selected {
-  background-image: url('/image/fantasy-inventory/slot_selected.png');
-}

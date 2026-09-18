@@ -44,15 +44,15 @@ function GridCell({
         e.dataTransfer.setData(HOTBAR_DRAG_MIME, String(item.item_template_id));
         e.dataTransfer.effectAllowed = 'copy';
       }}
-      className={`inv-slot${selected ? ' selected' : ''}`}
       style={{
         width: 56,
         height: 56,
-        border: 'none',
         borderRadius: 8,
+        border: `1px solid ${selected ? '#e8c97a' : 'rgba(232, 201, 122, 0.3)'}`,
+        background: item?.is_equipped ? 'rgba(232, 201, 122, 0.18)' : 'rgba(0, 0, 0, 0.35)',
         position: 'relative',
         cursor: item ? (draggable ? 'grab' : 'pointer') : 'default',
-        padding: 4,
+        padding: 2,
       }}
     >
       {item && (
@@ -156,9 +156,7 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
         left: position.x,
         top: position.y,
         width: PANEL_WIDTH,
-        // Dark brown instead of the rest of the UI's dark green — the imported slot art
-        // (Fantasy Inventory Pack) is warm brown/tan, and sat oddly against the green panel.
-        background: '#241a12',
+        background: '#1a2a1c',
         border: `2px solid ${accent}`,
         borderRadius: 12,
         padding: 16,
