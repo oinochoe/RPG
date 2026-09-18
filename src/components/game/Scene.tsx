@@ -117,7 +117,7 @@ export function Scene({
             <MonsterMesh
               key={monster.instance_id}
               monster={monster}
-              variant={GOBLIN_VARIANT}
+              variant={monster.monster_template_id === 3 ? SKELETON_VARIANT : GOBLIN_VARIANT}
               scale={monsterScale(monster.name)}
               tint={monsterTint(monster.name)}
             />

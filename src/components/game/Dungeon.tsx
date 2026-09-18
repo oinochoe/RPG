@@ -43,6 +43,32 @@ export const DUNGEON_NORTH_SPAWN: [number, number] = [0, ROOM_HALF_Z - 3];
 
 const FLOOR_BASE_LEVEL = 5;
 
+// Skeletons (monster_template_id 3, same convention as FieldMonsters.ts) join the roster
+// from floor 2 onward — floor 1 stays goblins-only so a first-time player learns the basics
+// against one enemy type before the mix shows up. Same level/hp formula as the goblins on
+// the same floor (species is a visual/variety distinction here, not a separate power tier).
+function regularMonster(
+  idBase: number,
+  slot: number,
+  floor: number,
+  level: number,
+  hp: number,
+  position: [number, number],
+): MonsterInstanceSummary {
+  const isSkeleton = floor >= 2 && (slot === 2 || slot === 4);
+  return {
+    instance_id: idBase + slot,
+    monster_template_id: isSkeleton ? 3 : 2,
+    name: isSkeleton ? '스켈레톤' : '고블린',
+    level,
+    current_hp: hp,
+    max_hp: hp,
+    position_x: position[0],
+    position_y: 0,
+    position_z: position[1],
+  };
+}
+
 /** Deterministic per-floor monster roster — stronger the deeper you go, with a tougher
  * captain on every floor and a named boss guarding the final floor. */
 export function buildFloorMonsters(floor: number): MonsterInstanceSummary[] {
@@ -53,10 +79,10 @@ export function buildFloorMonsters(floor: number): MonsterInstanceSummary[] {
   const captainHp = Math.round(hp * (isLastFloor ? 2.5 : 1.8));
 
   return [
-    { instance_id: idBase + 1, monster_template_id: 2, name: '고블린', level, current_hp: hp, max_hp: hp, position_x: -6, position_y: 0, position_z: 3 },
-    { instance_id: idBase + 2, monster_template_id: 2, name: '고블린', level, current_hp: hp, max_hp: hp, position_x: 6, position_y: 0, position_z: 3 },
-    { instance_id: idBase + 3, monster_template_id: 2, name: '고블린', level, current_hp: hp, max_hp: hp, position_x: 0, position_y: 0, position_z: 6 },
-    { instance_id: idBase + 5, monster_template_id: 2, name: '고블린', level, current_hp: hp, max_hp: hp, position_x: 5, position_y: 0, position_z: -4 },
+    regularMonster(idBase, 1, floor, level, hp, [-6, 3]),
+    regularMonster(idBase, 2, floor, level, hp, [6, 3]),
+    regularMonster(idBase, 3, floor, level, hp, [0, 6]),
+    regularMonster(idBase, 5, floor, level, hp, [5, -4]),
     {
       instance_id: idBase + 4,
       monster_template_id: 2,
