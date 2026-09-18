@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { playerPosition } from './playerTransform';
 import { rockColliders, FIELD_ENTRANCE_POINT } from './worldColliders';
 import { VILLAGE_CENTER, VILLAGE_SIZE } from './Village';
@@ -10,6 +10,31 @@ import { useWorldStore } from '../../stores/worldStore';
 const VIEW_HALF = 75;
 const DUNGEON_VIEW_HALF = 14;
 const POLL_MS = 100;
+
+// Procedural paper grain (feTurbulence, desaturated + low opacity) instead of the downloaded
+// icon/parchment images — those are dense multi-element sheets with no per-piece coordinate
+// data, so cropping one accurately isn't something this session could verify by eye. This is
+// code, not a crop, so it's reasoning I can actually check. Only the map panel gets this
+// treatment (via PARCHMENT_PANEL_STYLE below) — the rest of the UI keeps its existing dark-
+// fantasy-gold look; switching everything to cream/maroon would clash with it.
+const PARCHMENT_GRAIN_SVG = `<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'>
+  <filter id='grain'>
+    <feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch' />
+    <feColorMatrix type='saturate' values='0' />
+  </filter>
+  <rect width='100%' height='100%' filter='url(#grain)' />
+</svg>`;
+const PARCHMENT_GRAIN_URL = `url("data:image/svg+xml,${encodeURIComponent(PARCHMENT_GRAIN_SVG)}")`;
+
+const PARCHMENT_PANEL_STYLE: CSSProperties = {
+  backgroundColor: '#e8d3ab',
+  backgroundImage: `linear-gradient(160deg, rgba(255, 244, 222, 0.55), rgba(163, 116, 68, 0.3)), ${PARCHMENT_GRAIN_URL}`,
+  backgroundBlendMode: 'overlay, soft-light',
+  border: '3px solid #5a2a1f',
+  borderRadius: 12,
+  padding: 16,
+  boxShadow: '0 12px 32px rgba(0,0,0,0.5), inset 0 0 24px rgba(90, 42, 31, 0.25)',
+};
 
 /** Shared glow/gradient defs — a soft outer blur behind the player/monster markers and a
  * radial vignette for the terrain, so the map reads less like flat schematic circles and
@@ -207,23 +232,14 @@ export function WorldMap() {
         fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
       }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: '#1a2a1c',
-          border: '2px solid #e8c97a',
-          borderRadius: 12,
-          padding: 16,
-          boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-        }}
-      >
+      <div onClick={(e) => e.stopPropagation()} style={PARCHMENT_PANEL_STYLE}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>
+          <span style={{ color: '#3a1f14', fontWeight: 700, fontSize: 16 }}>
             {currentArea === 'dungeon' ? `지도 · 던전 지하 ${dungeonFloor}층` : '지도'}
           </span>
-          <span style={{ color: '#9aa08f', fontSize: 12 }}>M 또는 ESC로 닫기</span>
+          <span style={{ color: '#6b4a35', fontSize: 12 }}>M 또는 ESC로 닫기</span>
         </div>
-        <div style={{ border: '1px solid rgba(232, 201, 122, 0.4)', borderRadius: 8, padding: 3 }}>
+        <div style={{ border: '2px solid #5a2a1f', borderRadius: 8, padding: 3 }}>
           {currentArea === 'dungeon' ? (
             <DungeonMap player={player} floor={dungeonFloor} />
           ) : (
