@@ -118,7 +118,9 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
     ? !selected.required_class || selected.required_class === 'all' || selected.required_class === character.character_class
     : false;
   const canEquip = equippable && levelOk && classOk;
-  const assignedSlot = selected ? hotbar.findIndex((id) => id === selected.item_template_id) : -1;
+  const assignedSlot = selected
+    ? hotbar.findIndex((a) => a?.kind === 'item' && a.itemTemplateId === selected.item_template_id)
+    : -1;
 
   // Shared by the 장착/해제 button (acts on `selected`) and double-clicking any grid cell
   // (acts on whichever item was double-clicked, which may not be the currently selected

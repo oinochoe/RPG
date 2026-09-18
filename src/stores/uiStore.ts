@@ -38,6 +38,12 @@ interface UIState {
   closeTopPanel: () => void;
   /** Closes every panel at once — used when leaving the game screen entirely, not by Escape. */
   closeAll: () => void;
+  // Incremented every time something asks CharacterPanel to jump to its 스킬 tab (K key) —
+  // a one-shot "request", not persistent state, so CharacterPanel's effect fires even if the
+  // player presses K twice in a row while already on that tab. Doesn't affect which tab a
+  // normal C-key open/toggle lands on.
+  skillTabRequestId: number;
+  openSkillTab: () => void;
 }
 
 function allPanelsClosedPatch() {
@@ -85,6 +91,7 @@ export const useUIStore = create<UIState>((set) => ({
   shopKind: null,
   nearShopKind: null,
   openPanelStack: [],
+  skillTabRequestId: 0,
 
   toggleMap: () =>
     set((s) => {
@@ -156,4 +163,17 @@ export const useUIStore = create<UIState>((set) => ({
     }),
 
   closeAll: () => set(allPanelsClosedPatch()),
+
+  openSkillTab: () =>
+    set((s) => ({
+      isMapOpen: false,
+      isShopOpen: false,
+      isSystemMenuOpen: false,
+      isCharacterPanelOpen: true,
+      openPanelStack: pushPanel(
+        s.openPanelStack.filter((p) => !EXCLUSIVE_PANELS.includes(p)),
+        'character',
+      ),
+      skillTabRequestId: s.skillTabRequestId + 1,
+    })),
 }));

@@ -16,6 +16,13 @@ function sumEquippedBonus(items: InventorySlot[]): { attack: number; defense: nu
 
 export const HOTBAR_SIZE = 4;
 
+// A slot holds either a consumable (resolved against inventory at use-time by
+// item_template_id, same as before) or the player's one class skill (no id needed — there's
+// only ever one). Kept as a tagged union rather than reusing `number | null` with a sentinel,
+// since a slot's behavior on press (consume an item vs. cast a skill) is genuinely different,
+// not just a different id space.
+export type HotbarAssignment = { kind: 'item'; itemTemplateId: number } | { kind: 'skill' };
+
 interface CharacterState {
   characters: CharacterSummary[];
   activeCharacter: CharacterProfile | null;
@@ -25,7 +32,7 @@ interface CharacterState {
   // slot, resolved against the current inventory at use-time so a slot survives a potion
   // stack running out and being rebought (a fresh inventory row gets a new row id, but the
   // same item_template_id).
-  hotbar: (number | null)[];
+  hotbar: (HotbarAssignment | null)[];
   // Slots currently mid-request — guards against a double-click (or any two overlapping
   // useHotbarSlot calls for the same slot) both reading the same pre-request inventory
   // snapshot and each independently deciding the item is available, which used to consume
@@ -42,7 +49,7 @@ interface CharacterState {
   fetchShop: (kind: 'merchant' | 'blacksmith') => Promise<void>;
   buyItem: (itemTemplateId: number, price: number) => Promise<void>;
   sellItem: (inventoryId: number, price: number) => Promise<void>;
-  setHotbarSlot: (slot: number, itemTemplateId: number | null) => void;
+  setHotbarSlot: (slot: number, assignment: HotbarAssignment | null) => void;
   useHotbarSlot: (slot: number) => Promise<void>;
 }
 
@@ -121,28 +128,34 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     useCombatStore.getState().adjustGold(price);
   },
 
-  setHotbarSlot: (slot, itemTemplateId) => {
+  setHotbarSlot: (slot, assignment) => {
     set((s) => {
       const hotbar = [...s.hotbar];
-      // An item only ever lives in one slot at a time — assigning it to a new slot clears
-      // any other slot it already occupied. Without this, the same consumable could end up
-      // in two slots at once (e.g. clicking two different "등록" buttons for it), and since
-      // InventoryPanel's assignedSlot lookup is a findIndex (first match only), only one of
-      // the two buttons would ever show as active even though both slots actually held it.
-      if (itemTemplateId !== null) {
+      // A given assignment only ever lives in one slot at a time — assigning it to a new
+      // slot clears any other slot that already held the same thing. Without this, the same
+      // consumable (or the one skill) could end up in two slots at once (e.g. clicking two
+      // different "등록" buttons for it), and since InventoryPanel/SkillTab's assignedSlot
+      // lookup is a findIndex (first match only), only one of the two buttons would ever show
+      // as active even though both slots actually held it.
+      if (assignment !== null) {
         for (let i = 0; i < hotbar.length; i++) {
-          if (hotbar[i] === itemTemplateId) hotbar[i] = null;
+          const existing = hotbar[i];
+          if (!existing) continue;
+          const sameItem = assignment.kind === 'item' && existing.kind === 'item' && existing.itemTemplateId === assignment.itemTemplateId;
+          const sameSkill = assignment.kind === 'skill' && existing.kind === 'skill';
+          if (sameItem || sameSkill) hotbar[i] = null;
         }
       }
-      hotbar[slot] = itemTemplateId;
+      hotbar[slot] = assignment;
       return { hotbar };
     });
   },
 
   useHotbarSlot: async (slot) => {
     if (get().hotbarPending[slot]) return;
-    const itemTemplateId = get().hotbar[slot];
-    if (itemTemplateId === null) return;
+    const assignment = get().hotbar[slot];
+    if (assignment === null || assignment.kind !== 'item') return;
+    const itemTemplateId = assignment.itemTemplateId;
     const row = get().inventory.find((item) => item.item_template_id === itemTemplateId && item.quantity > 0);
     if (!row) return;
 
