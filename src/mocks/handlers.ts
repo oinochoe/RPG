@@ -125,6 +125,10 @@ export const handlers = [
     return HttpResponse.json({}, { status: 201 });
   }),
 
+  http.post(`${BASE}/auth/resend-verification`, async () => {
+    return HttpResponse.json({}, { status: 200 });
+  }),
+
   http.post(`${BASE}/auth/verify-email`, async ({ request }) => {
     const body = (await request.json()) as { token: string };
     if (body.token !== state.pendingVerificationToken) {

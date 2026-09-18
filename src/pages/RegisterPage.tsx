@@ -14,6 +14,8 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>('idle');
+  const [resendError, setResendError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   async function handleSubmit(e: FormEvent) {
@@ -30,6 +32,18 @@ export function RegisterPage() {
     }
   }
 
+  async function handleResend() {
+    setResendError(null);
+    setResendState('sending');
+    try {
+      await authApi.resendVerification(email);
+      setResendState('sent');
+    } catch (err) {
+      setResendState('idle');
+      setResendError(translateApiError(err));
+    }
+  }
+
   if (submitted) {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
@@ -41,6 +55,19 @@ export function RegisterPage() {
             <br />
             메일함을 확인해주세요.
           </p>
+          {resendError && (
+            <p role="alert" className="mt-3 text-xs text-danger">
+              {resendError}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resendState !== 'idle'}
+            className="mt-3 text-xs font-semibold text-gold hover:underline disabled:no-underline disabled:opacity-60"
+          >
+            {resendState === 'sent' ? '다시 보냈습니다' : resendState === 'sending' ? '보내는 중...' : '인증 메일 다시 받기'}
+          </button>
           <Button className="mt-6 w-full" onClick={() => navigate('/login')}>
             로그인 화면으로
           </Button>

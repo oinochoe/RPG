@@ -8,6 +8,7 @@ const REASON_MESSAGES: Record<string, string> = {
   account_suspended: '이용이 정지된 계정입니다.',
   token_expired_or_invalid: '유효하지 않거나 만료된 토큰입니다.',
   email_unverified: '이메일 인증을 완료한 후 이용할 수 있습니다.',
+  resend_rate_limited: '잠시 후 다시 시도해주세요.',
   name_already_taken: '이미 사용 중인 캐릭터 이름입니다.',
   max_characters_reached: '생성 가능한 최대 캐릭터 수를 초과했습니다.',
   character_not_found: '해당 캐릭터를 찾을 수 없습니다.',

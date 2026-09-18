@@ -84,6 +84,32 @@ authRoutes.post("/register", async (c) => {
   return c.json({}, 201);
 });
 
+// Lets a user who never received (or lost) the signup confirmation email trigger
+// another one, without a working session — mirrors registration's own use of
+// auth.resend({ type: 'signup', email }). Deliberately does NOT reveal whether the
+// email is registered or already verified (same email-enumeration concern as
+// register's 409 vs. this route): any outcome other than a rate limit returns 200,
+// with the real result only logged server-side. Rate limits ARE surfaced distinctly
+// so a user who double-clicks understands why nothing happened, rather than being
+// told "sent" and left waiting on an email that never comes.
+authRoutes.post("/resend-verification", async (c) => {
+  const { email } = await readJsonBody(c);
+  if (typeof email !== "string" || !email) {
+    throw new ApiError(400, "validation_failed", "invalid_request", "email is required.", "email");
+  }
+
+  const admin = getAdminClient();
+  const { error } = await admin.auth.resend({ type: "signup", email });
+  if (error) {
+    if (error.status === 429 || /rate.?limit/i.test(error.message ?? "")) {
+      throw new ApiError(429, "rate_limited", "resend_rate_limited", "잠시 후 다시 시도해주세요.");
+    }
+    console.error("resend-verification failed:", error.message);
+  }
+
+  return c.json({}, 200);
+});
+
 authRoutes.post("/login", async (c) => {
   const { email, password } = await readJsonBody(c);
   if (typeof email !== "string" || typeof password !== "string" || !email || !password) {

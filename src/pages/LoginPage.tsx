@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Swords } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { translateApiError } from './errorMessages';
+import { ApiError } from '../types/api';
+import * as authApi from '../api/auth';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -12,21 +14,37 @@ export function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [showResend, setShowResend] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>('idle');
   const login = useAuthStore((s) => s.login);
   const navigate = useNavigate();
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setShowResend(false);
+    setResendState('idle');
     setSubmitting(true);
     try {
       await login(email, password);
       navigate('/characters');
     } catch (err) {
       setError(translateApiError(err));
+      setShowResend(err instanceof ApiError && err.reason === 'email_unverified');
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleResend() {
+    setResendState('sending');
+    try {
+      await authApi.resendVerification(email);
+      setResendState('sent');
+    } catch (err) {
+      setResendState('idle');
+      setError(translateApiError(err));
     }
   }
 
@@ -64,6 +82,16 @@ export function LoginPage() {
             <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
               {error}
             </p>
+          )}
+          {showResend && (
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={resendState !== 'idle'}
+              className="text-left text-xs font-semibold text-gold hover:underline disabled:no-underline disabled:opacity-60"
+            >
+              {resendState === 'sent' ? '다시 보냈습니다' : resendState === 'sending' ? '보내는 중...' : '인증 메일 다시 받기'}
+            </button>
           )}
           <Button type="submit" disabled={submitting} className="mt-2 w-full">
             {submitting ? '로그인 중...' : '로그인'}

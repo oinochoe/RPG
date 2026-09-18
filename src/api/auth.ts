@@ -25,6 +25,14 @@ export function verifyEmail(token: string): Promise<void> {
   });
 }
 
+export function resendVerification(email: string): Promise<void> {
+  return apiRequest<void>('/auth/resend-verification', {
+    method: 'POST',
+    body: { email },
+    auth: false,
+  });
+}
+
 export function logout(refreshToken: string): Promise<void> {
   return apiRequest<void>('/auth/logout', {
     method: 'POST',
