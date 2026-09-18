@@ -10,7 +10,7 @@ import { PlayerCombatEffects } from './PlayerCombatEffects';
 import { PositionSync } from './PositionSync';
 import { ShopProximity } from './ShopProximity';
 import { CharacterMesh } from './CharacterMesh';
-import { MonsterMesh, GOBLIN_VARIANT } from './MonsterMesh';
+import { MonsterMesh, GOBLIN_VARIANT, SKELETON_VARIANT } from './MonsterMesh';
 import { CameraRig } from './CameraRig';
 import { LightRig } from './LightRig';
 import { useCombatStore } from '../../stores/combatStore';
@@ -127,7 +127,11 @@ export function Scene({
         <>
           <Ground />
           {fieldMonsters.map((monster) => (
-            <MonsterMesh key={monster.instance_id} monster={monster} />
+            <MonsterMesh
+              key={monster.instance_id}
+              monster={monster}
+              variant={monster.monster_template_id === 3 ? SKELETON_VARIANT : undefined}
+            />
           ))}
         </>
       )}

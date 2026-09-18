@@ -18,7 +18,7 @@ interface DamagePopup {
 
 export interface MonsterVariant {
   nameAccent: string;
-  model: 'slime' | 'goblin';
+  model: 'slime' | 'goblin' | 'skeleton';
   labelHeight: number;
 }
 
@@ -32,6 +32,12 @@ export const GOBLIN_VARIANT: MonsterVariant = {
   nameAccent: '#e0a458',
   model: 'goblin',
   labelHeight: 0.85,
+};
+
+export const SKELETON_VARIANT: MonsterVariant = {
+  nameAccent: '#c9d6e3',
+  model: 'skeleton',
+  labelHeight: 1.0,
 };
 
 // How long the body keeps rendering (playing its Death clip) after currentHp hits 0, before
@@ -92,10 +98,179 @@ const SLIME_CONFIG: RiggedMonsterConfig = {
   facingOffset: 0,
 };
 
-const MONSTER_CONFIG: Record<MonsterVariant['model'], RiggedMonsterConfig> = {
+const MONSTER_CONFIG: Record<'goblin' | 'slime', RiggedMonsterConfig> = {
   goblin: GOBLIN_CONFIG,
   slime: SLIME_CONFIG,
 };
+
+// Skeleton characters (KayKit - Character Pack: Skeletons) share the same rig/bone-naming
+// convention as the player's own KayKit Adventurers models, and — like the player — have no
+// baked "attack" clip: only Idle_A/Walking_A/Hit_A/Death_A come from the shared rig files
+// below. Attack is a manual arm-bone override (see beginSwing/swingEase in CharacterMesh.tsx,
+// duplicated here rather than shared — it's a small, self-contained technique and importing
+// across those two files would couple the player's and monsters' render code for no benefit).
+const SKELETON_RIG_GENERAL = '/models/kaykit/Animations/gltf/Rig_Medium/Rig_Medium_General.glb';
+const SKELETON_RIG_MOVEMENT = '/models/kaykit/Animations/gltf/Rig_Medium/Rig_Medium_MovementBasic.glb';
+const SKELETON_MODEL_URL = '/models/kaykit-skeleton/characters/gltf/Skeleton_Minion.glb';
+const SKELETON_WEAPON_URL = '/models/kaykit-skeleton/assets/gltf/Skeleton_Blade.gltf';
+const SKELETON_TARGET_HEIGHT = 0.85;
+const SKELETON_ATTACK_DURATION_MS = 300;
+const SKELETON_HIT_ANIM_MS = 260;
+const SWING_AXIS = new THREE.Vector3(1, 0, 0);
+const WOUND_UP_ANGLE = -2.0;
+const IMPACT_ANGLE = 1.0;
+const STRIKE_END = 0.4;
+
+/** Eased progress (0..1) through the swing: ease-in through the strike, smoothstep recovery.
+ * Identical to CharacterMesh.tsx's swingEase — see the note above SKELETON_RIG_GENERAL. */
+function swingEase(t: number): { phase: 'strike' | 'recovery'; localT: number } {
+  if (t < STRIKE_END) {
+    const localT = t / STRIKE_END;
+    return { phase: 'strike', localT: localT * localT };
+  }
+  const localT = (t - STRIKE_END) / (1 - STRIKE_END);
+  return { phase: 'recovery', localT: localT * localT * (3 - 2 * localT) };
+}
+
+function RiggedSkeletonMonsterBody({ combat, tint }: { combat: MonsterCombatState; tint?: THREE.ColorRepresentation }) {
+  const modelGroupRef = useRef<THREE.Group>(null);
+  const characterGltf = useGLTF(SKELETON_MODEL_URL);
+  const weaponGltf = useGLTF(SKELETON_WEAPON_URL);
+  const generalGltf = useGLTF(SKELETON_RIG_GENERAL);
+  const movementGltf = useGLTF(SKELETON_RIG_MOVEMENT);
+
+  const scene = useMemo(() => cloneSkeleton(characterGltf.scene), [characterGltf.scene]);
+  const weaponScene = useMemo(() => cloneSkeleton(weaponGltf.scene), [weaponGltf.scene]);
+  const clips = useMemo(
+    () => [...generalGltf.animations, ...movementGltf.animations],
+    [generalGltf.animations, movementGltf.animations],
+  );
+  const { actions } = useAnimations(clips, scene);
+  const currentAction = useRef<string | null>(null);
+
+  const swingBoneRef = useRef<THREE.Object3D | null>(null);
+  const restQuat = useRef(new THREE.Quaternion());
+  const windUpQuat = useRef(new THREE.Quaternion());
+  const impactQuat = useRef(new THREE.Quaternion());
+  const attackAnimUntil = useRef(0);
+
+  const prevHitAt = useRef(combat.lastHitAt);
+  const prevAttackAt = useRef(combat.lastAttackAt);
+  const oneShotUntil = useRef(0);
+  const deathPlayed = useRef(false);
+  const prevPos = useRef(combat.position);
+
+  useEffect(() => {
+    scene.traverse((obj) => {
+      if (!(obj as THREE.Mesh).isMesh) return;
+      const mesh = obj as THREE.Mesh;
+      mesh.castShadow = true;
+      if (!tint) return;
+      const wasArray = Array.isArray(mesh.material);
+      const cloned = (wasArray ? (mesh.material as THREE.Material[]) : [mesh.material as THREE.Material]).map(
+        (m) => (m as THREE.MeshStandardMaterial).clone(),
+      );
+      for (const m of cloned) {
+        (m as THREE.MeshStandardMaterial).color?.multiply(new THREE.Color(tint));
+      }
+      mesh.material = wasArray ? cloned : cloned[0];
+    });
+    // Same bone-name convention as the player's CHARACTER_MODEL/WEAPON_MODEL attachment in
+    // CharacterMesh.tsx (GLTFLoader strips the dots from "handslot.r"/"upperarm.r").
+    const hand = scene.getObjectByName('handslotr');
+    hand?.add(weaponScene);
+    swingBoneRef.current = scene.getObjectByName('upperarmr') ?? null;
+    if (swingBoneRef.current) restQuat.current.copy(swingBoneRef.current.quaternion);
+    return () => {
+      hand?.remove(weaponScene);
+    };
+  }, [scene, weaponScene, tint]);
+
+  useEffect(() => {
+    if (!modelGroupRef.current) return;
+    const box = new THREE.Box3().setFromObject(scene);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const s = size.y > 0 ? SKELETON_TARGET_HEIGHT / size.y : 1;
+    modelGroupRef.current.scale.setScalar(s);
+  }, [scene]);
+
+  function playAction(name: string, loop: boolean) {
+    if (currentAction.current === name) return;
+    const next = actions[name];
+    if (!next) return;
+    const prevName = currentAction.current;
+    next.reset();
+    if (!loop) {
+      next.setLoop(THREE.LoopOnce, 1);
+      next.clampWhenFinished = true;
+    }
+    next.fadeIn(ANIM_FADE_SEC).play();
+    if (prevName) actions[prevName]?.fadeOut(ANIM_FADE_SEC);
+    currentAction.current = name;
+  }
+
+  function beginSwing() {
+    attackAnimUntil.current = performance.now() + SKELETON_ATTACK_DURATION_MS;
+    windUpQuat.current
+      .copy(restQuat.current)
+      .multiply(new THREE.Quaternion().setFromAxisAngle(SWING_AXIS, WOUND_UP_ANGLE));
+    impactQuat.current
+      .copy(restQuat.current)
+      .multiply(new THREE.Quaternion().setFromAxisAngle(SWING_AXIS, IMPACT_ANGLE));
+  }
+
+  useFrame(() => {
+    if (!combat.alive) {
+      if (!deathPlayed.current) {
+        playAction('Death_A', false);
+        deathPlayed.current = true;
+      }
+      return;
+    }
+
+    const now = performance.now();
+    if (combat.lastAttackAt !== prevAttackAt.current) {
+      prevAttackAt.current = combat.lastAttackAt;
+      beginSwing();
+    }
+    if (combat.lastHitAt !== prevHitAt.current) {
+      prevHitAt.current = combat.lastHitAt;
+      playAction('Hit_A', false);
+      oneShotUntil.current = now + SKELETON_HIT_ANIM_MS;
+    }
+    if (now >= oneShotUntil.current) {
+      const [px, , pz] = prevPos.current;
+      const [cx, , cz] = combat.position;
+      const moved = Math.hypot(cx - px, cz - pz) > 0.001;
+      prevPos.current = combat.position;
+      playAction(moved ? 'Walking_A' : 'Idle_A', true);
+    }
+
+    if (swingBoneRef.current) {
+      const attackRemaining = attackAnimUntil.current - now;
+      if (attackRemaining > 0) {
+        const t = Math.min(1, 1 - attackRemaining / SKELETON_ATTACK_DURATION_MS);
+        const { phase, localT } = swingEase(t);
+        if (phase === 'strike') {
+          swingBoneRef.current.quaternion.slerpQuaternions(windUpQuat.current, impactQuat.current, localT);
+        } else {
+          swingBoneRef.current.quaternion.slerpQuaternions(impactQuat.current, restQuat.current, localT);
+        }
+      } else {
+        // Not attacking: keep tracking the mixer's live idle/walk pose for this bone so the
+        // next swing always winds up from (and recovers back to) wherever it actually is.
+        restQuat.current.copy(swingBoneRef.current.quaternion);
+      }
+    }
+  });
+
+  return (
+    <group ref={modelGroupRef}>
+      <primitive object={scene} />
+    </group>
+  );
+}
 
 function RiggedMonsterBody({
   combat,
@@ -303,7 +478,11 @@ export function MonsterMesh({
           <meshBasicMaterial />
         </mesh>
       )}
-      <RiggedMonsterBody combat={combat} config={MONSTER_CONFIG[variant.model]} tint={tint} />
+      {variant.model === 'skeleton' ? (
+        <RiggedSkeletonMonsterBody combat={combat} tint={tint} />
+      ) : (
+        <RiggedMonsterBody combat={combat} config={MONSTER_CONFIG[variant.model]} tint={tint} />
+      )}
       {!dying && (
         <>
           <NameTag
@@ -335,3 +514,7 @@ export function MonsterMesh({
 }
 
 Object.values(MONSTER_CONFIG).forEach((config) => useGLTF.preload(config.modelUrl));
+useGLTF.preload(SKELETON_MODEL_URL);
+useGLTF.preload(SKELETON_WEAPON_URL);
+useGLTF.preload(SKELETON_RIG_GENERAL);
+useGLTF.preload(SKELETON_RIG_MOVEMENT);

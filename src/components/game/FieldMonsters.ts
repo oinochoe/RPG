@@ -24,7 +24,13 @@ function inCaveClearZone(x: number, z: number): boolean {
   return Math.hypot(dx, dz) < CAVE_CLEAR_RADIUS;
 }
 
-/** Scattered, passive field slimes — a level range that gently rewards wandering farther
+// monster_template_id convention (matches the mock backend / MonsterMesh variant lookup in
+// Scene.tsx): 1 = slime, 3 = skeleton. Skeletons only spawn past this distance tier, so the
+// field's difficulty curve still reads as "slimes near spawn, skeletons further out" rather
+// than a random mix.
+const SKELETON_MIN_TIER = 2;
+
+/** Scattered field monsters — a level/species range that gently rewards wandering farther
  * from spawn, same "stronger the deeper/farther you go" idea as the dungeon's floors. */
 export function buildFieldMonsters(): MonsterInstanceSummary[] {
   const rng = mulberry32(SEED);
@@ -39,13 +45,15 @@ export function buildFieldMonsters(): MonsterInstanceSummary[] {
     if (inCaveClearZone(x, z)) continue;
 
     const distFromSpawn = Math.hypot(x, z);
-    const level = 1 + Math.min(2, Math.floor(distFromSpawn / 25));
-    const hp = 15 + (level - 1) * 10;
+    const tier = Math.min(2, Math.floor(distFromSpawn / 25));
+    const level = 1 + tier;
+    const isSkeleton = tier >= SKELETON_MIN_TIER;
+    const hp = isSkeleton ? 40 + tier * 15 : 15 + tier * 10;
 
     monsters.push({
       instance_id: idBase++,
-      monster_template_id: 1,
-      name: '슬라임',
+      monster_template_id: isSkeleton ? 3 : 1,
+      name: isSkeleton ? '스켈레톤' : '슬라임',
       level,
       current_hp: hp,
       max_hp: hp,
