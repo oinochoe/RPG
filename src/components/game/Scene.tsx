@@ -1,8 +1,10 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react';
+import type * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { Ground } from './Ground';
 import { Dungeon, buildFloorMonsters } from './Dungeon';
+import { buildFieldMonsters } from './FieldMonsters';
 import { AreaTransitions } from './AreaTransitions';
 import { PlayerCombatEffects } from './PlayerCombatEffects';
 import { PositionSync } from './PositionSync';
@@ -19,6 +21,15 @@ function monsterScale(name: string): number {
   if (name.includes('군주')) return 1.7;
   if (name.includes('대장')) return 1.3;
   return 1;
+}
+
+// Elites get a color tint (multiplied onto the base material) instead of a separate model —
+// darker/redder the higher-ranked the monster, so a 군주 reads as visually tougher than a
+// 대장 at a glance even before its bigger scale/health bar register.
+function monsterTint(name: string): THREE.ColorRepresentation | undefined {
+  if (name.includes('군주')) return '#8a1f2b';
+  if (name.includes('대장')) return '#c4553a';
+  return undefined;
 }
 
 const FIELD_FOG_COLOR = '#bcdcf0';
@@ -64,8 +75,14 @@ export function Scene({
   const currentArea = useWorldStore((s) => s.currentArea);
   const dungeonFloor = useWorldStore((s) => s.dungeonFloor);
 
+  // The server's enter-map response always returns monsters: [] (no real monster-instance
+  // persistence yet) — generate the field's roster client-side instead, same pattern as the
+  // dungeon's buildFloorMonsters. Stable for the session (computed once, not reshuffled on
+  // every re-render).
+  const fieldMonsters = useMemo(() => buildFieldMonsters(), []);
+
   useEffect(() => {
-    initCombat(character, map.monsters, false);
+    initCombat(character, fieldMonsters, false);
     // Combat state is local-only for now (no backend combat API yet) and should only be
     // (re)seeded when a genuinely new map/character session starts, not on every re-render
     // or area transition (entering/leaving the dungeon swaps monsters via loadMonsters
@@ -102,13 +119,14 @@ export function Scene({
               monster={monster}
               variant={GOBLIN_VARIANT}
               scale={monsterScale(monster.name)}
+              tint={monsterTint(monster.name)}
             />
           ))}
         </>
       ) : (
         <>
           <Ground />
-          {map.monsters.map((monster) => (
+          {fieldMonsters.map((monster) => (
             <MonsterMesh key={monster.instance_id} monster={monster} />
           ))}
         </>
@@ -117,8 +135,8 @@ export function Scene({
       <Suspense fallback={null}>
         <CharacterMesh character={character} />
       </Suspense>
-      <AreaTransitions fieldMonsters={map.monsters} />
-      <PlayerCombatEffects fieldMonsters={map.monsters} />
+      <AreaTransitions fieldMonsters={fieldMonsters} />
+      <PlayerCombatEffects fieldMonsters={fieldMonsters} />
       <RespawnTicker />
       <MpRegenTicker />
       <PositionSync mapId={map.map_id} />

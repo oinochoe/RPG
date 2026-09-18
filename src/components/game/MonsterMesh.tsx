@@ -71,7 +71,10 @@ const GOBLIN_CONFIG: RiggedMonsterConfig = {
   },
   attackAnimMs: 500,
   hitAnimMs: 260,
-  facingOffset: Math.PI,
+  // Was Math.PI, which combined with the outer atan2(dx,dz) facing rotation in MonsterMesh
+  // (same-axis Y rotations add) made the goblin face exactly opposite of the direction it was
+  // walking/attacking toward — most visible during its attack swing.
+  facingOffset: 0,
 };
 
 const SLIME_CONFIG: RiggedMonsterConfig = {
@@ -94,7 +97,15 @@ const MONSTER_CONFIG: Record<MonsterVariant['model'], RiggedMonsterConfig> = {
   slime: SLIME_CONFIG,
 };
 
-function RiggedMonsterBody({ combat, config }: { combat: MonsterCombatState; config: RiggedMonsterConfig }) {
+function RiggedMonsterBody({
+  combat,
+  config,
+  tint,
+}: {
+  combat: MonsterCombatState;
+  config: RiggedMonsterConfig;
+  tint?: THREE.ColorRepresentation;
+}) {
   const modelGroupRef = useRef<THREE.Group>(null);
   const gltf = useGLTF(config.modelUrl);
   const scene = useMemo(() => cloneSkeleton(gltf.scene), [gltf.scene]);
@@ -108,9 +119,25 @@ function RiggedMonsterBody({ combat, config }: { combat: MonsterCombatState; con
 
   useEffect(() => {
     scene.traverse((obj) => {
-      if ((obj as THREE.Mesh).isMesh) obj.castShadow = true;
+      if (!(obj as THREE.Mesh).isMesh) return;
+      const mesh = obj as THREE.Mesh;
+      mesh.castShadow = true;
+      // Give an elite (대장/군주) a visually distinct look without a separate model — clone the
+      // shared GLTF-loaded material first (SkeletonUtils.clone doesn't clone materials, so
+      // mutating in place would tint every instance of this model, not just this one) and
+      // multiply its color rather than replacing it, to shift the hue while keeping whatever
+      // shading/texture detail the base material already has.
+      if (!tint) return;
+      const wasArray = Array.isArray(mesh.material);
+      const cloned = (wasArray ? (mesh.material as THREE.Material[]) : [mesh.material as THREE.Material]).map(
+        (m) => (m as THREE.MeshStandardMaterial).clone(),
+      );
+      for (const m of cloned) {
+        (m as THREE.MeshStandardMaterial).color?.multiply(new THREE.Color(tint));
+      }
+      mesh.material = wasArray ? cloned : cloned[0];
     });
-  }, [scene]);
+  }, [scene, tint]);
 
   useEffect(() => {
     if (!modelGroupRef.current) return;
@@ -178,10 +205,12 @@ export function MonsterMesh({
   monster,
   variant = SLIME_VARIANT,
   scale = 1,
+  tint,
 }: {
   monster: MonsterInstanceSummary;
   variant?: MonsterVariant;
   scale?: number;
+  tint?: THREE.ColorRepresentation;
 }) {
   const combat = useCombatStore((s) => s.monsters[monster.instance_id]);
   const attackRange = useCombatStore((s) => s.player.attackRange);
@@ -274,7 +303,7 @@ export function MonsterMesh({
           <meshBasicMaterial />
         </mesh>
       )}
-      <RiggedMonsterBody combat={combat} config={MONSTER_CONFIG[variant.model]} />
+      <RiggedMonsterBody combat={combat} config={MONSTER_CONFIG[variant.model]} tint={tint} />
       {!dying && (
         <>
           <NameTag
