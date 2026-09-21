@@ -190,6 +190,8 @@ function EquipmentTab() {
 function SkillTab({ character }: { character: CharacterProfile }) {
   const player = useCombatStore((s) => s.player);
   const upgradeSkill = useCombatStore((s) => s.upgradeSkill);
+  const toggleAimSkill = useCombatStore((s) => s.toggleAimSkill);
+  const isAimingSkill = useCombatStore((s) => s.isAimingSkill);
   const hotbar = useCharacterStore((s) => s.hotbar);
   const setHotbarSlot = useCharacterStore((s) => s.setHotbarSlot);
   const [pending, setPending] = useState(false);
@@ -236,13 +238,20 @@ function SkillTab({ character }: { character: CharacterProfile }) {
           e.dataTransfer.setData(HOTBAR_DRAG_SKILL_MIME, 'skill');
           e.dataTransfer.effectAllowed = 'copy';
         }}
+        // Double-click is the other way to arm aiming (besides the hotbar slot/number key) —
+        // works even if the skill isn't registered to a slot yet, same as dragging works
+        // without registering first.
+        onDoubleClick={() => {
+          if (player.skillLevel > 0) toggleAimSkill();
+        }}
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '10px',
           borderRadius: 8,
-          background: 'rgba(255,255,255,0.04)',
+          background: isAimingSkill ? 'rgba(224, 83, 138, 0.18)' : 'rgba(255,255,255,0.04)',
+          border: isAimingSkill ? '1px solid #e0538a' : '1px solid transparent',
           cursor: player.skillLevel > 0 ? 'grab' : 'default',
         }}
       >
@@ -251,7 +260,7 @@ function SkillTab({ character }: { character: CharacterProfile }) {
             {skill.name} — Lv.{player.skillLevel}/{SKILL_MAX_LEVEL}
           </div>
           <div style={{ color: '#9aa08f', fontSize: 11, marginTop: 2 }}>
-            MP {skill.mpCost} · 쿨다운 {skill.cooldownMs / 1000}초 · 몬스터 클릭 후 사용
+            MP {skill.mpCost} · 쿨다운 {skill.cooldownMs / 1000}초 · 더블클릭 후 몬스터 클릭으로 시전
           </div>
         </div>
         <button

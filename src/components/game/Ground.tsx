@@ -3,6 +3,7 @@ import type { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGrassTexture } from './proceduralTextures';
 import { setMoveTarget } from './moveTarget';
+import { useCombatStore } from '../../stores/combatStore';
 import { scatterDecorations, rockColliders, activeColliders, type Decoration } from './worldColliders';
 import { Village, villageColliders } from './Village';
 import { CaveEntrance } from './CaveEntrance';
@@ -69,6 +70,13 @@ export function Ground() {
 
   function handleGroundClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
+    // Clicking empty ground while a skill is armed isn't a valid target — cancel the aim
+    // instead of also walking there, so backing out of targeting doesn't send the player
+    // wandering off toward wherever they clicked to cancel.
+    if (useCombatStore.getState().isAimingSkill) {
+      useCombatStore.getState().cancelAimSkill();
+      return;
+    }
     setMoveTarget(event.point.x, event.point.z);
   }
 

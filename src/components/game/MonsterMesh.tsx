@@ -467,6 +467,18 @@ export function MonsterMesh({
 
   function handleClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
+    // Skill aiming armed (see combatStore's isAimingSkill/toggleAimSkill) — this click IS
+    // the target designation Ragnarok-style ability targeting calls for: fire on the spot at
+    // whatever range the player currently stands, no walking over first. requestCastSkill
+    // signals CharacterMesh (the only place with the live position + animation refs the
+    // cast's visual needs) to actually run castSkill; it misses silently if out of range,
+    // same as every other miss case already does.
+    if (useCombatStore.getState().isAimingSkill) {
+      setTarget(monster.instance_id);
+      useCombatStore.getState().requestCastSkill();
+      useCombatStore.getState().cancelAimSkill();
+      return;
+    }
     // The actual combat lock (see resolveTarget in combatStore) — attacks/skills go only to
     // this monster from now on until it dies or another one is clicked, regardless of which
     // one ends up nearest. setAttackTargetOnly/setAttackMoveTarget below are movement-only:

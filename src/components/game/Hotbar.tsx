@@ -33,8 +33,8 @@ export function Hotbar() {
   const useHotbarSlot = useCharacterStore((s) => s.useHotbarSlot);
   const setHotbarSlot = useCharacterStore((s) => s.setHotbarSlot);
   const player = useCombatStore((s) => s.player);
-  const requestCastSkill = useCombatStore((s) => s.requestCastSkill);
-  const hasTarget = useCombatStore((s) => s.targetId !== null);
+  const toggleAimSkill = useCombatStore((s) => s.toggleAimSkill);
+  const isAimingSkill = useCombatStore((s) => s.isAimingSkill);
   const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
   const skill = SKILL_BY_CLASS[player.characterClass];
 
@@ -53,18 +53,17 @@ export function Hotbar() {
         const row = itemTemplateId != null ? inventory.find((item) => item.item_template_id === itemTemplateId) : null;
         const quantity = row?.quantity ?? 0;
         // Skill usability ignores the live cooldown timer (no per-frame ticking here) — a
-        // press during cooldown just silently no-ops inside castSkill, same as before.
-        // Unlike basic attack, a skill never guesses a target on its own — hasTarget mirrors
-        // castSkill's own hard requirement so the slot visibly dims until a monster is
-        // clicked, instead of looking castable and then silently doing nothing.
+        // press during cooldown just silently no-ops inside toggleAimSkill/castSkill, same
+        // as before.
         const usable = isSkill
-          ? player.skillLevel > 0 && player.currentMp >= skill.mpCost && hasTarget
+          ? player.skillLevel > 0 && player.currentMp >= skill.mpCost
           : !!row && quantity > 0 && !hotbarPending[i];
         const isDragTarget = dragOverSlot === i;
+        const isArmed = isSkill && isAimingSkill;
         const title = isSkill
-          ? hasTarget
-            ? `${skill.name} — 우클릭으로 해제`
-            : `${skill.name} — 몬스터를 먼저 클릭하세요`
+          ? isArmed
+            ? `${skill.name} — 몬스터를 클릭해 시전 (다시 누르면 취소)`
+            : `${skill.name} — 눌러서 조준, 몬스터를 클릭해 시전`
           : row
             ? `${row.item_name} — 우클릭으로 해제`
             : '드래그하거나 번호를 눌러 등록';
@@ -77,9 +76,10 @@ export function Hotbar() {
             // an "empty, therefore disabled" slot would silently refuse to accept a drop
             // from a real mouse drag. The click-to-use guard just lives in the handler.
             onClick={() => {
-              if (!usable) return;
-              if (isSkill) requestCastSkill();
-              else useHotbarSlot(i);
+              // toggleAimSkill has its own usability guard (and always allows turning aim
+              // back off), so skill slots skip the local `usable` check entirely here.
+              if (isSkill) toggleAimSkill();
+              else if (usable) useHotbarSlot(i);
             }}
             onContextMenu={(e) => {
               e.preventDefault();
@@ -108,7 +108,8 @@ export function Hotbar() {
               width: 52,
               height: 52,
               borderRadius: 8,
-              border: `1px solid ${isDragTarget ? '#e8c97a' : 'rgba(232, 201, 122, 0.5)'}`,
+              border: `1px solid ${isArmed ? '#e0538a' : isDragTarget ? '#e8c97a' : 'rgba(232, 201, 122, 0.5)'}`,
+              boxShadow: isArmed ? '0 0 8px rgba(224, 83, 138, 0.7)' : 'none',
               background: isDragTarget ? 'rgba(232, 201, 122, 0.25)' : 'rgba(15, 17, 13, 0.65)',
               color: usable ? '#f4f1e8' : '#5c6058',
               display: 'flex',

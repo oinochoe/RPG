@@ -313,6 +313,43 @@ describe('combatStore castSkill', () => {
   });
 });
 
+describe('combatStore toggleAimSkill', () => {
+  beforeEach(() => {
+    useCombatStore.getState().init(baseCharacter, [], true);
+  });
+
+  it('does nothing when the skill is unlearned', () => {
+    useCombatStore.getState().toggleAimSkill();
+    expect(useCombatStore.getState().isAimingSkill).toBe(false);
+  });
+
+  it('does nothing when MP is below the cost', () => {
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 0 } }));
+    useCombatStore.getState().toggleAimSkill();
+    expect(useCombatStore.getState().isAimingSkill).toBe(false);
+  });
+
+  it('arms aiming when the skill is castable', () => {
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 20 } }));
+    useCombatStore.getState().toggleAimSkill();
+    expect(useCombatStore.getState().isAimingSkill).toBe(true);
+  });
+
+  it('disarms aiming on a second press, without re-checking castability', () => {
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 20 } }));
+    useCombatStore.getState().toggleAimSkill();
+    useCombatStore.setState({ isAimingSkill: true, player: { ...useCombatStore.getState().player, currentMp: 0 } });
+    useCombatStore.getState().toggleAimSkill();
+    expect(useCombatStore.getState().isAimingSkill).toBe(false);
+  });
+
+  it('cancelAimSkill always disarms', () => {
+    useCombatStore.setState({ isAimingSkill: true });
+    useCombatStore.getState().cancelAimSkill();
+    expect(useCombatStore.getState().isAimingSkill).toBe(false);
+  });
+});
+
 describe('combatStore targeting', () => {
   const nearMonster: MonsterInstanceSummary = {
     instance_id: 1,

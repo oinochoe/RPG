@@ -155,13 +155,23 @@ interface CombatState {
   monsters: Record<number, MonsterCombatState>;
   player: PlayerCombatState;
   lastAttackAt: number;
-  // Incremented by Hotbar when a skill-assigned slot is pressed — CharacterMesh (the only
-  // place that has both the player's live position and the swing/draw animation refs
-  // castSkill's visual needs) watches this and casts on change. A counter rather than a
-  // boolean so pressing the slot twice in a row still fires twice even if CharacterMesh's
-  // effect hasn't re-run in between.
+  // Incremented once an aimed skill actually lands on a clicked monster (see
+  // MonsterMesh's handleClick) — CharacterMesh (the only place that has both the player's
+  // live position and the swing/draw animation refs castSkill's visual needs) watches this
+  // and casts on change. A counter rather than a boolean so firing twice in a row still
+  // fires twice even if CharacterMesh's effect hasn't re-run in between.
   castRequestId: number;
   requestCastSkill: () => void;
+  // Ragnarok-style ability targeting: pressing the skill's hotbar slot/key (or
+  // double-clicking it in the skill tab) doesn't cast anything by itself — it arms
+  // "aiming," which swaps the cursor to a targeting reticle (see GamePage) and makes the
+  // next monster click fire the skill at that monster on the spot (see MonsterMesh's
+  // handleClick) instead of the normal walk-over-and-lock-on click. Clicking empty ground,
+  // pressing Escape, or pressing the slot again all cancel it without casting.
+  isAimingSkill: boolean;
+  /** No-op if the skill isn't castable right now (unlearned/not enough MP); toggles off if already aiming. */
+  toggleAimSkill: () => void;
+  cancelAimSkill: () => void;
   // The explicitly locked combat target (set by clicking a monster — see MonsterMesh's
   // handleClick). When set, attackNearest/castSkill attack ONLY this monster — missing
   // outright if it's dead or out of range rather than silently redirecting to whichever
@@ -364,6 +374,15 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   requestCastSkill: () => set((s) => ({ castRequestId: s.castRequestId + 1 })),
   targetId: null,
   setTarget: (id) => set({ targetId: id }),
+  isAimingSkill: false,
+  toggleAimSkill: () =>
+    set((s) => {
+      if (s.isAimingSkill) return { isAimingSkill: false };
+      const skill = SKILL_BY_CLASS[s.player.characterClass];
+      if (s.player.skillLevel <= 0 || s.player.currentMp < skill.mpCost) return {};
+      return { isAimingSkill: true };
+    }),
+  cancelAimSkill: () => set({ isAimingSkill: false }),
 
   init: (character, monsters, aggressive) => {
     // character.attack_power/defense_power are the character's base stats (never touched
@@ -409,11 +428,12 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       },
       lastAttackAt: 0,
       targetId: null,
+      isAimingSkill: false,
     });
   },
 
   loadMonsters: (monsters, aggressive) => {
-    set({ monsters: toMonsterCombatState(monsters, aggressive), lastAttackAt: 0, targetId: null });
+    set({ monsters: toMonsterCombatState(monsters, aggressive), lastAttackAt: 0, targetId: null, isAimingSkill: false });
   },
 
   attackNearest: (playerX, playerZ) => {

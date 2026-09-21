@@ -3,6 +3,7 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import type { ThreeEvent } from '@react-three/fiber';
 import { setMoveTarget } from './moveTarget';
+import { useCombatStore } from '../../stores/combatStore';
 import type { Collider } from './worldColliders';
 import type { MonsterInstanceSummary } from '../../types/api';
 
@@ -248,6 +249,11 @@ export function Dungeon({ floor }: { floor: number }) {
 
   function handleFloorClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
+    // See Ground.tsx's handleGroundClick for why this cancels instead of also moving.
+    if (useCombatStore.getState().isAimingSkill) {
+      useCombatStore.getState().cancelAimSkill();
+      return;
+    }
     setMoveTarget(event.point.x, event.point.z);
   }
 

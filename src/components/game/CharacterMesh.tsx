@@ -284,10 +284,11 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     };
   }
 
-  // Fires an actual cast when Hotbar's skill slot is pressed (see requestCastSkill) — the
-  // request lives in combatStore since that's what Hotbar can reach, but the cast itself has
-  // to happen here: this is the only place with both the player's live position and the
-  // swing/draw animation refs handleAttackResult needs. Skips the run that fires on mount
+  // Fires an actual cast once an armed skill lands on a clicked monster (see
+  // MonsterMesh's handleClick, which calls requestCastSkill) — the request lives in
+  // combatStore since that's what MonsterMesh can reach, but the cast itself has to happen
+  // here: this is the only place with both the player's live position and the swing/draw
+  // animation refs handleAttackResult needs. Skips the run that fires on mount
   // (the ref value at that point reflects whatever another character session left behind,
   // not a real request) the same way skillTabRequestId's watcher does in CharacterPanel.
   const castRequestId = useCombatStore((s) => s.castRequestId);
