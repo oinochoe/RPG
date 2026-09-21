@@ -177,10 +177,12 @@ export function SystemMenu() {
           textAlign: "center",
         }}
       >
-        아이템 아이콘: Lorc, Delapouite, sbed, Caro Asercion (game-icons.net, CC
-        BY 3.0)
+        아이템/지도 아이콘: Lorc, Delapouite, sbed, Caro Asercion, badges
+        (game-icons.net, CC BY 3.0)
         <br />
         효과음: Kenney.nl (CC0)
+        <br />
+        자연물(나무/사막/다리): Kenney.nl (CC0)
       </p>
     </div>
   );

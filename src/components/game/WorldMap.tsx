@@ -1,15 +1,75 @@
 import { useEffect, useState } from 'react';
 import { playerPosition } from './playerTransform';
-import { rockColliders, FIELD_ENTRANCE_POINT } from './worldColliders';
+import { rockColliders, FIELD_ENTRANCE_POINT, RIVER_X_CENTER, RIVER_HALF_WIDTH, DESERT_X_START } from './worldColliders';
 import { VILLAGE_CENTER, VILLAGE_SIZE } from './Village';
 import { DUNGEON_MAX_FLOOR, DUNGEON_EXIT_TRIGGER, DUNGEON_DESCEND_TRIGGER } from './Dungeon';
 import { useCombatStore } from '../../stores/combatStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useWorldStore } from '../../stores/worldStore';
 
-const VIEW_HALF = 75;
+// VIEW_HALF has to cover the field's real extent (worldColliders.ts's FIELD_EXTENT/2 = 150)
+// or the expanded map (desert, river, farther-out monsters) gets clipped at the svg's edge.
+const VIEW_HALF = 160;
 const DUNGEON_VIEW_HALF = 14;
 const POLL_MS = 100;
+
+// Single-path icons from game-icons.net (CC BY 3.0 — Lorc/Delapouite/badges, credited in
+// SystemMenu alongside the item icons) replacing the old plain colored circles/rects — same
+// "individual file, no sprite-sheet slicing" sourcing that worked for item icons, reused
+// here instead of another parchment/background-texture attempt (that was tried once already
+// and reverted). viewBox 0 0 512 512 unless noted; nested <svg> scales each one down to
+// world-unit size without needing to hand-tune a transform.
+const ICON_PATH = {
+  // delapouite/position-marker.svg
+  position:
+    'M256 17.108c-75.73 0-137.122 61.392-137.122 137.122.055 23.25 6.022 46.107 11.58 56.262L256 494.892l119.982-274.244h-.063c11.27-20.324 17.188-43.18 17.202-66.418C393.122 78.5 331.73 17.108 256 17.108zm0 68.56a68.56 68.56 0 0 1 68.56 68.562A68.56 68.56 0 0 1 256 222.79a68.56 68.56 0 0 1-68.56-68.56A68.56 68.56 0 0 1 256 85.67z',
+  // delapouite/family-house.svg
+  house:
+    'M55.379 25l-28.4 142H172.27L256 83.271 339.729 167H485.02l-28.4-142zM256 108.727L179.729 185H41v302h158v-87c0-18.25 7.166-33.077 18.021-42.727C227.877 347.624 242 343 256 343s28.123 4.624 38.979 14.273C305.834 366.923 313 381.75 313 400v87h158V185H332.271zm0 38.544l57 57V297H199v-92.729zm0 25.456l-39 39V279h78v-67.271zM71 199h98v98H71zm272 0h98v98h-98zM89 217v30h62v-30zm272 0v30h62v-30zM89 265v14h62v-14zm272 0v14h62v-14zM71 359h98v98H71v-98zm272 0h98v98h-98v-98zm-87 2c-10 0-19.877 3.376-27.021 9.727C221.834 377.077 217 386.25 217 400v87h78v-87c0-13.75-4.834-22.923-11.979-29.273C275.877 364.376 266 361 256 361zM89 377v62h62v-62zm272 0v62h62v-62z',
+  // delapouite/cave-entrance.svg
+  cave: 'M346.951 24.582L299.193 72.34l-101.136-7.024-40.97 80.737 68.688 25.35 37.153-19.936 8.511 15.861-44.293 23.768-79.7-29.416-70.19 55.341 35.117 58.995-.375.2 13.014 21.585 29.134 2.361 55.06-35.123 9.679 15.176-60.16 38.377-44.364-3.596-18.23-30.234-56.8 30.586 33.712 61.804-33.713 40.735L18 444.177V494h170.62l-5.6-45.592a260.658 260.658 0 0 1-5.147-4.512c-4.186-3.761-5.89-5.444-8.027-7.484l-73.13 21.797-21.339-20.484 12.467-12.985 13.777 13.225 73.068-21.78 3.784 3.667s4.24 4.09 9.216 8.636l37.797-37.248 8.133 79.54 6.3-93.444 10.364 28.387 6.281-45.112 3.14-3.091-.29-.233 22.486-27.974.465-.907.188.096 11.453-14.248 14.03 11.277-9.122 11.348 67.803 34.715 27.008-9.489 22.478 17.71 22.924-12.036 8.367 15.938-33.262 17.46-23.875-18.81-24.964 8.772-9.584-4.907 39.04 87.842L383.923 494H494v-28.512L462.713 478.2l-6.776-16.678L494 446.06V211.176l-23.438-26.463-21.654-67.371-33.547 32.666-107.77-13.873-28.019-29.096 12.967-12.486 23.629 24.539 92.867 11.953 31.442-30.615-52.79-61.801zm27.53 177.74l34.177 41.428 28.863-6.56-4.136-13.59 17.22-5.243 9.77 32.098-58.543 13.307-31.377-38.033-33.086 19.853-9.262-15.436z',
+  // delapouite/ladder.svg
+  ladder:
+    'M121 17v30h270V17H121zm16 48v46h30V65h-30zm208 0v46h30V65h-30zm-224 64v30h270v-30H121zm16 48v46h30v-46h-30zm208 0v46h30v-46h-30zm-224 64v30h270v-30H121zm16 48v46h30v-46h-30zm208 0v46h30v-46h-30zm-224 64v30h270v-30H121zm16 48v46h30v-46h-30zm208 0v46h30v-46h-30zm-224 64v30h270v-30H121z',
+} as const;
+
+/** One nested <svg> per marker — viewBox scaling handles the size math exactly, no manual
+ * transform tuning. `size` is in world units (the parent svg's own coordinate space). */
+function MapIcon({
+  path,
+  x,
+  y,
+  size,
+  color,
+}: {
+  path: string;
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+}) {
+  return (
+    <svg x={x - size / 2} y={y - size / 2} width={size} height={size} viewBox="0 0 512 512">
+      <path d={path} fill={color} />
+    </svg>
+  );
+}
+
+// badges/skull.svg is its own self-colored badge (filled circle + white icon on top) rather
+// than the usual background-square + white-path shape, so it gets a dedicated marker instead
+// of reusing MapIcon — the outer circle's fill is the one thing recolored per use.
+function SkullMarker({ x, y, size, color }: { x: number; y: number; size: number; color: string }) {
+  return (
+    <svg x={x - size / 2} y={y - size / 2} width={size} height={size} viewBox="0 0 256 256">
+      <circle cx="128" cy="128" r="128" fill={color} />
+      <circle stroke="#fff" strokeWidth={18} cx="128" cy="128" r="101" fill="none" />
+      <path
+        fill="#fff"
+        d="M128 58c-32 0-64 16-64 37.838C64 154 96 142 96 142l-6 24h76l-6-24s32 12 32-52c0-16-32-32-64-32zm-26 38a16 16 0 0 1 16 16 16 16 0 0 1-16 16 16 16 0 0 1-16-16 16 16 0 0 1 16-16zm52 0a16 16 0 0 1 16 16 16 16 0 0 1-16 16 16 16 0 0 1-16-16 16 16 0 0 1 16-16zm-26 34l10 26h-20l10-26zm-28 51.002v17.996h56v-17.996h-56z"
+      />
+    </svg>
+  );
+}
 
 function FieldMap({ player }: { player: { x: number; z: number } }) {
   const monsters = useCombatStore((s) => s.monsters);
@@ -21,6 +81,17 @@ function FieldMap({ player }: { player: { x: number; z: number } }) {
       viewBox={`${-VIEW_HALF} ${-VIEW_HALF} ${VIEW_HALF * 2} ${VIEW_HALF * 2}`}
       style={{ background: '#3f6b34', borderRadius: 6, display: 'block' }}
     >
+      {/* Desert biome + river — same zone boundaries the actual field uses (worldColliders.ts),
+          so the map matches what's really out there instead of just showing uniform grass. */}
+      <rect x={DESERT_X_START} y={-VIEW_HALF} width={VIEW_HALF - DESERT_X_START} height={VIEW_HALF * 2} fill="#d9b877" />
+      <rect
+        x={RIVER_X_CENTER - RIVER_HALF_WIDTH}
+        y={-VIEW_HALF}
+        width={RIVER_HALF_WIDTH * 2}
+        height={VIEW_HALF * 2}
+        fill="#2f7fa8"
+      />
+
       {rockColliders.map((rock, i) => (
         <circle key={i} cx={rock.x} cy={rock.z} r={0.6} fill="#5a5148" />
       ))}
@@ -35,6 +106,7 @@ function FieldMap({ player }: { player: { x: number; z: number } }) {
         stroke="#e8c97a"
         strokeWidth={0.4}
       />
+      <MapIcon path={ICON_PATH.house} x={VILLAGE_CENTER[0]} y={VILLAGE_CENTER[1]} size={7} color="#e8c97a" />
       <text
         x={VILLAGE_CENTER[0]}
         y={VILLAGE_CENTER[1] - VILLAGE_SIZE / 2 - 1.5}
@@ -46,17 +118,10 @@ function FieldMap({ player }: { player: { x: number; z: number } }) {
         마을
       </text>
 
-      <circle
-        cx={FIELD_ENTRANCE_POINT[0]}
-        cy={FIELD_ENTRANCE_POINT[1]}
-        r={1.8}
-        fill="#1c1a20"
-        stroke="#c084fc"
-        strokeWidth={0.4}
-      />
+      <MapIcon path={ICON_PATH.cave} x={FIELD_ENTRANCE_POINT[0]} y={FIELD_ENTRANCE_POINT[1]} size={6} color="#c084fc" />
       <text
         x={FIELD_ENTRANCE_POINT[0]}
-        y={FIELD_ENTRANCE_POINT[1] - 2.4}
+        y={FIELD_ENTRANCE_POINT[1] - 4}
         fill="#c084fc"
         fontSize={3}
         textAnchor="middle"
@@ -68,10 +133,10 @@ function FieldMap({ player }: { player: { x: number; z: number } }) {
       {Object.values(monsters)
         .filter((m) => m.alive)
         .map((m) => (
-          <circle key={m.instanceId} cx={m.position[0]} cy={m.position[2]} r={1} fill="#d3487a" />
+          <SkullMarker key={m.instanceId} x={m.position[0]} y={m.position[2]} size={2.6} color="#d3487a" />
         ))}
 
-      <circle cx={player.x} cy={player.z} r={1.6} fill="#57c25b" stroke="#f4f1e8" strokeWidth={0.4} />
+      <MapIcon path={ICON_PATH.position} x={player.x} y={player.z} size={5} color="#57c25b" />
 
       <text x={0} y={-VIEW_HALF + 4} fill="#cfe8d0" fontSize={3} textAnchor="middle">N</text>
       <text x={0} y={VIEW_HALF - 1.5} fill="#cfe8d0" fontSize={3} textAnchor="middle">S</text>
@@ -94,27 +159,21 @@ function DungeonMap({ player, floor }: { player: { x: number; z: number }; floor
     >
       <rect x={-12} y={-10} width={24} height={20} rx={1} fill="#2c2933" stroke="#4a4750" strokeWidth={0.5} />
 
-      <circle
-        cx={DUNGEON_EXIT_TRIGGER[0]}
-        cy={DUNGEON_EXIT_TRIGGER[1]}
-        r={1.2}
-        fill="#bcdcf0"
-        opacity={0.8}
-      />
-      <text x={DUNGEON_EXIT_TRIGGER[0]} y={DUNGEON_EXIT_TRIGGER[1] + 2.6} fill="#bcdcf0" fontSize={2.4} textAnchor="middle">
+      <MapIcon path={ICON_PATH.ladder} x={DUNGEON_EXIT_TRIGGER[0]} y={DUNGEON_EXIT_TRIGGER[1]} size={2.6} color="#bcdcf0" />
+      <text x={DUNGEON_EXIT_TRIGGER[0]} y={DUNGEON_EXIT_TRIGGER[1] + 3.2} fill="#bcdcf0" fontSize={2.4} textAnchor="middle">
         {floor <= 1 ? '입구' : '위층'}
       </text>
 
       {hasNorthGap && (
         <>
-          <circle
-            cx={DUNGEON_DESCEND_TRIGGER[0]}
-            cy={DUNGEON_DESCEND_TRIGGER[1]}
-            r={1.2}
-            fill="#c084fc"
-            opacity={0.8}
+          <MapIcon
+            path={ICON_PATH.ladder}
+            x={DUNGEON_DESCEND_TRIGGER[0]}
+            y={DUNGEON_DESCEND_TRIGGER[1]}
+            size={2.6}
+            color="#c084fc"
           />
-          <text x={DUNGEON_DESCEND_TRIGGER[0]} y={DUNGEON_DESCEND_TRIGGER[1] - 1.8} fill="#c084fc" fontSize={2.4} textAnchor="middle">
+          <text x={DUNGEON_DESCEND_TRIGGER[0]} y={DUNGEON_DESCEND_TRIGGER[1] - 2.2} fill="#c084fc" fontSize={2.4} textAnchor="middle">
             아래층
           </text>
         </>
@@ -123,10 +182,10 @@ function DungeonMap({ player, floor }: { player: { x: number; z: number }; floor
       {Object.values(monsters)
         .filter((m) => m.alive)
         .map((m) => (
-          <circle key={m.instanceId} cx={m.position[0]} cy={m.position[2]} r={0.9} fill="#e0538a" />
+          <SkullMarker key={m.instanceId} x={m.position[0]} y={m.position[2]} size={2.2} color="#e0538a" />
         ))}
 
-      <circle cx={player.x} cy={player.z} r={1.4} fill="#57c25b" stroke="#f4f1e8" strokeWidth={0.4} />
+      <MapIcon path={ICON_PATH.position} x={player.x} y={player.z} size={4.2} color="#57c25b" />
     </svg>
   );
 }
