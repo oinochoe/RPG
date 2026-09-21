@@ -179,6 +179,8 @@ export function SystemMenu() {
       >
         아이템 아이콘: Lorc, Delapouite, sbed, Caro Asercion (game-icons.net, CC
         BY 3.0)
+        <br />
+        효과음: Kenney.nl (CC0)
       </p>
     </div>
   );

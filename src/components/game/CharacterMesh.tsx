@@ -11,6 +11,7 @@ import { playerPosition } from './playerTransform';
 import { moveTarget, clearMoveTarget } from './moveTarget';
 import { resolveMovement } from './worldColliders';
 import { OFFSET as CAMERA_OFFSET } from './CameraRig';
+import { playSound, playFootstep } from '../../lib/sound';
 import { useCombatStore } from '../../stores/combatStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -62,6 +63,7 @@ const ATTACK_DURATION_MS = 300;
 const MOVE_FADE_SEC = 0.15;
 const MOVE_SPEED = 6;
 const PLAYER_COLLISION_RADIUS = 0.4;
+const FOOTSTEP_INTERVAL_MS = 320;
 // Overall playable boundary (field + village combined) — LightRig follows the player, so
 // this no longer needs to fit inside a fixed shadow frustum, just the decorated ground itself.
 const MAX_RADIUS = 68;
@@ -251,6 +253,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
 
   const keysDown = useRef<Set<string>>(new Set());
   const facing = useRef(0);
+  const nextFootstepAt = useRef(0);
   const attackAnimUntil = useRef(0);
   // How long the current override lasts and which pose shape it follows — melee's swing
   // (windUp -> impact -> rest, see swingEase) and ranged's draw (rest -> windUp, holding
@@ -303,13 +306,17 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   // applied instantly inside attackNearest either way — only the visual is delayed.
   function handleAttackResult(result: ReturnType<typeof attackNearest>, isSkill = false) {
     if (!result.hit) return;
+    playSound('swing', 0.4);
     if (isSkill) {
+      playSound('cast', 0.45);
       spawnSkillEffect('flash', [playerPosition.x, baseY + PROJECTILE_ORIGIN_HEIGHT, playerPosition.z]);
     }
+    if (result.killed && result.goldDropped) playSound('coin', 0.4);
     const variant = PROJECTILE_VARIANT[character.character_class];
     const monster = result.instanceId != null ? useCombatStore.getState().monsters[result.instanceId] : undefined;
     if (!variant) {
       beginSwing();
+      playSound(isSkill ? 'hitHeavy' : 'hit', 0.5);
       // Melee has no travel time — the impact reads immediately, same moment the swing
       // itself starts (damage was already applied instantly by castSkill either way).
       if (isSkill && monster) {
@@ -420,6 +427,11 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     const moveLen = Math.hypot(dx, dz);
     const isMoving = moveLen > 0.0001;
     if (isMoving) {
+      const now = performance.now();
+      if (now >= nextFootstepAt.current) {
+        nextFootstepAt.current = now + FOOTSTEP_INTERVAL_MS;
+        playFootstep();
+      }
       dx /= moveLen;
       dz /= moveLen;
       const resolved = resolveMovement(
@@ -518,6 +530,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
         color={SKILL_FX_COLOR[character.character_class]}
         onArrive={() => {
           setProjectiles((prev) => prev.filter((x) => x.id !== p.id));
+          playSound(p.isSkill ? 'hitHeavy' : 'hit', 0.5);
           // A skill's projectile lands with an impact burst too, same as melee's instant
           // one — just delayed until travel actually finishes instead of firing at once.
           if (p.isSkill) spawnSkillEffect('impact', p.to);

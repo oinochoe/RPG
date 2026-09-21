@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import * as charactersApi from '../api/characters';
 import { useCombatStore } from './combatStore';
 import { useUIStore } from './uiStore';
+import { playSound } from '../lib/sound';
 import type { CharacterClass, CharacterProfile, CharacterSummary, InventorySlot, ShopItem } from '../types/api';
 
 function sumEquippedBonus(items: InventorySlot[]): { attack: number; defense: number } {
@@ -174,6 +175,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       set({ inventory: items });
       useCombatStore.getState().heal(row.heal_hp);
       useCombatStore.getState().restoreMp(row.restore_mp);
+      playSound('potion', 0.5);
     } finally {
       set((s) => {
         const hotbarPending = [...s.hotbarPending];
