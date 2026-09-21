@@ -155,6 +155,13 @@ interface CombatState {
   monsters: Record<number, MonsterCombatState>;
   player: PlayerCombatState;
   lastAttackAt: number;
+  // Incremented by Hotbar when a skill-assigned slot is pressed — CharacterMesh (the only
+  // place that has both the player's live position and the swing/draw animation refs
+  // castSkill's visual needs) watches this and casts on change. A counter rather than a
+  // boolean so pressing the slot twice in a row still fires twice even if CharacterMesh's
+  // effect hasn't re-run in between.
+  castRequestId: number;
+  requestCastSkill: () => void;
   init: (character: CharacterProfile, monsters: MonsterInstanceSummary[], aggressive: AggressivePredicate) => void;
   /**
    * Swaps in a different monster roster without touching player stats — used when
@@ -311,6 +318,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     skillCooldownUntil: 0,
   },
   lastAttackAt: 0,
+  castRequestId: 0,
+  requestCastSkill: () => set((s) => ({ castRequestId: s.castRequestId + 1 })),
 
   init: (character, monsters, aggressive) => {
     // character.attack_power/defense_power are the character's base stats (never touched

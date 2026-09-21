@@ -284,16 +284,29 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     };
   }
 
+  // Fires an actual cast when Hotbar's skill slot is pressed (see requestCastSkill) — the
+  // request lives in combatStore since that's what Hotbar can reach, but the cast itself has
+  // to happen here: this is the only place with both the player's live position and the
+  // swing/draw animation refs handleAttackResult needs. Skips the run that fires on mount
+  // (the ref value at that point reflects whatever another character session left behind,
+  // not a real request) the same way skillTabRequestId's watcher does in CharacterPanel.
+  const castRequestId = useCombatStore((s) => s.castRequestId);
+  const skipInitialCastRequest = useRef(true);
+  useEffect(() => {
+    if (skipInitialCastRequest.current) {
+      skipInitialCastRequest.current = false;
+      return;
+    }
+    const result = castSkill(playerPosition.x, playerPosition.z);
+    handleAttackResult(result);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [castRequestId]);
+
   useEffect(() => {
     playerPosition.set(character.position_x, character.position_y, character.position_z);
 
     function attack() {
       const result = attackNearest(playerPosition.x, playerPosition.z);
-      handleAttackResult(result);
-    }
-
-    function castSkillAction() {
-      const result = castSkill(playerPosition.x, playerPosition.z);
       handleAttackResult(result);
     }
 
@@ -316,7 +329,10 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       }
       if (e.code === 'KeyK') {
         e.preventDefault();
-        castSkillAction();
+        // Opens the skill tab to register the skill onto a hotbar slot — like every other
+        // game with a quickbar, casting itself happens by pressing the assigned slot (see
+        // the castRequestId watcher below), not by this key directly anymore.
+        useUIStore.getState().openSkillTab();
         return;
       }
       if (MOVE_KEYS[e.code]) {

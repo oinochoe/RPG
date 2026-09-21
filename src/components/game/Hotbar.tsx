@@ -1,23 +1,30 @@
 import { useState } from 'react';
 import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
+import { useCombatStore, SKILL_BY_CLASS } from '../../stores/combatStore';
 
 // Custom mime type for the drag payload (an item_template_id) — namespaced so it never
 // collides with a browser default type or an unrelated drag source on the page. Set by a
 // consumable GridCell in InventoryPanel.tsx; read here to assign a slot.
 export const HOTBAR_DRAG_MIME = 'application/x-rpg-item-template-id';
 
+// A separate mime type (rather than reusing HOTBAR_DRAG_MIME with a sentinel payload) since
+// there's only ever one skill to drag — no id to carry, and checking `dataTransfer.types`
+// for this type's presence is all a drop handler needs. Set by the draggable skill card in
+// CharacterPanel.tsx's SkillTab.
+export const HOTBAR_DRAG_SKILL_MIME = 'application/x-rpg-hotbar-skill';
+
 /**
- * Quickbar for consumables — 4 slots, keys 1-4 (wired in GamePage's keydown handler).
- * Assignments are session-local only (see characterStore's hotbar field). A slot can be
- * filled two ways — whichever the player prefers — both driven from InventoryPanel: drag a
- * consumable from the grid onto a slot here, or click one of the numbered buttons next to a
- * selected consumable there. Clearing a slot is deliberately right-click-only (not
- * drag-out) — an earlier version also cleared a slot when its item was dragged out and
- * released outside the bar, but that made an accidental drag (e.g. a slightly-off click)
- * silently wipe the assignment, so it was removed per feedback; right-click is a clearer,
- * harder-to-trigger-by-accident gesture. Positioned by its parent (HUD.tsx, next to the
- * status bar) rather than self-positioning, so the two form one visual unit at the bottom
- * of the screen.
+ * Quickbar for consumables and the class skill — 4 slots, keys 1-4 (wired in GamePage's
+ * keydown handler). Assignments are session-local only (see characterStore's hotbar field).
+ * A slot can be filled two ways — whichever the player prefers — both driven from wherever
+ * the thing being assigned lives (InventoryPanel for items, CharacterPanel's skill tab for
+ * the skill): drag onto a slot here, or click a numbered register button there. Clearing a
+ * slot is deliberately right-click-only (not drag-out) — an earlier version also cleared a
+ * slot when its item was dragged out and released outside the bar, but that made an
+ * accidental drag (e.g. a slightly-off click) silently wipe the assignment, so it was
+ * removed per feedback; right-click is a clearer, harder-to-trigger-by-accident gesture.
+ * Positioned by its parent (HUD.tsx, next to the status bar) rather than self-positioning,
+ * so the two form one visual unit at the bottom of the screen.
  */
 export function Hotbar() {
   const hotbar = useCharacterStore((s) => s.hotbar);
@@ -25,7 +32,10 @@ export function Hotbar() {
   const inventory = useCharacterStore((s) => s.inventory);
   const useHotbarSlot = useCharacterStore((s) => s.useHotbarSlot);
   const setHotbarSlot = useCharacterStore((s) => s.setHotbarSlot);
+  const player = useCombatStore((s) => s.player);
+  const requestCastSkill = useCombatStore((s) => s.requestCastSkill);
   const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
+  const skill = SKILL_BY_CLASS[player.characterClass];
 
   return (
     <div
@@ -37,11 +47,22 @@ export function Hotbar() {
     >
       {Array.from({ length: HOTBAR_SIZE }).map((_, i) => {
         const assignment = hotbar[i];
+        const isSkill = assignment?.kind === 'skill';
         const itemTemplateId = assignment?.kind === 'item' ? assignment.itemTemplateId : null;
         const row = itemTemplateId != null ? inventory.find((item) => item.item_template_id === itemTemplateId) : null;
         const quantity = row?.quantity ?? 0;
-        const usable = !!row && quantity > 0 && !hotbarPending[i];
+        // Skill usability ignores the live cooldown timer (no per-frame ticking here) — a
+        // press during cooldown just silently no-ops inside castSkill, same as the old
+        // direct K-press behavior did.
+        const usable = isSkill
+          ? player.skillLevel > 0 && player.currentMp >= skill.mpCost
+          : !!row && quantity > 0 && !hotbarPending[i];
         const isDragTarget = dragOverSlot === i;
+        const title = isSkill
+          ? `${skill.name} — 우클릭으로 해제`
+          : row
+            ? `${row.item_name} — 우클릭으로 해제`
+            : '드래그하거나 번호를 눌러 등록';
         return (
           <button
             key={i}
@@ -51,7 +72,9 @@ export function Hotbar() {
             // an "empty, therefore disabled" slot would silently refuse to accept a drop
             // from a real mouse drag. The click-to-use guard just lives in the handler.
             onClick={() => {
-              if (usable) useHotbarSlot(i);
+              if (!usable) return;
+              if (isSkill) requestCastSkill();
+              else useHotbarSlot(i);
             }}
             onContextMenu={(e) => {
               e.preventDefault();
@@ -66,11 +89,15 @@ export function Hotbar() {
             onDrop={(e) => {
               e.preventDefault();
               setDragOverSlot(null);
+              if (e.dataTransfer.types.includes(HOTBAR_DRAG_SKILL_MIME)) {
+                setHotbarSlot(i, { kind: 'skill' });
+                return;
+              }
               const raw = e.dataTransfer.getData(HOTBAR_DRAG_MIME);
               const id = Number(raw);
               if (raw && Number.isInteger(id)) setHotbarSlot(i, { kind: 'item', itemTemplateId: id });
             }}
-            title={row ? `${row.item_name} — 우클릭으로 해제` : '인벤토리에서 드래그하거나 번호를 눌러 등록'}
+            title={title}
             style={{
               pointerEvents: 'auto',
               width: 52,
@@ -89,7 +116,14 @@ export function Hotbar() {
             }}
           >
             <span style={{ position: 'absolute', top: 2, left: 4, fontSize: 10, color: '#9aa08f' }}>{i + 1}</span>
-            {row ? (
+            {isSkill ? (
+              <>
+                <span style={{ fontSize: 10, lineHeight: 1.2, textAlign: 'center', padding: '0 2px' }}>
+                  {skill.name}
+                </span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#9be7ff' }}>MP {skill.mpCost}</span>
+              </>
+            ) : row ? (
               <>
                 <span style={{ fontSize: 10, lineHeight: 1.2, textAlign: 'center', padding: '0 2px' }}>
                   {row.item_name}

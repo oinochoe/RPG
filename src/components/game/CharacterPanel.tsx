@@ -1,8 +1,9 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useCombatStore, statPointCost, SKILL_BY_CLASS, SKILL_MAX_LEVEL, type AllocatableStat } from '../../stores/combatStore';
-import { useCharacterStore } from '../../stores/characterStore';
+import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL } from './itemLabels';
+import { HOTBAR_DRAG_SKILL_MIME } from './Hotbar';
 import { useDraggablePanel } from './useDraggablePanel';
 import type { CharacterProfile } from '../../types/api';
 
@@ -189,10 +190,13 @@ function EquipmentTab() {
 function SkillTab({ character }: { character: CharacterProfile }) {
   const player = useCombatStore((s) => s.player);
   const upgradeSkill = useCombatStore((s) => s.upgradeSkill);
+  const hotbar = useCharacterStore((s) => s.hotbar);
+  const setHotbarSlot = useCharacterStore((s) => s.setHotbarSlot);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const skill = SKILL_BY_CLASS[character.character_class];
   const canUpgrade = !pending && player.skillUpgradePoints > 0 && player.skillLevel < SKILL_MAX_LEVEL;
+  const assignedSlot = hotbar.findIndex((a) => a?.kind === 'skill');
 
   async function handleUpgrade() {
     setError(null);
@@ -226,6 +230,12 @@ function SkillTab({ character }: { character: CharacterProfile }) {
       {error && <p style={{ color: '#e0538a', fontSize: 12, marginBottom: 8 }}>{error}</p>}
 
       <div
+        draggable={player.skillLevel > 0}
+        onDragStart={(e) => {
+          if (player.skillLevel <= 0) return;
+          e.dataTransfer.setData(HOTBAR_DRAG_SKILL_MIME, 'skill');
+          e.dataTransfer.effectAllowed = 'copy';
+        }}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -233,6 +243,7 @@ function SkillTab({ character }: { character: CharacterProfile }) {
           padding: '10px',
           borderRadius: 8,
           background: 'rgba(255,255,255,0.04)',
+          cursor: player.skillLevel > 0 ? 'grab' : 'default',
         }}
       >
         <div>
@@ -240,7 +251,7 @@ function SkillTab({ character }: { character: CharacterProfile }) {
             {skill.name} — Lv.{player.skillLevel}/{SKILL_MAX_LEVEL}
           </div>
           <div style={{ color: '#9aa08f', fontSize: 11, marginTop: 2 }}>
-            MP {skill.mpCost} · 쿨다운 {skill.cooldownMs / 1000}초 · K로 시전
+            MP {skill.mpCost} · 쿨다운 {skill.cooldownMs / 1000}초
           </div>
         </div>
         <button
@@ -261,6 +272,41 @@ function SkillTab({ character }: { character: CharacterProfile }) {
           레벨업
         </button>
       </div>
+
+      {player.skillLevel > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.5, marginBottom: 6 }}>
+            {assignedSlot >= 0 ? (
+              <>
+                단축키 <span style={{ color: '#e8c97a', fontWeight: 700 }}>{assignedSlot + 1}</span>번에 등록됨
+              </>
+            ) : (
+              '스킬을 드래그하거나, 아래 번호를 눌러 단축키에 등록하세요.'
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {Array.from({ length: HOTBAR_SIZE }).map((_, slot) => (
+              <button
+                key={slot}
+                onClick={() => setHotbarSlot(slot, assignedSlot === slot ? null : { kind: 'skill' })}
+                style={{
+                  flex: 1,
+                  height: 24,
+                  borderRadius: 5,
+                  border: '1px solid #e8c97a',
+                  background: assignedSlot === slot ? 'rgba(232, 201, 122, 0.35)' : 'rgba(255,255,255,0.05)',
+                  color: '#e8c97a',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                {slot + 1}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -278,6 +324,19 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
     x: 16,
     y: Math.max(16, window.innerHeight / 2 - 140),
   }));
+
+  // Jumps to the skill tab whenever K asks for it (see openSkillTab) — skipping the run
+  // that fires on mount, since the counter's value at that point reflects whatever request
+  // happened before this component existed, not a real one just now.
+  const skillTabRequestId = useUIStore((s) => s.skillTabRequestId);
+  const skipInitialSkillTabRequest = useRef(true);
+  useEffect(() => {
+    if (skipInitialSkillTabRequest.current) {
+      skipInitialSkillTabRequest.current = false;
+      return;
+    }
+    setTab('skill');
+  }, [skillTabRequestId]);
 
   if (!isOpen) return null;
 
