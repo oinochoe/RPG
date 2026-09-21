@@ -25,7 +25,7 @@ export const ROOM_HALF_Z = (GRID_CELLS * CELL_SIZE) / 2;
 const CELL_OFFSETS = Array.from({ length: GRID_CELLS }, (_, i) => (i - (GRID_CELLS - 1) / 2) * CELL_SIZE);
 const DOOR_CELL_INDEX = (GRID_CELLS - 1) / 2;
 
-export const DUNGEON_MAX_FLOOR = 3;
+export const DUNGEON_MAX_FLOOR = 6;
 // Gap in the south wall — floor 1's exit leads back to the field, deeper floors lead up one level.
 export const DUNGEON_EXIT_TRIGGER: [number, number] = [0, -ROOM_HALF_Z + 1];
 export const DUNGEON_EXIT_RADIUS = 1.8;
