@@ -9,6 +9,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card } from '../components/ui/card';
+import { Spinner } from '../components/ui/spinner';
 import { cn } from '../lib/utils';
 
 const CLASS_OPTIONS: { value: CharacterClass; label: string; icon: typeof Swords }[] = [
@@ -30,6 +31,9 @@ export function CharactersPage() {
   const [characterClass, setCharacterClass] = useState<CharacterClass>('warrior');
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
+  // Separate from busyId (which also covers delete) so the 선택 button's spinner only shows
+  // for an actual character-entry attempt, not while a different row's delete is in flight.
+  const [selectingId, setSelectingId] = useState<number | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -50,6 +54,7 @@ export function CharactersPage() {
   async function handleSelect(characterId: number) {
     setError(null);
     setBusyId(characterId);
+    setSelectingId(characterId);
     try {
       await selectCharacter(characterId);
       navigate('/game');
@@ -57,6 +62,7 @@ export function CharactersPage() {
       setError(translateApiError(err));
     } finally {
       setBusyId(null);
+      setSelectingId(null);
     }
   }
 
@@ -88,7 +94,12 @@ export function CharactersPage() {
             {error}
           </p>
         )}
-        {isLoading && <p className="mb-4 text-xs text-gold-dim">불러오는 중...</p>}
+        {isLoading && (
+          <div className="mb-4 flex items-center gap-2 text-xs text-gold-dim">
+            <Spinner size={16} />
+            불러오는 중...
+          </div>
+        )}
 
         {characters.length > 0 && (
           <ul className="mb-6 flex flex-col gap-2">
@@ -108,6 +119,7 @@ export function CharactersPage() {
                   </div>
                   <div className="flex gap-1.5">
                     <Button size="sm" disabled={busy} onClick={() => handleSelect(character.id)}>
+                      {selectingId === character.id && <Spinner size={12} />}
                       선택
                     </Button>
                     <Button

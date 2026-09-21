@@ -13,6 +13,7 @@ import { CharacterPanel } from '../components/game/CharacterPanel';
 import { InventoryPanel } from '../components/game/InventoryPanel';
 import { ShopPanel } from '../components/game/ShopPanel';
 import { SystemMenu } from '../components/game/SystemMenu';
+import { LoadingScreen } from '../components/ui/spinner';
 import { translateApiError } from './errorMessages';
 
 const HOTBAR_KEYS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3 };
@@ -77,7 +78,7 @@ export function GamePage() {
   }, []);
 
   if (error) return <p role="alert">{error}</p>;
-  if (!activeCharacter || !currentMap) return <p>맵 입장 중...</p>;
+  if (!activeCharacter || !currentMap) return <LoadingScreen label="맵 입장 중..." />;
 
   return (
     <>

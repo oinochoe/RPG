@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as charactersApi from '../api/characters';
 import { useCombatStore } from './combatStore';
+import { useUIStore } from './uiStore';
 import type { CharacterClass, CharacterProfile, CharacterSummary, InventorySlot, ShopItem } from '../types/api';
 
 function sumEquippedBonus(items: InventorySlot[]): { attack: number; defense: number } {
@@ -77,6 +78,10 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     await charactersApi.selectCharacter(characterId);
     const profile = await charactersApi.getActiveCharacterProfile();
     set({ activeCharacter: profile, inventory: profile.inventory, hotbar: Array(HOTBAR_SIZE).fill(null) });
+    // Whatever panel (F1 menu, inventory, ...) was left open from a previous character's
+    // session — or from clicking "캐릭터 선택" while one was open — shouldn't carry over into
+    // the new one, since uiStore isn't reset by the route change itself.
+    useUIStore.getState().closeAll();
   },
 
   deleteCharacter: async (characterId) => {

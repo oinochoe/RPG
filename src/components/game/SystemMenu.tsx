@@ -25,6 +25,10 @@ export function SystemMenu() {
   const isOpen = useUIStore((s) => s.isSystemMenuOpen);
   const closeSystemMenu = useUIStore((s) => s.closeSystemMenu);
   const [loggingOut, setLoggingOut] = useState(false);
+  // Collapsed by default — the keybind reference is useful but shouldn't be the first thing
+  // this menu shows every time; 캐릭터 선택/로그아웃 (what someone actually opens F1 to do
+  // most of the time) get top billing instead.
+  const [showKeybinds, setShowKeybinds] = useState(false);
   const navigate = useNavigate();
   const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
     x: window.innerWidth / 2 - PANEL_WIDTH / 2,
@@ -91,24 +95,6 @@ export function SystemMenu() {
         </button>
       </div>
 
-        <div style={{ marginBottom: 14 }}>
-          {KEYBINDS.map(([label, key]) => (
-            <div
-              key={label}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                padding: '5px 2px',
-                fontSize: 12,
-                borderBottom: '1px solid rgba(232, 201, 122, 0.12)',
-              }}
-            >
-              <span style={{ color: '#cfe8d0' }}>{label}</span>
-              <span style={{ color: '#e8c97a', fontWeight: 700 }}>{key}</span>
-            </div>
-          ))}
-        </div>
-
         <button
           onClick={() => navigate('/characters')}
           style={{
@@ -142,6 +128,42 @@ export function SystemMenu() {
         >
           {loggingOut ? '로그아웃 중...' : '로그아웃'}
         </button>
+
+        <button
+          onClick={() => setShowKeybinds((s) => !s)}
+          style={{
+            width: '100%',
+            padding: '6px 0',
+            marginTop: 10,
+            borderRadius: 6,
+            border: '1px solid rgba(232, 201, 122, 0.25)',
+            background: 'transparent',
+            color: '#9aa08f',
+            fontSize: 11,
+            cursor: 'pointer',
+          }}
+        >
+          단축키 안내 {showKeybinds ? '▲' : '▼'}
+        </button>
+        {showKeybinds && (
+          <div style={{ marginTop: 8 }}>
+            {KEYBINDS.map(([label, key]) => (
+              <div
+                key={label}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  padding: '5px 2px',
+                  fontSize: 12,
+                  borderBottom: '1px solid rgba(232, 201, 122, 0.12)',
+                }}
+              >
+                <span style={{ color: '#cfe8d0' }}>{label}</span>
+                <span style={{ color: '#e8c97a', fontWeight: 700 }}>{key}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* CC BY 3.0 requires attribution — see itemIcons.tsx for which icon came from whom. */}
         <p style={{ color: 'rgba(154, 160, 143, 0.6)', fontSize: 9, marginTop: 10, textAlign: 'center' }}>
