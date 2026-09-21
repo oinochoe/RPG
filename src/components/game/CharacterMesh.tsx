@@ -305,11 +305,6 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   useEffect(() => {
     playerPosition.set(character.position_x, character.position_y, character.position_z);
 
-    function attack() {
-      const result = attackNearest(playerPosition.x, playerPosition.z);
-      handleAttackResult(result);
-    }
-
     function onKeyDown(e: KeyboardEvent) {
       const ui = useUIStore.getState();
       // Movement/attack deliberately keep working while a panel is open (character/
@@ -318,12 +313,13 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       // action-RPGs, opening a stats/inventory/shop window doesn't pause play.
       if (e.code === 'Space') {
         e.preventDefault();
-        // Context-sensitive like most action-RPGs: talking to a nearby NPC takes priority
-        // over attacking (village has no monsters anyway, so this never actually competes).
+        // Interact-only now (NPC talk, and whatever else earns a context-sensitive prompt
+        // later, e.g. a door) — no longer a manual attack button. Basic attack happens by
+        // clicking a monster (see the click-to-target-then-auto-attack block below), same
+        // as a skill now requires an explicit clicked target instead of firing at whatever's
+        // nearest.
         if (ui.nearShopKind) {
           useUIStore.getState().openShop(ui.nearShopKind);
-        } else {
-          attack();
         }
         return;
       }

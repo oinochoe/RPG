@@ -460,6 +460,12 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     const skill = SKILL_BY_CLASS[player.characterClass];
     if (player.currentMp < skill.mpCost) return { hit: false };
 
+    // Unlike attackNearest (which falls back to whatever's closest so plain movement-driven
+    // combat keeps working), an active skill press with nothing explicitly targeted is just a
+    // miss — it never guesses a target on its own. resolveTarget's own nearest-scan branch
+    // only runs when targetId is null, so this guard is what actually enforces "must click a
+    // monster first" here.
+    if (targetId === null) return { hit: false };
     const target = resolveTarget(monsters, targetId, playerX, playerZ, player.attackRange);
     if (!target) return { hit: false };
 

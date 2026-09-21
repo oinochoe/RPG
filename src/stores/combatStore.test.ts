@@ -255,8 +255,15 @@ describe('combatStore castSkill', () => {
     expect(result.hit).toBe(false);
   });
 
-  it('hits the nearest monster, deducts MP, and sets a cooldown when ready', () => {
+  it('does nothing when no target is locked, even with the skill ready', () => {
     useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 20 } }));
+    const result = useCombatStore.getState().castSkill(0, 0);
+    expect(result.hit).toBe(false);
+  });
+
+  it('hits the locked target, deducts MP, and sets a cooldown when ready', () => {
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 20 } }));
+    useCombatStore.getState().setTarget(1);
     const before = performance.now();
     const result = useCombatStore.getState().castSkill(0, 0);
     const { player } = useCombatStore.getState();
@@ -272,11 +279,13 @@ describe('combatStore castSkill', () => {
     const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
     try {
       useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 100 } }));
+      useCombatStore.getState().setTarget(1);
       useCombatStore.getState().castSkill(0, 0);
       const lowLevelDamage = useCombatStore.getState().monsters[1].maxHp - useCombatStore.getState().monsters[1].currentHp;
 
       useCombatStore.getState().init(baseCharacter, [monster], true);
       useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 3, currentMp: 100 } }));
+      useCombatStore.getState().setTarget(1);
       useCombatStore.getState().castSkill(0, 0);
       const highLevelDamage = useCombatStore.getState().monsters[1].maxHp - useCombatStore.getState().monsters[1].currentHp;
 
@@ -292,6 +301,7 @@ describe('combatStore castSkill', () => {
     const weakMonster: MonsterInstanceSummary = { ...monster, current_hp: 1, max_hp: 1 };
     useCombatStore.getState().init({ ...baseCharacter, experience: 95 }, [weakMonster], true);
     useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 100 } }));
+    useCombatStore.getState().setTarget(1);
     vi.clearAllMocks();
 
     const result = useCombatStore.getState().castSkill(0, 0);

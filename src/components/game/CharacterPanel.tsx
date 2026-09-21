@@ -251,7 +251,7 @@ function SkillTab({ character }: { character: CharacterProfile }) {
             {skill.name} — Lv.{player.skillLevel}/{SKILL_MAX_LEVEL}
           </div>
           <div style={{ color: '#9aa08f', fontSize: 11, marginTop: 2 }}>
-            MP {skill.mpCost} · 쿨다운 {skill.cooldownMs / 1000}초
+            MP {skill.mpCost} · 쿨다운 {skill.cooldownMs / 1000}초 · 몬스터 클릭 후 사용
           </div>
         </div>
         <button

@@ -34,6 +34,7 @@ export function Hotbar() {
   const setHotbarSlot = useCharacterStore((s) => s.setHotbarSlot);
   const player = useCombatStore((s) => s.player);
   const requestCastSkill = useCombatStore((s) => s.requestCastSkill);
+  const hasTarget = useCombatStore((s) => s.targetId !== null);
   const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
   const skill = SKILL_BY_CLASS[player.characterClass];
 
@@ -52,14 +53,18 @@ export function Hotbar() {
         const row = itemTemplateId != null ? inventory.find((item) => item.item_template_id === itemTemplateId) : null;
         const quantity = row?.quantity ?? 0;
         // Skill usability ignores the live cooldown timer (no per-frame ticking here) — a
-        // press during cooldown just silently no-ops inside castSkill, same as the old
-        // direct K-press behavior did.
+        // press during cooldown just silently no-ops inside castSkill, same as before.
+        // Unlike basic attack, a skill never guesses a target on its own — hasTarget mirrors
+        // castSkill's own hard requirement so the slot visibly dims until a monster is
+        // clicked, instead of looking castable and then silently doing nothing.
         const usable = isSkill
-          ? player.skillLevel > 0 && player.currentMp >= skill.mpCost
+          ? player.skillLevel > 0 && player.currentMp >= skill.mpCost && hasTarget
           : !!row && quantity > 0 && !hotbarPending[i];
         const isDragTarget = dragOverSlot === i;
         const title = isSkill
-          ? `${skill.name} — 우클릭으로 해제`
+          ? hasTarget
+            ? `${skill.name} — 우클릭으로 해제`
+            : `${skill.name} — 몬스터를 먼저 클릭하세요`
           : row
             ? `${row.item_name} — 우클릭으로 해제`
             : '드래그하거나 번호를 눌러 등록';
