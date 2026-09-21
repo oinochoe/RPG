@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { NameTag } from './NameTag';
 import { HealthBar } from './HealthBar';
 import { playerPosition } from './playerTransform';
-import { setAttackMoveTarget, setAttackTargetOnly } from './moveTarget';
+import { setAttackMoveTarget, setAttackTargetOnly, setSkillMoveTarget } from './moveTarget';
 import { useCombatStore, type MonsterCombatState } from '../../stores/combatStore';
 import type { MonsterInstanceSummary } from '../../types/api';
 
@@ -467,28 +467,36 @@ export function MonsterMesh({
 
   function handleClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
-    // Skill aiming armed (see combatStore's isAimingSkill/toggleAimSkill) — this click IS
-    // the target designation Ragnarok-style ability targeting calls for: fire on the spot at
-    // whatever range the player currently stands, no walking over first. requestCastSkill
-    // signals CharacterMesh (the only place with the live position + animation refs the
-    // cast's visual needs) to actually run castSkill; it misses silently if out of range,
-    // same as every other miss case already does.
-    if (useCombatStore.getState().isAimingSkill) {
-      setTarget(monster.instance_id);
-      useCombatStore.getState().requestCastSkill();
-      useCombatStore.getState().cancelAimSkill();
-      return;
-    }
     // The actual combat lock (see resolveTarget in combatStore) — attacks/skills go only to
     // this monster from now on until it dies or another one is clicked, regardless of which
-    // one ends up nearest. setAttackTargetOnly/setAttackMoveTarget below are movement-only:
-    // they just walk the player to (or stop them at) a range where that lock can connect.
+    // one ends up nearest.
     setTarget(monster.instance_id);
     const dx = playerPosition.x - basePosition[0];
     const dz = playerPosition.z - basePosition[2];
     const dist = Math.hypot(dx, dz) || 1;
     const standoff = attackRange * 0.85;
-    if (dist <= attackRange) {
+    const inRange = dist <= attackRange;
+
+    // Skill aiming armed (see combatStore's isAimingSkill/toggleAimSkill) — this click IS
+    // the target designation Ragnarok-style ability targeting calls for. In range, fire on
+    // the spot; out of range, walk to a standoff point first and fire once arrival lands
+    // (see CharacterMesh's pendingSkillCast watcher) — same walk-then-act shape as the
+    // basic-attack branch below, just a single cast instead of repeated auto-attacks.
+    if (useCombatStore.getState().isAimingSkill) {
+      useCombatStore.getState().cancelAimSkill();
+      if (inRange) {
+        useCombatStore.getState().requestCastSkill();
+      } else {
+        const standX = basePosition[0] + (dx / dist) * standoff;
+        const standZ = basePosition[2] + (dz / dist) * standoff;
+        setSkillMoveTarget(standX, standZ);
+      }
+      return;
+    }
+
+    // setAttackTargetOnly/setAttackMoveTarget below are movement-only: they just walk the
+    // player to (or stop them at) a range where the lock set above can connect.
+    if (inRange) {
       // Already in range (common for ranged classes) — attack in place instead of
       // walking to a standoff point, which could otherwise mean stepping backward.
       setAttackTargetOnly(monster.instance_id);

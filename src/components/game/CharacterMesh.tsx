@@ -407,6 +407,17 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       }
     }
 
+    // Arrived at the standoff point an aimed-but-out-of-range skill click set (see
+    // MonsterMesh's handleClick / setSkillMoveTarget) — fire exactly once, whether it
+    // connects or not, rather than repeating every frame like the basic-attack block above.
+    // A skill has its own cooldown/MP cost, so "walk over and auto-cast forever" isn't the
+    // right behavior the way "walk over and auto-attack forever" is for a free basic attack.
+    if (!usingKeyboard && !moveTarget.point && moveTarget.pendingSkillCast) {
+      moveTarget.pendingSkillCast = false;
+      const result = castSkill(playerPosition.x, playerPosition.z);
+      handleAttackResult(result);
+    }
+
     groupRef.current.position.x = playerPosition.x;
     groupRef.current.position.z = playerPosition.z;
     groupRef.current.position.y = baseY;
