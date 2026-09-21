@@ -58,7 +58,14 @@ export function GamePage() {
         if (useCombatStore.getState().isAimingSkill) {
           useCombatStore.getState().cancelAimSkill();
         } else {
-          useUIStore.getState().closeTopPanel();
+          const ui = useUIStore.getState();
+          // Standard pause-menu convention: Escape backs out of whatever's open, or opens
+          // the menu itself when nothing is — not just a close key. F1 still works too.
+          if (ui.openPanelStack.length > 0) {
+            ui.closeTopPanel();
+          } else {
+            ui.toggleSystemMenu();
+          }
         }
       } else if (e.code in HOTBAR_KEYS) {
         const ui = useUIStore.getState();
