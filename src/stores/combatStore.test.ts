@@ -335,6 +335,14 @@ describe('combatStore toggleAimSkill', () => {
     expect(useCombatStore.getState().isAimingSkill).toBe(true);
   });
 
+  it('does nothing while the skill is on cooldown', () => {
+    useCombatStore.setState((s) => ({
+      player: { ...s.player, skillLevel: 1, currentMp: 20, skillCooldownUntil: performance.now() + 10_000 },
+    }));
+    useCombatStore.getState().toggleAimSkill();
+    expect(useCombatStore.getState().isAimingSkill).toBe(false);
+  });
+
   it('disarms aiming on a second press, without re-checking castability', () => {
     useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 20 } }));
     useCombatStore.getState().toggleAimSkill();

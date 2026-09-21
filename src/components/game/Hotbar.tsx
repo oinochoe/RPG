@@ -52,18 +52,23 @@ export function Hotbar() {
         const itemTemplateId = assignment?.kind === 'item' ? assignment.itemTemplateId : null;
         const row = itemTemplateId != null ? inventory.find((item) => item.item_template_id === itemTemplateId) : null;
         const quantity = row?.quantity ?? 0;
-        // Skill usability ignores the live cooldown timer (no per-frame ticking here) — a
-        // press during cooldown just silently no-ops inside toggleAimSkill/castSkill, same
-        // as before.
+        // Cooldown isn't ticked per-frame here, so this only becomes accurate again within
+        // ~1s of actually expiring (the next re-render this component gets, e.g. from
+        // MpRegenTicker's once-a-second tick) — fine for a dimming indicator on a multi-
+        // second cooldown, and it matches toggleAimSkill's own guard so the slot never shows
+        // "ready" when arming would actually be refused.
+        const onCooldown = isSkill && performance.now() < player.skillCooldownUntil;
         const usable = isSkill
-          ? player.skillLevel > 0 && player.currentMp >= skill.mpCost
+          ? player.skillLevel > 0 && player.currentMp >= skill.mpCost && !onCooldown
           : !!row && quantity > 0 && !hotbarPending[i];
         const isDragTarget = dragOverSlot === i;
         const isArmed = isSkill && isAimingSkill;
         const title = isSkill
-          ? isArmed
-            ? `${skill.name} — 몬스터를 클릭해 시전 (다시 누르면 취소)`
-            : `${skill.name} — 눌러서 조준, 몬스터를 클릭해 시전`
+          ? onCooldown
+            ? `${skill.name} — 쿨다운 중`
+            : isArmed
+              ? `${skill.name} — 몬스터를 클릭해 시전 (다시 누르면 취소)`
+              : `${skill.name} — 눌러서 조준, 몬스터를 클릭해 시전`
           : row
             ? `${row.item_name} — 우클릭으로 해제`
             : '드래그하거나 번호를 눌러 등록';

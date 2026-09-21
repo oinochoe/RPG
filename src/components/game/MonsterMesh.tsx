@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { NameTag } from './NameTag';
 import { HealthBar } from './HealthBar';
 import { playerPosition } from './playerTransform';
-import { setAttackMoveTarget, setAttackTargetOnly, setSkillMoveTarget } from './moveTarget';
+import { setAttackMoveTarget, setAttackTargetOnly, setSkillMoveTarget, clearMoveTarget } from './moveTarget';
 import { useCombatStore, type MonsterCombatState } from '../../stores/combatStore';
 import type { MonsterInstanceSummary } from '../../types/api';
 
@@ -485,6 +485,12 @@ export function MonsterMesh({
     if (useCombatStore.getState().isAimingSkill) {
       useCombatStore.getState().cancelAimSkill();
       if (inRange) {
+        // Firing on the spot supersedes any walk-to-attack still in flight from an earlier
+        // click on a different monster — without this, an aimed cast on monster B while
+        // still mid-walk toward monster A left moveTarget still pointed at A, so the
+        // character kept marching there and then missed forever (the lock had already
+        // moved to B, and A's arrival block never got a hit to clear itself on).
+        clearMoveTarget();
         useCombatStore.getState().requestCastSkill();
       } else {
         const standX = basePosition[0] + (dx / dist) * standoff;
