@@ -142,6 +142,11 @@ export function SystemMenu() {
         >
           {loggingOut ? '로그아웃 중...' : '로그아웃'}
         </button>
+
+        {/* CC BY 3.0 requires attribution — see itemIcons.tsx for which icon came from whom. */}
+        <p style={{ color: 'rgba(154, 160, 143, 0.6)', fontSize: 9, marginTop: 10, textAlign: 'center' }}>
+          아이템 아이콘: Lorc, Delapouite, sbed, Caro Asercion (game-icons.net, CC BY 3.0)
+        </p>
     </div>
   );
 }
