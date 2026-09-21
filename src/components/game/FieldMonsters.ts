@@ -1,5 +1,5 @@
 import { mulberry32 } from './proceduralTextures';
-import { FIELD_ENTRANCE_POINT } from './worldColliders';
+import { FIELD_ENTRANCE_POINT, inRiverZone, inDesertZone } from './worldColliders';
 import type { MonsterInstanceSummary } from '../../types/api';
 
 // The server's POST /exploration/enter-map always returns monsters: [] (no real monster-
@@ -7,8 +7,8 @@ import type { MonsterInstanceSummary } from '../../types/api';
 // dungeon's buildFloorMonsters, just for the field. Deterministic (fixed seed) so the roster
 // is stable across a session rather than reshuffling on every re-render/area transition.
 const SEED = 7;
-const FIELD_MONSTER_COUNT = 16;
-const SCATTER_EXTENT = 55;
+const FIELD_MONSTER_COUNT = 50;
+const SCATTER_EXTENT = 130;
 const SPAWN_CLEAR_RADIUS = 8;
 const VILLAGE_CLEAR_X: [number, number] = [-42, -22];
 const VILLAGE_CLEAR_Z: [number, number] = [-10, 10];
@@ -37,15 +37,20 @@ export function buildFieldMonsters(): MonsterInstanceSummary[] {
   const monsters: MonsterInstanceSummary[] = [];
   let idBase = 8000;
 
-  while (monsters.length < FIELD_MONSTER_COUNT) {
+  let attempts = 0;
+  while (monsters.length < FIELD_MONSTER_COUNT && attempts < FIELD_MONSTER_COUNT * 50) {
+    attempts++;
     const x = (rng() - 0.5) * SCATTER_EXTENT * 2;
     const z = (rng() - 0.5) * SCATTER_EXTENT * 2;
     if (Math.hypot(x, z) < SPAWN_CLEAR_RADIUS) continue;
     if (inVillageClearZone(x, z)) continue;
     if (inCaveClearZone(x, z)) continue;
+    // Slimes/skeletons are grass-zone fauna — the desert (past the river) is reserved for its
+    // own props for now, no monster type has been made for it yet.
+    if (inRiverZone(x) || inDesertZone(x)) continue;
 
     const distFromSpawn = Math.hypot(x, z);
-    const tier = Math.min(2, Math.floor(distFromSpawn / 25));
+    const tier = Math.min(2, Math.floor(distFromSpawn / 55));
     const level = 1 + tier;
     const isSkeleton = tier >= SKELETON_MIN_TIER;
     const hp = isSkeleton ? 40 + tier * 15 : 15 + tier * 10;

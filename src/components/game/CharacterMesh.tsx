@@ -66,7 +66,10 @@ const PLAYER_COLLISION_RADIUS = 0.4;
 const FOOTSTEP_INTERVAL_MS = 320;
 // Overall playable boundary (field + village combined) — LightRig follows the player, so
 // this no longer needs to fit inside a fixed shadow frustum, just the decorated ground itself.
-const MAX_RADIUS = 68;
+// Matches worldColliders.ts's FIELD_EXTENT/2 (300/2=150) and scatterDesertProps' own radius
+// clamp, so the desert biome's far edge is (mostly) reachable rather than fenced off by a
+// tighter movement boundary than what decorations were actually scattered out to.
+const MAX_RADIUS = 150;
 const ARRIVE_EPSILON = 0.15;
 
 // The camera sits at a fixed diagonal offset (CameraRig's OFFSET, e.g. (18,16,18)) rather

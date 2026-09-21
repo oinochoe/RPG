@@ -63,6 +63,88 @@ export function useGrassTexture(): THREE.Texture {
   }, []);
 }
 
+/** A tileable canvas-painted desert sand texture, for the field's desert biome patch. */
+export function useSandTexture(): THREE.Texture {
+  return useMemo(() => {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const rng = mulberry32(4242);
+
+    ctx.fillStyle = '#d9b877';
+    ctx.fillRect(0, 0, size, size);
+
+    // Broad dune-shadow patches for large-scale variation.
+    for (let i = 0; i < 60; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const r = 40 + rng() * 90;
+      const color = rng() < 0.5 ? 'rgba(196, 158, 98, 0.45)' : 'rgba(230, 200, 140, 0.4)';
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.55, rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Fine grain speckle for close-up detail.
+    for (let i = 0; i < 1600; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const r = 1.5 + rng() * 3;
+      const shade = rng();
+      const color =
+        shade < 0.5 ? `rgba(176, 138, 84, ${0.25 + rng() * 0.3})` : `rgba(238, 212, 158, ${0.25 + rng() * 0.3})`;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.7, rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(20, 20);
+    texture.anisotropy = 8;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, []);
+}
+
+/** A tileable canvas-painted river-water texture — a flat strip, not a real fluid sim. */
+export function useWaterTexture(): THREE.Texture {
+  return useMemo(() => {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const rng = mulberry32(99);
+
+    ctx.fillStyle = '#2f7fa8';
+    ctx.fillRect(0, 0, size, size);
+
+    // Horizontal-ish ripple bands (river flow direction) plus a few highlight streaks.
+    for (let i = 0; i < 40; i++) {
+      const y = rng() * size;
+      const h = 4 + rng() * 10;
+      ctx.fillStyle = rng() < 0.5 ? 'rgba(120, 200, 224, 0.18)' : 'rgba(20, 60, 90, 0.18)';
+      ctx.beginPath();
+      ctx.ellipse(rng() * size, y, 60 + rng() * 120, h, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(6, 22);
+    texture.anisotropy = 8;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, []);
+}
+
 /** A tileable canvas-painted cobblestone texture for the village plaza. */
 export function useCobblestoneTexture(): THREE.Texture {
   return useMemo(() => {
