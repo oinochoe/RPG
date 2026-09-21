@@ -162,6 +162,14 @@ interface CombatState {
   // effect hasn't re-run in between.
   castRequestId: number;
   requestCastSkill: () => void;
+  // The explicitly locked combat target (set by clicking a monster — see MonsterMesh's
+  // handleClick). When set, attackNearest/castSkill attack ONLY this monster — missing
+  // outright if it's dead or out of range rather than silently redirecting to whichever
+  // monster happens to be closer, which is what made re-targeting feel broken before this
+  // existed. Cleared automatically on kill; otherwise stays locked (Lineage-style) until the
+  // player targets something else, so moving around mid-fight doesn't drop the lock.
+  targetId: number | null;
+  setTarget: (id: number | null) => void;
   init: (character: CharacterProfile, monsters: MonsterInstanceSummary[], aggressive: AggressivePredicate) => void;
   /**
    * Swaps in a different monster roster without touching player stats — used when
@@ -289,6 +297,40 @@ function applyKill(
   return { nextPlayer, leveledUp, goldDropped };
 }
 
+// Shared by attackNearest and castSkill: when a target is explicitly locked, ONLY that
+// monster is a valid hit — dead or out of range means the swing misses outright, never a
+// silent redirect to some other monster (that redirect was the actual bug behind "targeting
+// feels broken"). With nothing locked, falls back to the old nearest-in-range scan so plain
+// Space-bar/hotbar attacks with no target selected still work exactly as before.
+function resolveTarget(
+  monsters: Record<number, MonsterCombatState>,
+  targetId: number | null,
+  playerX: number,
+  playerZ: number,
+  attackRange: number,
+): MonsterCombatState | null {
+  if (targetId !== null) {
+    const locked = monsters[targetId];
+    if (!locked || !locked.alive) return null;
+    const dx = locked.position[0] - playerX;
+    const dz = locked.position[2] - playerZ;
+    return Math.hypot(dx, dz) <= attackRange ? locked : null;
+  }
+  let nearest: MonsterCombatState | null = null;
+  let nearestDist = Infinity;
+  for (const monster of Object.values(monsters)) {
+    if (!monster.alive) continue;
+    const dx = monster.position[0] - playerX;
+    const dz = monster.position[2] - playerZ;
+    const dist = Math.hypot(dx, dz);
+    if (dist <= attackRange && dist < nearestDist) {
+      nearest = monster;
+      nearestDist = dist;
+    }
+  }
+  return nearest;
+}
+
 export const useCombatStore = create<CombatState>((set, get) => ({
   ready: false,
   monsters: {},
@@ -320,6 +362,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   lastAttackAt: 0,
   castRequestId: 0,
   requestCastSkill: () => set((s) => ({ castRequestId: s.castRequestId + 1 })),
+  targetId: null,
+  setTarget: (id) => set({ targetId: id }),
 
   init: (character, monsters, aggressive) => {
     // character.attack_power/defense_power are the character's base stats (never touched
@@ -364,38 +408,28 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         skillCooldownUntil: 0,
       },
       lastAttackAt: 0,
+      targetId: null,
     });
   },
 
   loadMonsters: (monsters, aggressive) => {
-    set({ monsters: toMonsterCombatState(monsters, aggressive), lastAttackAt: 0 });
+    set({ monsters: toMonsterCombatState(monsters, aggressive), lastAttackAt: 0, targetId: null });
   },
 
   attackNearest: (playerX, playerZ) => {
     const now = performance.now();
-    const { monsters, lastAttackAt, player } = get();
+    const { monsters, lastAttackAt, player, targetId } = get();
     if (now - lastAttackAt < ATTACK_COOLDOWN_MS) return { hit: false };
 
-    let nearest: MonsterCombatState | null = null;
-    let nearestDist = Infinity;
-    for (const monster of Object.values(monsters)) {
-      if (!monster.alive) continue;
-      const dx = monster.position[0] - playerX;
-      const dz = monster.position[2] - playerZ;
-      const dist = Math.hypot(dx, dz);
-      if (dist <= player.attackRange && dist < nearestDist) {
-        nearest = monster;
-        nearestDist = dist;
-      }
-    }
-    if (!nearest) return { hit: false };
+    const target = resolveTarget(monsters, targetId, playerX, playerZ, player.attackRange);
+    if (!target) return { hit: false };
 
     const damage = Math.max(1, Math.round(player.attackPower * (0.8 + Math.random() * 0.4)));
-    const nextHp = Math.max(0, nearest.currentHp - damage);
+    const nextHp = Math.max(0, target.currentHp - damage);
     const killed = nextHp === 0;
 
     const updatedMonster: MonsterCombatState = {
-      ...nearest,
+      ...target,
       currentHp: nextHp,
       alive: !killed,
       respawnAt: killed ? now + RESPAWN_DELAY_MS : null,
@@ -403,49 +437,39 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     };
 
     const { nextPlayer, leveledUp, goldDropped } = killed
-      ? applyKill(player, nearest)
+      ? applyKill(player, target)
       : { nextPlayer: player, leveledUp: false, goldDropped: undefined as number | undefined };
 
     set({
-      monsters: { ...monsters, [nearest.instanceId]: updatedMonster },
+      monsters: { ...monsters, [target.instanceId]: updatedMonster },
       player: nextPlayer,
       lastAttackAt: now,
+      targetId: killed && targetId === target.instanceId ? null : targetId,
     });
 
     if (leveledUp) get().syncProgress();
 
-    return { hit: true, instanceId: nearest.instanceId, damage, killed, leveledUp, goldDropped };
+    return { hit: true, instanceId: target.instanceId, damage, killed, leveledUp, goldDropped };
   },
 
   castSkill: (playerX, playerZ) => {
     const now = performance.now();
-    const { monsters, player } = get();
+    const { monsters, player, targetId } = get();
     if (player.skillLevel <= 0 || now < player.skillCooldownUntil) return { hit: false };
 
     const skill = SKILL_BY_CLASS[player.characterClass];
     if (player.currentMp < skill.mpCost) return { hit: false };
 
-    let nearest: MonsterCombatState | null = null;
-    let nearestDist = Infinity;
-    for (const monster of Object.values(monsters)) {
-      if (!monster.alive) continue;
-      const dx = monster.position[0] - playerX;
-      const dz = monster.position[2] - playerZ;
-      const dist = Math.hypot(dx, dz);
-      if (dist <= player.attackRange && dist < nearestDist) {
-        nearest = monster;
-        nearestDist = dist;
-      }
-    }
-    if (!nearest) return { hit: false };
+    const target = resolveTarget(monsters, targetId, playerX, playerZ, player.attackRange);
+    if (!target) return { hit: false };
 
     const multiplier = skillDamageMultiplier(skill.baseDamageMultiplier, player.skillLevel);
     const damage = Math.max(1, Math.round(player.attackPower * multiplier * (0.8 + Math.random() * 0.4)));
-    const nextHp = Math.max(0, nearest.currentHp - damage);
+    const nextHp = Math.max(0, target.currentHp - damage);
     const killed = nextHp === 0;
 
     const updatedMonster: MonsterCombatState = {
-      ...nearest,
+      ...target,
       currentHp: nextHp,
       alive: !killed,
       respawnAt: killed ? now + RESPAWN_DELAY_MS : null,
@@ -453,7 +477,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     };
 
     const { nextPlayer: afterKill, leveledUp, goldDropped } = killed
-      ? applyKill(player, nearest)
+      ? applyKill(player, target)
       : { nextPlayer: player, leveledUp: false, goldDropped: undefined as number | undefined };
 
     const nextPlayer: PlayerCombatState = {
@@ -463,13 +487,14 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     };
 
     set({
-      monsters: { ...monsters, [nearest.instanceId]: updatedMonster },
+      monsters: { ...monsters, [target.instanceId]: updatedMonster },
       player: nextPlayer,
+      targetId: killed && targetId === target.instanceId ? null : targetId,
     });
 
     if (leveledUp) get().syncProgress();
 
-    return { hit: true, instanceId: nearest.instanceId, damage, killed, leveledUp, goldDropped };
+    return { hit: true, instanceId: target.instanceId, damage, killed, leveledUp, goldDropped };
   },
 
   monsterAttackTick: (playerX, playerZ) => {

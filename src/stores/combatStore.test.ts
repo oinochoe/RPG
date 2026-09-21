@@ -303,6 +303,91 @@ describe('combatStore castSkill', () => {
   });
 });
 
+describe('combatStore targeting', () => {
+  const nearMonster: MonsterInstanceSummary = {
+    instance_id: 1,
+    monster_template_id: 1,
+    name: 'Slime',
+    level: 1,
+    current_hp: 100,
+    max_hp: 100,
+    position_x: 1,
+    position_y: 0,
+    position_z: 0,
+  };
+  const lockedMonster: MonsterInstanceSummary = {
+    instance_id: 2,
+    monster_template_id: 1,
+    name: 'Goblin',
+    level: 1,
+    current_hp: 100,
+    max_hp: 100,
+    position_x: 2,
+    position_y: 0,
+    position_z: 0,
+  };
+
+  beforeEach(() => {
+    useCombatStore.getState().init(baseCharacter, [nearMonster, lockedMonster], true);
+  });
+
+  it('attacks the locked target instead of whichever monster is nearest', () => {
+    useCombatStore.getState().setTarget(2);
+    useCombatStore.setState({ lastAttackAt: -Infinity });
+
+    const result = useCombatStore.getState().attackNearest(0, 0);
+
+    expect(result.hit).toBe(true);
+    expect(result.instanceId).toBe(2);
+    expect(useCombatStore.getState().monsters[1].currentHp).toBe(100);
+  });
+
+  it('misses instead of redirecting to another monster when the locked target is out of range', () => {
+    useCombatStore.setState((s) => ({
+      monsters: { ...s.monsters, 2: { ...s.monsters[2], position: [50, 0, 0] } },
+    }));
+    useCombatStore.getState().setTarget(2);
+    useCombatStore.setState({ lastAttackAt: -Infinity });
+
+    const result = useCombatStore.getState().attackNearest(0, 0);
+
+    expect(result.hit).toBe(false);
+    expect(useCombatStore.getState().monsters[1].currentHp).toBe(100);
+  });
+
+  it('falls back to nearest-in-range when nothing is locked', () => {
+    useCombatStore.setState({ lastAttackAt: -Infinity });
+
+    const result = useCombatStore.getState().attackNearest(0, 0);
+
+    expect(result.hit).toBe(true);
+    expect(result.instanceId).toBe(1);
+  });
+
+  it('clears the lock automatically once the locked target dies', () => {
+    useCombatStore.setState((s) => ({
+      monsters: { ...s.monsters, 2: { ...s.monsters[2], currentHp: 1 } },
+    }));
+    useCombatStore.getState().setTarget(2);
+    useCombatStore.setState({ lastAttackAt: -Infinity });
+
+    const result = useCombatStore.getState().attackNearest(0, 0);
+
+    expect(result.killed).toBe(true);
+    expect(useCombatStore.getState().targetId).toBeNull();
+  });
+
+  it('castSkill also honors the lock', () => {
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 100 } }));
+    useCombatStore.getState().setTarget(2);
+
+    const result = useCombatStore.getState().castSkill(0, 0);
+
+    expect(result.hit).toBe(true);
+    expect(result.instanceId).toBe(2);
+  });
+});
+
 describe('combatStore tickMpRegen', () => {
   beforeEach(() => {
     useCombatStore.getState().init(baseCharacter, [], false);

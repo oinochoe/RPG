@@ -389,11 +389,14 @@ export function MonsterMesh({
 }) {
   const combat = useCombatStore((s) => s.monsters[monster.instance_id]);
   const attackRange = useCombatStore((s) => s.player.attackRange);
+  const isTargeted = useCombatStore((s) => s.targetId === monster.instance_id);
+  const setTarget = useCombatStore((s) => s.setTarget);
   const prevHpRef = useRef(combat?.currentHp ?? monster.current_hp);
   const [popups, setPopups] = useState<DamagePopup[]>([]);
   const [dying, setDying] = useState(false);
   const wasAliveRef = useRef(true);
   const facingRef = useRef(0);
+  const facingGroupRef = useRef<THREE.Group>(null);
   const prevPosRef = useRef<[number, number, number]>([
     monster.position_x,
     monster.position_y,
@@ -405,24 +408,35 @@ export function MonsterMesh({
     monster.position_z,
   ];
 
-  useEffect(() => {
+  // Runs every frame (rather than a useEffect gated on position/lastAttackAt) so facing keeps
+  // tracking the player continuously — the old effect-based version froze whenever neither of
+  // those deps changed, e.g. a monster standing still mid-attack-cooldown while the player
+  // circled around it, which looked like it was attacking in the wrong direction. Driven
+  // imperatively via facingGroupRef.current.rotation.y (same pattern CharacterMesh uses for
+  // its own facing) instead of a React rotation prop, since a ref write alone doesn't
+  // trigger a re-render to pick up the new angle.
+  useFrame(() => {
+    const live = useCombatStore.getState().monsters[monster.instance_id];
+    if (!live || !live.alive) return;
+    const [mx, , mz] = live.position;
     const [px, , pz] = prevPosRef.current;
-    const dx = basePosition[0] - px;
-    const dz = basePosition[2] - pz;
+    const dx = mx - px;
+    const dz = mz - pz;
     if (Math.hypot(dx, dz) > 0.01) {
       // Moving — face the direction of travel.
       facingRef.current = Math.atan2(dx, dz);
-    } else if (combat && (combat.aggressive || combat.lastHitAt !== null)) {
+    } else if (live.aggressive || live.lastHitAt !== null) {
       // Stopped while engaged (close enough to attack) — face the player instead of
       // freezing at whatever heading it happened to approach from.
-      const fdx = playerPosition.x - basePosition[0];
-      const fdz = playerPosition.z - basePosition[2];
+      const fdx = playerPosition.x - mx;
+      const fdz = playerPosition.z - mz;
       if (Math.hypot(fdx, fdz) > 0.01) {
         facingRef.current = Math.atan2(fdx, fdz);
       }
     }
-    prevPosRef.current = basePosition;
-  }, [basePosition[0], basePosition[2], combat?.lastAttackAt, combat?.lastHitAt]);
+    prevPosRef.current = live.position;
+    if (facingGroupRef.current) facingGroupRef.current.rotation.y = facingRef.current;
+  });
 
   useEffect(() => {
     if (!combat) return;
@@ -453,6 +467,11 @@ export function MonsterMesh({
 
   function handleClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
+    // The actual combat lock (see resolveTarget in combatStore) — attacks/skills go only to
+    // this monster from now on until it dies or another one is clicked, regardless of which
+    // one ends up nearest. setAttackTargetOnly/setAttackMoveTarget below are movement-only:
+    // they just walk the player to (or stop them at) a range where that lock can connect.
+    setTarget(monster.instance_id);
     const dx = playerPosition.x - basePosition[0];
     const dz = playerPosition.z - basePosition[2];
     const dist = Math.hypot(dx, dz) || 1;
@@ -471,7 +490,13 @@ export function MonsterMesh({
   const labelHeight = variant.labelHeight;
 
   return (
-    <group position={basePosition} rotation={[0, facingRef.current, 0]} scale={scale}>
+    <group ref={facingGroupRef} position={basePosition} scale={scale}>
+      {isTargeted && !dying && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+          <ringGeometry args={[0.55, 0.7, 24]} />
+          <meshBasicMaterial color="#e0538a" transparent opacity={0.85} />
+        </mesh>
+      )}
       {!dying && (
         <mesh visible={false} onClick={handleClick}>
           <cylinderGeometry args={[0.55, 0.55, labelHeight, 8]} />
