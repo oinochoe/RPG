@@ -11,6 +11,7 @@ import { moveTarget, clearMoveTarget } from './moveTarget';
 import { resolveMovement } from './worldColliders';
 import { OFFSET as CAMERA_OFFSET } from './CameraRig';
 import { useCombatStore } from '../../stores/combatStore';
+import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { CharacterProfile } from '../../types/api';
 
@@ -26,10 +27,30 @@ const CHARACTER_MODEL: Record<CharacterProfile['character_class'], string> = {
   archer: '/models/kaykit/Characters/gltf/Ranger.glb',
 };
 
+// Fallback when no weapon is equipped yet (a fresh character's starter weapon is granted
+// unequipped — see create_character — so this covers "never equipped anything" too, not
+// just a genuine empty-handed state).
 const WEAPON_MODEL: Record<CharacterProfile['character_class'], string> = {
   warrior: '/models/kaykit/Assets/gltf/sword_1handed.gltf',
   mage: '/models/kaykit/Assets/gltf/staff.gltf',
   archer: '/models/kaykit/Assets/gltf/bow_withString.gltf',
+};
+
+const KAYKIT_WEAPONS = '/models/kaykit-weapons/Assets/gltf';
+
+// Maps an equipped weapon's item_name (item_templates has no dedicated "which 3D model"
+// column, so this is the client-side equivalent of one — same pattern as
+// combatStore.ts's SKILL_BY_CLASS duplicating skill_templates rather than fetching it) to
+// the specific model that should render in the character's hand. Starter weapons map to the
+// same files WEAPON_MODEL already used, so equipping one is a visual no-op; the new
+// purchasable upgrades (see migration 20260921040000) get a distinct, better-looking model.
+const WEAPON_MODEL_BY_NAME: Record<string, string> = {
+  '녹슨 검': WEAPON_MODEL.warrior,
+  '나무 지팡이': WEAPON_MODEL.mage,
+  '나무 활': WEAPON_MODEL.archer,
+  '강철 검': `${KAYKIT_WEAPONS}/sword_D.gltf`,
+  '대현자의 지팡이': `${KAYKIT_WEAPONS}/staff_B.gltf`,
+  '사냥꾼의 장궁': `${KAYKIT_WEAPONS}/bow_B_withString.gltf`,
 };
 
 const RIG_GENERAL = '/models/kaykit/Animations/gltf/Rig_Medium/Rig_Medium_General.glb';
@@ -123,8 +144,18 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   const accent = CLASS_ACCENT[character.character_class];
   const baseY = character.position_y;
 
+  // `character` (characterStore.activeCharacter) is a point-in-time snapshot from
+  // character-select — its own .inventory doesn't update on equip/unequip (only the
+  // separate characterStore.inventory field does; see InventoryPanel/equipItem). Reading
+  // live inventory here, not character.inventory, so the held weapon actually tracks equip
+  // state instead of being stuck at whatever was equipped at login.
+  const liveInventory = useCharacterStore((s) => s.inventory);
+  const equippedWeaponName = liveInventory.find((item) => item.is_equipped && item.equip_slot === 'weapon')?.item_name;
+  const weaponModelUrl =
+    (equippedWeaponName && WEAPON_MODEL_BY_NAME[equippedWeaponName]) || WEAPON_MODEL[character.character_class];
+
   const characterGltf = useGLTF(CHARACTER_MODEL[character.character_class]);
-  const weaponGltf = useGLTF(WEAPON_MODEL[character.character_class]);
+  const weaponGltf = useGLTF(weaponModelUrl);
   const generalGltf = useGLTF(RIG_GENERAL);
   const movementGltf = useGLTF(RIG_MOVEMENT);
 
@@ -433,4 +464,4 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
 useGLTF.preload(RIG_GENERAL);
 useGLTF.preload(RIG_MOVEMENT);
 Object.values(CHARACTER_MODEL).forEach((url) => useGLTF.preload(url));
-Object.values(WEAPON_MODEL).forEach((url) => useGLTF.preload(url));
+Object.values(WEAPON_MODEL_BY_NAME).forEach((url) => useGLTF.preload(url));
