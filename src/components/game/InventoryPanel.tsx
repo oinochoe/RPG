@@ -281,7 +281,12 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                       {Array.from({ length: HOTBAR_SIZE }).map((_, slot) => (
                         <button
                           key={slot}
-                          onClick={() => setHotbarSlot(slot, assignedSlot === slot ? null : selected.item_template_id)}
+                          onClick={() =>
+                            setHotbarSlot(
+                              slot,
+                              assignedSlot === slot ? null : { kind: 'item', itemTemplateId: selected.item_template_id },
+                            )
+                          }
                           style={{
                             flex: 1,
                             height: 24,

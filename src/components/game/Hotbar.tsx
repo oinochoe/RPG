@@ -36,7 +36,8 @@ export function Hotbar() {
       }}
     >
       {Array.from({ length: HOTBAR_SIZE }).map((_, i) => {
-        const itemTemplateId = hotbar[i];
+        const assignment = hotbar[i];
+        const itemTemplateId = assignment?.kind === 'item' ? assignment.itemTemplateId : null;
         const row = itemTemplateId != null ? inventory.find((item) => item.item_template_id === itemTemplateId) : null;
         const quantity = row?.quantity ?? 0;
         const usable = !!row && quantity > 0 && !hotbarPending[i];
@@ -54,7 +55,7 @@ export function Hotbar() {
             }}
             onContextMenu={(e) => {
               e.preventDefault();
-              if (itemTemplateId != null) setHotbarSlot(i, null);
+              if (assignment != null) setHotbarSlot(i, null);
             }}
             onDragOver={(e) => {
               e.preventDefault();
@@ -67,7 +68,7 @@ export function Hotbar() {
               setDragOverSlot(null);
               const raw = e.dataTransfer.getData(HOTBAR_DRAG_MIME);
               const id = Number(raw);
-              if (raw && Number.isInteger(id)) setHotbarSlot(i, id);
+              if (raw && Number.isInteger(id)) setHotbarSlot(i, { kind: 'item', itemTemplateId: id });
             }}
             title={row ? `${row.item_name} — 우클릭으로 해제` : '인벤토리에서 드래그하거나 번호를 눌러 등록'}
             style={{
