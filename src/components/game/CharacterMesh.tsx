@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useGLTF, useAnimations } from '@react-three/drei';
+import { useGLTF, useAnimations, useTexture } from '@react-three/drei';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
 import { NameTag } from './NameTag';
 import { HealthBar } from './HealthBar';
 import { Projectile } from './Projectile';
+import { FxSprite } from './FxSprite';
 import { playerPosition } from './playerTransform';
 import { moveTarget, clearMoveTarget } from './moveTarget';
 import { resolveMovement } from './worldColliders';
@@ -103,6 +104,21 @@ const PROJECTILE_VARIANT: Partial<Record<CharacterProfile['character_class'], 'a
 const PROJECTILE_ORIGIN_HEIGHT = 0.75;
 const PROJECTILE_DURATION_MS = 200;
 
+// Per-class color for a skill's "화려한" flash/impact/projectile glow — deliberately not
+// CLASS_ACCENT: 파이어볼 reads as fire regardless of mage's icy-blue UI accent, so these are
+// their own palette themed to each skill's name/flavor rather than the class's UI color.
+const SKILL_FX_COLOR: Record<CharacterProfile['character_class'], THREE.ColorRepresentation> = {
+  warrior: '#ffcf5c',
+  archer: '#eaffb0',
+  mage: '#ff6a2b',
+};
+const SKILL_FLARE_TEXTURE = '/models/kaykit-spells/textures/flare_01.png';
+const SKILL_IMPACT_TEXTURE = '/models/kaykit-spells/textures/impact_01.png';
+const SKILL_CAST_FLASH_SIZE = 1.6;
+const SKILL_CAST_FLASH_DURATION_MS = 300;
+const SKILL_IMPACT_BURST_SIZE = 1.3;
+const SKILL_IMPACT_BURST_DURATION_MS = 350;
+
 // Ranged classes play a short draw/cast pose before the projectile actually leaves —
 // beginDraw() below pulls the arm back over this whole duration, and the projectile is
 // queued (not spawned) until it elapses, matching a real draw-then-release feel instead
@@ -116,12 +132,23 @@ interface ActiveProjectile {
   from: [number, number, number];
   to: [number, number, number];
   variant: 'arrow' | 'bolt';
+  isSkill: boolean;
 }
 
 interface PendingProjectile {
   from: [number, number, number];
   to: [number, number, number];
   variant: 'arrow' | 'bolt';
+  isSkill: boolean;
+}
+
+// A skill cast spawns a flash at the caster the instant it lands, and — for a hit that also
+// resolves immediately (melee, or a ranged projectile's arrival) — an impact burst at the
+// target. Both are purely visual (FxSprite); see SKILL_FX_COLOR/SKILL_*_TEXTURE above.
+interface SkillEffect {
+  id: number;
+  kind: 'flash' | 'impact';
+  position: [number, number, number];
 }
 
 function shortestAngleDelta(from: number, to: number): number {
@@ -240,6 +267,13 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   const attackNearest = useCombatStore((s) => s.attackNearest);
   const castSkill = useCombatStore((s) => s.castSkill);
   const [projectiles, setProjectiles] = useState<ActiveProjectile[]>([]);
+  const [skillEffects, setSkillEffects] = useState<SkillEffect[]>([]);
+  const skillEffectIdRef = useRef(0);
+
+  function spawnSkillEffect(kind: SkillEffect['kind'], position: [number, number, number]) {
+    skillEffectIdRef.current += 1;
+    setSkillEffects((prev) => [...prev, { id: skillEffectIdRef.current, kind, position }]);
+  }
 
   function beginSwing() {
     attackAnimUntil.current = performance.now() + ATTACK_DURATION_MS;
@@ -267,20 +301,29 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   // swing, archer/mage play a short draw/cast pose and the projectile itself is queued to
   // spawn once that pose finishes (see the useFrame block). Damage itself was already
   // applied instantly inside attackNearest either way — only the visual is delayed.
-  function handleAttackResult(result: ReturnType<typeof attackNearest>) {
+  function handleAttackResult(result: ReturnType<typeof attackNearest>, isSkill = false) {
     if (!result.hit) return;
+    if (isSkill) {
+      spawnSkillEffect('flash', [playerPosition.x, baseY + PROJECTILE_ORIGIN_HEIGHT, playerPosition.z]);
+    }
     const variant = PROJECTILE_VARIANT[character.character_class];
+    const monster = result.instanceId != null ? useCombatStore.getState().monsters[result.instanceId] : undefined;
     if (!variant) {
       beginSwing();
+      // Melee has no travel time — the impact reads immediately, same moment the swing
+      // itself starts (damage was already applied instantly by castSkill either way).
+      if (isSkill && monster) {
+        spawnSkillEffect('impact', [monster.position[0], monster.position[1] + PROJECTILE_ORIGIN_HEIGHT, monster.position[2]]);
+      }
       return;
     }
-    const monster = result.instanceId != null ? useCombatStore.getState().monsters[result.instanceId] : undefined;
     if (!monster) return;
     beginDraw();
     pendingProjectile.current = {
       from: [playerPosition.x, baseY + PROJECTILE_ORIGIN_HEIGHT, playerPosition.z],
       to: [monster.position[0], monster.position[1] + PROJECTILE_ORIGIN_HEIGHT, monster.position[2]],
       variant,
+      isSkill,
     };
   }
 
@@ -299,7 +342,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       return;
     }
     const result = castSkill(playerPosition.x, playerPosition.z);
-    handleAttackResult(result);
+    handleAttackResult(result, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [castRequestId]);
 
@@ -415,7 +458,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     if (!usingKeyboard && !moveTarget.point && moveTarget.pendingSkillCast) {
       moveTarget.pendingSkillCast = false;
       const result = castSkill(playerPosition.x, playerPosition.z);
-      handleAttackResult(result);
+      handleAttackResult(result, true);
     }
 
     groupRef.current.position.x = playerPosition.x;
@@ -471,7 +514,25 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
         to={p.to}
         variant={p.variant}
         duration={PROJECTILE_DURATION_MS}
-        onArrive={() => setProjectiles((prev) => prev.filter((x) => x.id !== p.id))}
+        skill={p.isSkill}
+        color={SKILL_FX_COLOR[character.character_class]}
+        onArrive={() => {
+          setProjectiles((prev) => prev.filter((x) => x.id !== p.id));
+          // A skill's projectile lands with an impact burst too, same as melee's instant
+          // one — just delayed until travel actually finishes instead of firing at once.
+          if (p.isSkill) spawnSkillEffect('impact', p.to);
+        }}
+      />
+    ))}
+    {skillEffects.map((fx) => (
+      <FxSprite
+        key={fx.id}
+        position={fx.position}
+        texturePath={fx.kind === 'flash' ? SKILL_FLARE_TEXTURE : SKILL_IMPACT_TEXTURE}
+        color={SKILL_FX_COLOR[character.character_class]}
+        size={fx.kind === 'flash' ? SKILL_CAST_FLASH_SIZE : SKILL_IMPACT_BURST_SIZE}
+        duration={fx.kind === 'flash' ? SKILL_CAST_FLASH_DURATION_MS : SKILL_IMPACT_BURST_DURATION_MS}
+        onDone={() => setSkillEffects((prev) => prev.filter((x) => x.id !== fx.id))}
       />
     ))}
     <group ref={groupRef} position={[character.position_x, baseY, character.position_z]}>
@@ -489,3 +550,5 @@ useGLTF.preload(RIG_GENERAL);
 useGLTF.preload(RIG_MOVEMENT);
 Object.values(CHARACTER_MODEL).forEach((url) => useGLTF.preload(url));
 Object.values(WEAPON_MODEL_BY_NAME).forEach((url) => useGLTF.preload(url));
+useTexture.preload(SKILL_FLARE_TEXTURE);
+useTexture.preload(SKILL_IMPACT_TEXTURE);

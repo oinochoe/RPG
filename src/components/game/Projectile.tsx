@@ -13,12 +13,19 @@ export function Projectile({
   to,
   duration = 220,
   variant,
+  skill = false,
+  color,
   onArrive,
 }: {
   from: [number, number, number];
   to: [number, number, number];
   duration?: number;
   variant: 'arrow' | 'bolt';
+  // A skill's projectile is the same shape as a basic attack's, just bigger and glowing in
+  // the skill's own color — reusing the geometry keeps this from needing a whole separate
+  // asset just to look "more active-ability" than a plain arrow/bolt.
+  skill?: boolean;
+  color?: THREE.ColorRepresentation;
   onArrive: () => void;
 }) {
   const groupRef = useRef<THREE.Group>(null);
@@ -43,8 +50,10 @@ export function Projectile({
     }
   });
 
+  const skillColor = color ?? (variant === 'arrow' ? '#eaffb0' : '#ff6a2b');
+
   return (
-    <group ref={groupRef} position={from} quaternion={quaternion}>
+    <group ref={groupRef} position={from} quaternion={quaternion} scale={skill ? 1.7 : 1}>
       {variant === 'arrow' ? (
         <group>
           <mesh position={[0, 0.19, 0]}>
@@ -55,14 +64,19 @@ export function Projectile({
             <cylinderGeometry args={[0.014, 0.014, 0.34, 6]} />
             <meshStandardMaterial color="#c9b48a" />
           </mesh>
+          {skill && <pointLight color={skillColor} intensity={1.6} distance={3} />}
         </group>
       ) : (
         <group>
           <mesh>
             <sphereGeometry args={[0.09, 8, 8]} />
-            <meshStandardMaterial color="#9be7ff" emissive="#5ec8ff" emissiveIntensity={2} />
+            <meshStandardMaterial
+              color={skill ? skillColor : '#9be7ff'}
+              emissive={skill ? skillColor : '#5ec8ff'}
+              emissiveIntensity={skill ? 3 : 2}
+            />
           </mesh>
-          <pointLight color="#9be7ff" intensity={1.2} distance={2.5} />
+          <pointLight color={skill ? skillColor : '#9be7ff'} intensity={skill ? 2.2 : 1.2} distance={skill ? 3.5 : 2.5} />
         </group>
       )}
     </group>
