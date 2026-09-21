@@ -5,6 +5,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL } from './itemLabels';
 import { HOTBAR_DRAG_MIME } from './Hotbar';
 import { useDraggablePanel } from './useDraggablePanel';
+import { ItemIcon, itemRarity, RARITY_SLOT_FRAME } from './itemIcons';
 import type { CharacterProfile, InventorySlot } from '../../types/api';
 
 const GRID_COLUMNS = 6;
@@ -31,7 +32,8 @@ function GridCell({
 }) {
   // Only consumables are hotbar-assignable (equip/use items go through the 장착 button or a
   // double-click instead).
-  const draggable = !!item && item.heal_hp > 0;
+  const draggable = !!item && (item.heal_hp > 0 || item.restore_mp > 0);
+  const rarityFrame = item ? RARITY_SLOT_FRAME[itemRarity(item.required_level)] : null;
 
   return (
     <button
@@ -39,6 +41,7 @@ function GridCell({
       onDoubleClick={onDoubleClick}
       disabled={!item}
       draggable={draggable}
+      title={item?.item_name}
       onDragStart={(e) => {
         if (!item) return;
         e.dataTransfer.setData(HOTBAR_DRAG_MIME, String(item.item_template_id));
@@ -50,25 +53,19 @@ function GridCell({
         borderRadius: 8,
         border: `1px solid ${selected ? '#e8c97a' : 'rgba(232, 201, 122, 0.3)'}`,
         background: item?.is_equipped ? 'rgba(232, 201, 122, 0.18)' : 'rgba(0, 0, 0, 0.35)',
+        backgroundImage: rarityFrame ? `url(${rarityFrame})` : undefined,
+        backgroundSize: '100% 100%',
         position: 'relative',
         cursor: item ? (draggable ? 'grab' : 'pointer') : 'default',
         padding: 2,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
       {item && (
         <>
-          <span
-            style={{
-              display: 'block',
-              fontSize: 9,
-              fontWeight: 700,
-              color: '#f4f1e8',
-              lineHeight: 1.15,
-              overflow: 'hidden',
-            }}
-          >
-            {item.item_name}
-          </span>
+          <ItemIcon itemName={item.item_name} size={34} />
           {item.quantity > 1 && (
             <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: 10, fontWeight: 700, color: '#e8c97a' }}>
               {item.quantity}
@@ -112,7 +109,7 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
 
   const selected = inventory.find((item) => item.id === selectedId) ?? null;
   const equippable = selected ? selected.equip_slot !== null : false;
-  const consumable = selected ? selected.heal_hp > 0 : false;
+  const consumable = selected ? selected.heal_hp > 0 || selected.restore_mp > 0 : false;
   const levelOk = selected ? character.level >= selected.required_level : false;
   const classOk = selected
     ? !selected.required_class || selected.required_class === 'all' || selected.required_class === character.character_class
@@ -230,14 +227,18 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
           <div style={{ width: 160, flexShrink: 0 }}>
             {selected ? (
               <>
-                <div style={{ color: '#f4f1e8', fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
-                  {selected.item_name}
-                  {selected.quantity > 1 && <span style={{ color: '#9aa08f', fontWeight: 400 }}> x{selected.quantity}</span>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <ItemIcon itemName={selected.item_name} size={24} />
+                  <div style={{ color: '#f4f1e8', fontSize: 13, fontWeight: 700 }}>
+                    {selected.item_name}
+                    {selected.quantity > 1 && <span style={{ color: '#9aa08f', fontWeight: 400 }}> x{selected.quantity}</span>}
+                  </div>
                 </div>
                 <div style={{ color: '#9aa08f', fontSize: 11, marginBottom: 10, lineHeight: 1.6 }}>
                   {selected.attack_bonus > 0 && <div>공격 +{selected.attack_bonus}</div>}
                   {selected.defense_bonus > 0 && <div>방어 +{selected.defense_bonus}</div>}
                   {selected.heal_hp > 0 && <div>체력 +{selected.heal_hp}</div>}
+                  {selected.restore_mp > 0 && <div>마나 +{selected.restore_mp}</div>}
                   {selected.equip_slot && <div>부위: {EQUIP_SLOT_LABEL[selected.equip_slot] ?? selected.equip_slot}</div>}
                   {!levelOk && <div style={{ color: '#e0538a' }}>Lv.{selected.required_level} 필요</div>}
                   {!classOk && <div style={{ color: '#e0538a' }}>직업 제한</div>}

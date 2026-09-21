@@ -4,6 +4,7 @@ import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL } from './itemLabels';
 import { HOTBAR_DRAG_SKILL_MIME } from './Hotbar';
+import { ItemIcon, itemRarity, RARITY_SLOT_FRAME } from './itemIcons';
 import { useDraggablePanel } from './useDraggablePanel';
 import type { CharacterProfile } from '../../types/api';
 
@@ -158,21 +159,22 @@ function EquipmentTab() {
 
         {SLOT_LAYOUT.map(({ slot, style }) => {
           const item = equippedBySlot.get(slot);
+          const rarityFrame = item ? RARITY_SLOT_FRAME[itemRarity(item.required_level)] : null;
           return (
-            <div key={slot} style={{ ...SLOT_BOX, ...style }} onClick={() => item && handleUnequip(item.id)} title={EQUIP_SLOT_LABEL[slot]}>
+            <div
+              key={slot}
+              style={{
+                ...SLOT_BOX,
+                ...style,
+                backgroundImage: rarityFrame ? `url(${rarityFrame})` : undefined,
+                backgroundSize: '100% 100%',
+                opacity: item && pendingId === item.id ? 0.5 : 1,
+              }}
+              onClick={() => item && handleUnequip(item.id)}
+              title={item ? item.item_name : EQUIP_SLOT_LABEL[slot]}
+            >
               {item ? (
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: pendingId === item.id ? '#6a6a5f' : '#f4f1e8',
-                    textAlign: 'center',
-                    lineHeight: 1.2,
-                    padding: '0 2px',
-                  }}
-                >
-                  {item.item_name}
-                </span>
+                <ItemIcon itemName={item.item_name} size={34} />
               ) : (
                 <span style={{ fontSize: 10, color: 'rgba(154, 160, 143, 0.6)' }}>{EQUIP_SLOT_LABEL[slot]}</span>
               )}
@@ -242,7 +244,13 @@ function SkillTab({ character }: { character: CharacterProfile }) {
         // works even if the skill isn't registered to a slot yet, same as dragging works
         // without registering first.
         onDoubleClick={() => {
-          if (player.skillLevel > 0) toggleAimSkill();
+          if (player.skillLevel <= 0) return;
+          toggleAimSkill();
+          // Only closes the panel when it actually armed (checked after the fact, since
+          // toggleAimSkill silently no-ops on cooldown/insufficient MP) — this panel sits
+          // top-left with the highest z-index on the page and otherwise keeps eating clicks
+          // meant for the monster the player is about to aim at.
+          if (useCombatStore.getState().isAimingSkill) useUIStore.getState().closeCharacterPanel();
         }}
         style={{
           display: 'flex',
