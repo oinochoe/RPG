@@ -2,6 +2,7 @@ import { Canvas } from '@react-three/fiber';
 import { useEffect, useState } from 'react';
 import * as THREE from 'three';
 import { useCharacterStore } from '../stores/characterStore';
+import { useCombatStore } from '../stores/combatStore';
 import { useSessionStore } from '../stores/sessionStore';
 import { useUIStore } from '../stores/uiStore';
 import { Scene } from '../components/game/Scene';
@@ -48,7 +49,13 @@ export function GamePage() {
         const ui = useUIStore.getState();
         if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isInventoryOpen || ui.isShopOpen || ui.isSystemMenuOpen) return;
         e.preventDefault();
-        useCharacterStore.getState().useHotbarSlot(HOTBAR_KEYS[e.code]);
+        const slot = HOTBAR_KEYS[e.code];
+        const assignment = useCharacterStore.getState().hotbar[slot];
+        // Mirrors Hotbar.tsx's onClick branch — this is the number-key shortcut for the same
+        // slots, so it has to route a skill assignment to requestCastSkill the same way, not
+        // through useHotbarSlot (which only knows how to consume an item).
+        if (assignment?.kind === 'skill') useCombatStore.getState().requestCastSkill();
+        else useCharacterStore.getState().useHotbarSlot(slot);
       }
     }
     window.addEventListener('keydown', onKeyDown);
