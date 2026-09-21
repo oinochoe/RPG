@@ -218,6 +218,8 @@ interface CombatState {
   adjustGold: (delta: number) => void;
   /** Heals the player by `amount`, clamped to maxHp — used when a potion is consumed. */
   heal: (amount: number) => void;
+  /** Restores `amount` MP, clamped to maxMp — used when a mana potion is consumed. */
+  restoreMp: (amount: number) => void;
 }
 
 function expToNextForLevel(level: number): number {
@@ -379,7 +381,13 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     set((s) => {
       if (s.isAimingSkill) return { isAimingSkill: false };
       const skill = SKILL_BY_CLASS[s.player.characterClass];
-      if (s.player.skillLevel <= 0 || s.player.currentMp < skill.mpCost) return {};
+      if (
+        s.player.skillLevel <= 0 ||
+        s.player.currentMp < skill.mpCost ||
+        performance.now() < s.player.skillCooldownUntil
+      ) {
+        return {};
+      }
       return { isAimingSkill: true };
     }),
   cancelAimSkill: () => set({ isAimingSkill: false }),
@@ -738,6 +746,12 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     if (amount === 0) return;
     const { player } = get();
     set({ player: { ...player, currentHp: Math.min(player.maxHp, player.currentHp + amount) } });
+  },
+
+  restoreMp: (amount) => {
+    if (amount === 0) return;
+    const { player } = get();
+    set({ player: { ...player, currentMp: Math.min(player.maxMp, player.currentMp + amount) } });
   },
 
   tickRespawns: () => {

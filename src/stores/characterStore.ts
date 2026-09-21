@@ -168,6 +168,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       const { items } = await charactersApi.useItem(row.id);
       set({ inventory: items });
       useCombatStore.getState().heal(row.heal_hp);
+      useCombatStore.getState().restoreMp(row.restore_mp);
     } finally {
       set((s) => {
         const hotbarPending = [...s.hotbarPending];

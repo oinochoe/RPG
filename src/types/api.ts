@@ -67,6 +67,7 @@ export interface InventorySlot {
   buy_price: number;
   sell_price: number;
   heal_hp: number;
+  restore_mp: number;
 }
 
 export interface InventoryListResponse {
@@ -85,6 +86,7 @@ export interface ShopItem {
   buy_price: number;
   sell_price: number;
   heal_hp: number;
+  restore_mp: number;
 }
 
 export interface ShopListResponse {

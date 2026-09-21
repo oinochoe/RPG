@@ -37,6 +37,7 @@ interface InventoryItemRow {
   buy_price: number;
   sell_price: number;
   heal_hp: number;
+  restore_mp: number;
 }
 
 // Denormalizes character_inventory joined with item_templates into the shape the client
@@ -50,7 +51,7 @@ async function fetchInventory(
     .from("character_inventory")
     .select(
       "id, item_template_id, slot_index, quantity, enchant_level, is_equipped, equipped_slot, " +
-        "item_templates(name, item_type, equip_slot, attack_bonus, defense_bonus, required_level, required_class, buy_price, sell_price, heal_hp)",
+        "item_templates(name, item_type, equip_slot, attack_bonus, defense_bonus, required_level, required_class, buy_price, sell_price, heal_hp, restore_mp)",
     )
     .eq("character_id", characterId)
     .order("slot_index", { ascending: true });
@@ -69,6 +70,7 @@ async function fetchInventory(
       buy_price: number;
       sell_price: number;
       heal_hp: number;
+      restore_mp: number;
     };
     return {
       id: row.id,
@@ -88,6 +90,7 @@ async function fetchInventory(
       buy_price: item.buy_price,
       sell_price: item.sell_price,
       heal_hp: item.heal_hp,
+      restore_mp: item.restore_mp,
     };
   });
 }
@@ -572,7 +575,7 @@ charactersRoutes.get("/me/shop", async (c) => {
   let query = admin
     .from("item_templates")
     .select(
-      "id, name, item_type, equip_slot, required_level, required_class, attack_bonus, defense_bonus, buy_price, sell_price, heal_hp",
+      "id, name, item_type, equip_slot, required_level, required_class, attack_bonus, defense_bonus, buy_price, sell_price, heal_hp, restore_mp",
     )
     .gt("buy_price", 0);
   query = kind === "blacksmith" ? query.in("item_type", BLACKSMITH_ITEM_TYPES) : query.not("item_type", "in", `(${BLACKSMITH_ITEM_TYPES.join(",")})`);
@@ -721,11 +724,12 @@ charactersRoutes.post("/me/inventory/:id/sell", async (c) => {
   return c.json({ items: inventory });
 });
 
-// Consuming a potion. Like buy/sell, doesn't touch HP itself — that lives in
-// combatStore.player.currentHp client-side, same as the rest of combat. The client reads
-// the item's heal_hp from its own already-loaded inventory state (this row, before the
-// call) and applies it locally once this call succeeds; the server's only job is
-// confirming the item exists, is actually consumable, and decrementing/removing it.
+// Consuming a potion. Like buy/sell, doesn't touch HP/MP itself — those live in
+// combatStore.player.currentHp/currentMp client-side, same as the rest of combat. The
+// client reads the item's heal_hp/restore_mp from its own already-loaded inventory state
+// (this row, before the call) and applies them locally once this call succeeds; the
+// server's only job is confirming the item exists, is actually consumable, and
+// decrementing/removing it.
 charactersRoutes.post("/me/inventory/:id/use", async (c) => {
   const appUser = c.get("appUser");
   const inventoryId = Number(c.req.param("id"));
@@ -738,7 +742,7 @@ charactersRoutes.post("/me/inventory/:id/use", async (c) => {
 
   const { data: row, error: rowError } = await admin
     .from("character_inventory")
-    .select("id, item_templates(heal_hp)")
+    .select("id, item_templates(heal_hp, restore_mp)")
     .eq("id", inventoryId)
     .eq("character_id", characterId)
     .maybeSingle();
@@ -749,8 +753,8 @@ charactersRoutes.post("/me/inventory/:id/use", async (c) => {
   if (!row) {
     throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
   }
-  const template = row.item_templates as unknown as { heal_hp: number } | null;
-  if (!template || template.heal_hp <= 0) {
+  const template = row.item_templates as unknown as { heal_hp: number; restore_mp: number } | null;
+  if (!template || (template.heal_hp <= 0 && template.restore_mp <= 0)) {
     throw new ApiError(400, "validation_failed", "not_usable", "사용할 수 없는 아이템입니다.", "id");
   }
 
