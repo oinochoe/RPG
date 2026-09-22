@@ -918,13 +918,17 @@ charactersRoutes.post("/me/inventory/buy", async (c) => {
   return c.json({ items: inventory }, 201);
 });
 
-// Shared by sell/use: decrements a stack by one, deleting the row once it hits zero.
-// Returns false if the row doesn't exist (or isn't owned by this character).
+// Shared by sell/use: decrements a stack by `amount` (default 1), deleting the row once it
+// hits zero. Returns false if the row doesn't exist (or isn't owned by this character), or
+// 'insufficient' if amount exceeds what's actually in the stack (equippable gear always has
+// quantity 1, so requesting more than 1 there naturally hits this too — no separate
+// equip_slot check needed).
 async function decrementOrDeleteInventoryRow(
   admin: ReturnType<typeof getAdminClient>,
   inventoryId: number,
   characterId: number,
-): Promise<boolean> {
+  amount = 1,
+): Promise<'ok' | 'not_found' | 'insufficient'> {
   const { data: row, error: rowError } = await admin
     .from("character_inventory")
     .select("id, quantity")
@@ -932,16 +936,17 @@ async function decrementOrDeleteInventoryRow(
     .eq("character_id", characterId)
     .maybeSingle();
   if (rowError) throw rowError;
-  if (!row) return false;
+  if (!row) return 'not_found';
+  if (amount > row.quantity) return 'insufficient';
 
-  if (row.quantity > 1) {
-    const { error } = await admin.from("character_inventory").update({ quantity: row.quantity - 1 }).eq("id", row.id);
+  if (row.quantity > amount) {
+    const { error } = await admin.from("character_inventory").update({ quantity: row.quantity - amount }).eq("id", row.id);
     if (error) throw error;
   } else {
     const { error } = await admin.from("character_inventory").delete().eq("id", row.id);
     if (error) throw error;
   }
-  return true;
+  return 'ok';
 }
 
 charactersRoutes.post("/me/inventory/:id/sell", async (c) => {
@@ -950,23 +955,32 @@ charactersRoutes.post("/me/inventory/:id/sell", async (c) => {
   if (!Number.isInteger(inventoryId)) {
     throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
   }
+  const { quantity } = await readJsonBody(c);
+  // Optional — omitted (or 1) matches the old single-sell behavior exactly.
+  const requestedQuantity = quantity === undefined ? 1 : quantity;
+  if (typeof requestedQuantity !== "number" || !Number.isInteger(requestedQuantity) || requestedQuantity < 1 || requestedQuantity > 99) {
+    throw new ApiError(400, "validation_failed", "invalid_quantity", "quantity는 1~99 사이의 정수여야 합니다.", "quantity");
+  }
 
   const admin = getAdminClient();
   const characterId = await getActiveCharacterId(admin, appUser.id);
 
-  let sold: boolean;
+  let result: 'ok' | 'not_found' | 'insufficient';
   try {
-    sold = await decrementOrDeleteInventoryRow(admin, inventoryId, characterId);
+    result = await decrementOrDeleteInventoryRow(admin, inventoryId, characterId, requestedQuantity);
   } catch (error) {
     console.error("inventory update failed during sell:", (error as Error).message);
     throw new ApiError(500, "internal_error", "sell_failed", "아이템 판매 중 오류가 발생했습니다.");
   }
-  if (!sold) {
+  if (result === 'not_found') {
     throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
+  }
+  if (result === 'insufficient') {
+    throw new ApiError(400, "validation_failed", "insufficient_quantity", "보유한 수량보다 많이 판매할 수 없습니다.", "quantity");
   }
 
   const inventory = await fetchInventory(admin, characterId);
-  return c.json({ items: inventory });
+  return c.json({ items: inventory, sold_quantity: requestedQuantity });
 });
 
 // Consuming a potion or scroll. Like buy/sell, doesn't touch HP/MP/position itself — those
@@ -1008,7 +1022,7 @@ charactersRoutes.post("/me/inventory/:id/use", async (c) => {
   }
 
   try {
-    await decrementOrDeleteInventoryRow(admin, inventoryId, characterId);
+    await decrementOrDeleteInventoryRow(admin, inventoryId, characterId, 1);
   } catch (error) {
     console.error("inventory update failed during use:", (error as Error).message);
     throw new ApiError(500, "internal_error", "use_failed", "아이템 사용 중 오류가 발생했습니다.");

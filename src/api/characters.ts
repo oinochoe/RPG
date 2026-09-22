@@ -95,8 +95,11 @@ export function buyItem(itemTemplateId: number, quantity = 1): Promise<Inventory
   });
 }
 
-export function sellItem(inventoryId: number): Promise<InventoryListResponse> {
-  return apiRequest(`/characters/me/inventory/${inventoryId}/sell`, { method: 'POST' });
+export function sellItem(inventoryId: number, quantity = 1): Promise<InventoryListResponse> {
+  return apiRequest(`/characters/me/inventory/${inventoryId}/sell`, {
+    method: 'POST',
+    body: { quantity },
+  });
 }
 
 export function useItem(inventoryId: number): Promise<InventoryListResponse> {

@@ -147,6 +147,9 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
   // Per-item buy quantity, keyed by item_template_id — local UI state only, reset isn't
   // needed since a fresh shop open starts every row back at the 1 default via the ?? below.
   const [quantities, setQuantities] = useState<Record<number, number>>({});
+  // Same idea for the sell tab, keyed by inventory row id instead of item_template_id (two
+  // different stacks of the same item would otherwise share one quantity by mistake).
+  const [sellQuantities, setSellQuantities] = useState<Record<number, number>>({});
   const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
     x: window.innerWidth / 2 - PANEL_WIDTH / 2,
     y: Math.max(16, window.innerHeight / 2 - 200),
@@ -175,11 +178,15 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
     }
   }
 
-  async function handleSell(inventoryId: number, price: number) {
+  async function handleSell(inventoryId: number, price: number, quantity: number) {
     setError(null);
     setPendingId(inventoryId);
     try {
-      await sellItem(inventoryId, price);
+      await sellItem(inventoryId, price, quantity);
+      // Next sell of this stack starts back at 1 rather than staying at whatever bulk amount
+      // was just sold — same reasoning as handleBuy's reset, and avoids the stepper pointing
+      // past the stack's new (now-smaller) remaining quantity.
+      setSellQuantities((q) => ({ ...q, [inventoryId]: 1 }));
     } catch (err) {
       setError(err instanceof Error ? err.message : '판매 중 오류가 발생했습니다.');
     } finally {
@@ -314,25 +321,35 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
           ) : inventory.length === 0 ? (
             <p style={{ color: '#9aa08f', fontSize: 13, padding: '12px 4px' }}>인벤토리가 비어 있습니다.</p>
           ) : (
-            inventory.map((item) => (
-              <ShopRow
-                key={item.id}
-                name={item.item_name + (item.quantity > 1 ? ` x${item.quantity}` : '') + (item.is_equipped ? ' (장착 중)' : '')}
-                meta={
-                  (item.attack_bonus > 0 ? `공격 +${item.attack_bonus} ` : '') +
-                  (item.defense_bonus > 0 ? `방어 +${item.defense_bonus} ` : '') +
-                  (item.heal_hp > 0 ? `체력 +${item.heal_hp} ` : '') +
-                  (item.restore_mp > 0 ? `마나 +${item.restore_mp} ` : '') +
-                  (item.teleport_target === 'village' ? '마을 이동 ' : '') +
-                  (item.teleport_target === 'blink' ? '순간이동 ' : '')
-                }
-                price={item.sell_price}
-                priceColor="#9aa08f"
-                actionLabel="판매"
-                disabled={pendingId === item.id}
-                onAction={() => handleSell(item.id, item.sell_price)}
-              />
-            ))
+            inventory.map((item) => {
+              // Equipped gear and single-count rows always sell one at a time — same
+              // "stackable only" rule the buy tab uses (see ShopRow's own comment).
+              const stackable = item.equip_slot === null && item.quantity > 1;
+              const maxQuantity = Math.max(1, Math.min(99, item.quantity));
+              const sellQuantity = Math.min(sellQuantities[item.id] ?? 1, maxQuantity);
+              return (
+                <ShopRow
+                  key={item.id}
+                  name={item.item_name + (item.quantity > 1 ? ` x${item.quantity}` : '') + (item.is_equipped ? ' (장착 중)' : '')}
+                  meta={
+                    (item.attack_bonus > 0 ? `공격 +${item.attack_bonus} ` : '') +
+                    (item.defense_bonus > 0 ? `방어 +${item.defense_bonus} ` : '') +
+                    (item.heal_hp > 0 ? `체력 +${item.heal_hp} ` : '') +
+                    (item.restore_mp > 0 ? `마나 +${item.restore_mp} ` : '') +
+                    (item.teleport_target === 'village' ? '마을 이동 ' : '') +
+                    (item.teleport_target === 'blink' ? '순간이동 ' : '')
+                  }
+                  price={item.sell_price}
+                  priceColor="#9aa08f"
+                  actionLabel="판매"
+                  disabled={pendingId === item.id}
+                  onAction={() => handleSell(item.id, item.sell_price, stackable ? sellQuantity : 1)}
+                  quantity={stackable ? sellQuantity : undefined}
+                  onQuantityChange={stackable ? (next) => setSellQuantities((q) => ({ ...q, [item.id]: next })) : undefined}
+                  maxQuantity={stackable ? maxQuantity : undefined}
+                />
+              );
+            })
           )}
         </div>
     </div>

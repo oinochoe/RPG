@@ -194,7 +194,7 @@ interface CharacterState {
   unequipItem: (inventoryId: number) => Promise<void>;
   fetchShop: (kind: 'merchant' | 'blacksmith') => Promise<void>;
   buyItem: (itemTemplateId: number, price: number, quantity?: number) => Promise<void>;
-  sellItem: (inventoryId: number, price: number) => Promise<void>;
+  sellItem: (inventoryId: number, price: number, quantity?: number) => Promise<void>;
   setHotbarSlot: (slot: number, assignment: HotbarAssignment | null) => void;
   useHotbarSlot: (slot: number) => Promise<void>;
   // Free (no item/cooldown) escape hatch for getting wedged in world geometry — same
@@ -277,13 +277,13 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     useCombatStore.getState().adjustGold(-price * quantity);
   },
 
-  sellItem: async (inventoryId, price) => {
+  sellItem: async (inventoryId, price, quantity = 1) => {
     const before = sumEquippedBonus(get().inventory);
-    const { items } = await charactersApi.sellItem(inventoryId);
+    const { items } = await charactersApi.sellItem(inventoryId, quantity);
     const after = sumEquippedBonus(items);
     set({ inventory: items });
     useCombatStore.getState().applyEquipmentDelta(after.attack - before.attack, after.defense - before.defense);
-    useCombatStore.getState().adjustGold(price);
+    useCombatStore.getState().adjustGold(price * quantity);
   },
 
   setHotbarSlot: (slot, assignment) => {
