@@ -9,6 +9,7 @@ import { Scene } from '../components/game/Scene';
 import { HUD } from '../components/game/HUD';
 import { LevelUpToast } from '../components/game/LevelUpToast';
 import { WorldMap } from '../components/game/WorldMap';
+import { MiniMap } from '../components/game/MiniMap';
 import { CharacterPanel } from '../components/game/CharacterPanel';
 import { InventoryPanel } from '../components/game/InventoryPanel';
 import { ShopPanel } from '../components/game/ShopPanel';
@@ -104,6 +105,7 @@ export function GamePage() {
       </Canvas>
       <HUD />
       <LevelUpToast />
+      <MiniMap />
       <WorldMap />
       <CharacterPanel character={activeCharacter} />
       <InventoryPanel character={activeCharacter} />
