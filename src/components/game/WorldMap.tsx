@@ -10,6 +10,10 @@ import {
   VILLAGES,
   FIELD_EXTENT,
   riverPathD,
+  curvedBandPathD,
+  fairyForestEdgeAt,
+  orcVillageEdgeAt,
+  boneFieldEdgeAt,
 } from './worldColliders';
 import { VILLAGE_CONFIGS } from './Village';
 import { DUNGEON_MAX_FLOOR, getEntryTrigger, getExitTrigger, ROOM_HALF_X, ROOM_HALF_Z, getFloorRects } from './Dungeon';
@@ -29,6 +33,11 @@ const DUNGEON_VIEW_HALF_Z = ROOM_HALF_Z + 4;
 const POLL_MS = 100;
 // Computed once — VIEW_HALF is a module constant, so the visible window never changes.
 const RIVER_PATH = riverPathD(-VIEW_HALF, VIEW_HALF);
+// The 3 curved outer-zone bands (구울 평원 keeps its flat rect — see the zone check comment
+// near its own render below) — same "compute once against the fixed VIEW_HALF" approach.
+const FAIRY_FOREST_PATH = curvedBandPathD(fairyForestEdgeAt, -VIEW_HALF, DESERT_X_END, VIEW_HALF, 'x');
+const ORC_VILLAGE_PATH = curvedBandPathD(orcVillageEdgeAt, -VIEW_HALF, DESERT_X_END, -VIEW_HALF, 'x');
+const BONE_FIELD_PATH = curvedBandPathD(boneFieldEdgeAt, -OUTER_ZONE_BOUND, OUTER_ZONE_BOUND, -VIEW_HALF, 'z');
 
 /** Small decorative compass rose (replaces the old 4 plain edge-mounted letters) — a fixed
  * ornament in the map's corner, in the same world-coordinate space as everything else since
@@ -155,39 +164,21 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
         fill="url(#fieldDesert)"
       />
       {/* The 4 outer-ring danger zones past OUTER_ZONE_BOUND (see worldColliders.ts's
-          inFairyForestZone/inOrcVillageZone/inBoneFieldZone/inGhoulFieldZone) — flat tinted
-          bands with a name label, matching how the desert band above is drawn, so quest NPCs'
-          "어느 마을인지" village callouts have a visible zone to point to on the map. */}
-      <rect
-        x={-VIEW_HALF}
-        y={OUTER_ZONE_BOUND}
-        width={DESERT_X_END - -VIEW_HALF}
-        height={VIEW_HALF - OUTER_ZONE_BOUND}
-        fill="#3f6b4a"
-        opacity={0.75}
-      />
+          inFairyForestZone/inOrcVillageZone/inBoneFieldZone/inGhoulFieldZone) — tinted bands
+          with a name label, matching how the desert band above is drawn, so quest NPCs'
+          "어느 마을인지" village callouts have a visible zone to point to on the map. 3 of the
+          4 trace a curved frontier (curvedBandPathD, same edge function the actual zone check
+          uses) instead of a flat rect — a dead-straight border read as flat/artificial. 구울
+          평원 keeps a flat rect since its inner edge is the desert's own straight biome line. */}
+      <path d={FAIRY_FOREST_PATH} fill="#3f6b4a" opacity={0.75} />
       <text x={(-VIEW_HALF + DESERT_X_END) / 2} y={(OUTER_ZONE_BOUND + VIEW_HALF) / 2} fill="#eaffe0" fontSize={7} textAnchor="middle" fontWeight={700}>
         요정의 숲
       </text>
-      <rect
-        x={-VIEW_HALF}
-        y={-VIEW_HALF}
-        width={DESERT_X_END - -VIEW_HALF}
-        height={VIEW_HALF - OUTER_ZONE_BOUND}
-        fill="#6b4a3a"
-        opacity={0.75}
-      />
+      <path d={ORC_VILLAGE_PATH} fill="#6b4a3a" opacity={0.75} />
       <text x={(-VIEW_HALF + DESERT_X_END) / 2} y={-(OUTER_ZONE_BOUND + VIEW_HALF) / 2} fill="#ffe8d0" fontSize={7} textAnchor="middle" fontWeight={700}>
         오크 마을
       </text>
-      <rect
-        x={-VIEW_HALF}
-        y={-OUTER_ZONE_BOUND}
-        width={-OUTER_ZONE_BOUND - -VIEW_HALF}
-        height={OUTER_ZONE_BOUND * 2}
-        fill="#9c9484"
-        opacity={0.75}
-      />
+      <path d={BONE_FIELD_PATH} fill="#9c9484" opacity={0.75} />
       <text x={(-VIEW_HALF - OUTER_ZONE_BOUND) / 2} y={0} fill="#2a241c" fontSize={7} textAnchor="middle" fontWeight={700}>
         해골 평원
       </text>

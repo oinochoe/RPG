@@ -63,21 +63,48 @@ export function inDesertZone(x: number): boolean {
 // none of them can overlap what already existed.
 export const OUTER_ZONE_BOUND = 200;
 
+// Same meander idea as riverXAt — a dead-straight zone edge read as flat/artificial (real
+// user feedback: "곡선이 있어야지.. 좀 고퀄을 받아봐라"). Amplitude/wavelength are gentler
+// than the river's own (30 vs 14, but over open ground rather than a narrow channel) so the
+// wobble reads as a natural tree line/frontier rather than a jagged zigzag. A small overlap
+// between adjacent zones near the corners is harmless — FieldMonsters.ts's spawn loops just
+// reject a roll that doesn't match their own zone check and try again.
+const ZONE_MEANDER_AMPLITUDE = 30;
+const ZONE_MEANDER_WAVELENGTH = 160;
+
+// 요정의 숲 (Fairy Forest)'s southern edge — the curved boundary WorldMap.tsx/MiniMap.tsx
+// trace to actually draw this zone as a band instead of a flat rect.
+export function fairyForestEdgeAt(x: number): number {
+  return OUTER_ZONE_BOUND + ZONE_MEANDER_AMPLITUDE * Math.sin((x / ZONE_MEANDER_WAVELENGTH) * Math.PI * 2);
+}
+
 // 요정의 숲 (Fairy Forest) — the north outer band, capped before DESERT_X_END so it doesn't
 // reach into 구울 평원's own wedge in the NE corner.
 export function inFairyForestZone(x: number, z: number): boolean {
-  return z > OUTER_ZONE_BOUND && x <= DESERT_X_END;
+  return z > fairyForestEdgeAt(x) && x <= DESERT_X_END;
+}
+
+// 오크 마을 (Orc Village)'s northern edge — its own phase offset so it doesn't mirror the
+// fairy forest's wobble exactly (would read as two parallel copies of the same wave).
+export function orcVillageEdgeAt(x: number): number {
+  return -OUTER_ZONE_BOUND - ZONE_MEANDER_AMPLITUDE * Math.sin((x / ZONE_MEANDER_WAVELENGTH) * Math.PI * 2 + Math.PI / 3);
 }
 
 // 오크 마을 (Orc Village) — the south outer band, same DESERT_X_END cap as the forest above.
 export function inOrcVillageZone(x: number, z: number): boolean {
-  return z < -OUTER_ZONE_BOUND && x <= DESERT_X_END;
+  return z < orcVillageEdgeAt(x) && x <= DESERT_X_END;
+}
+
+// 해골 평원 (Bone Field)'s eastern edge — curved along z (its long axis) rather than x, since
+// this zone's frontier faces east/west, not north/south.
+export function boneFieldEdgeAt(z: number): number {
+  return -OUTER_ZONE_BOUND - ZONE_MEANDER_AMPLITUDE * Math.sin((z / ZONE_MEANDER_WAVELENGTH) * Math.PI * 2 + (2 * Math.PI) / 3);
 }
 
 // 해골 평원 (Bone Field) — the west outer band, bounded in z so it doesn't creep into the
 // forest/orc bands' own corners.
 export function inBoneFieldZone(x: number, z: number): boolean {
-  return x < -OUTER_ZONE_BOUND && z >= -OUTER_ZONE_BOUND && z <= OUTER_ZONE_BOUND;
+  return x < boneFieldEdgeAt(z) && z >= -OUTER_ZONE_BOUND && z <= OUTER_ZONE_BOUND;
 }
 
 // 구울 평원 (Ghoul Field) — everything past the desert's own fixed edge, full z range (so it
@@ -127,6 +154,31 @@ export function riverPathD(zMin: number, zMax: number, step = 6): string {
     right.push(`${(cx + RIVER_HALF_WIDTH).toFixed(1)} ${z.toFixed(1)}`);
   }
   return `M ${left.join(' L ')} L ${right.reverse().join(' L ')} Z`;
+}
+
+/** Builds an SVG path `d` for one of the 4 outer-ring zone bands — one edge follows `edgeAt`
+ * (the same curve fairyForestEdgeAt/orcVillageEdgeAt/boneFieldEdgeAt use for the actual
+ * gameplay zone check), the opposite edge is the map's own flat outer border. Shared by
+ * WorldMap.tsx's full map and MiniMap.tsx's corner map, same "one function, both renderers"
+ * approach as riverPathD, so the drawn shape can never drift out of sync with where the zone
+ * actually starts in-game. `axis: 'x'` traces edgeAt(t) as z at each x=t (north/south bands);
+ * `axis: 'z'` traces it as x at each z=t (the east/west-facing bone field band). */
+export function curvedBandPathD(
+  edgeAt: (t: number) => number,
+  tMin: number,
+  tMax: number,
+  farValue: number,
+  axis: 'x' | 'z',
+  step = 8,
+): string {
+  const edge: string[] = [];
+  for (let t = tMin; t <= tMax; t += step) {
+    const e = edgeAt(t);
+    edge.push(axis === 'x' ? `${t.toFixed(1)} ${e.toFixed(1)}` : `${e.toFixed(1)} ${t.toFixed(1)}`);
+  }
+  const farStart = axis === 'x' ? `${tMax.toFixed(1)} ${farValue.toFixed(1)}` : `${farValue.toFixed(1)} ${tMax.toFixed(1)}`;
+  const farEnd = axis === 'x' ? `${tMin.toFixed(1)} ${farValue.toFixed(1)}` : `${farValue.toFixed(1)} ${tMin.toFixed(1)}`;
+  return `M ${edge.join(' L ')} L ${farStart} L ${farEnd} Z`;
 }
 
 export interface VillageZone {
