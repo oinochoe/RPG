@@ -304,7 +304,10 @@ function roomMonsterPositions(room: Rect): [number, number][] {
  * room (the way to the next floor down) and a named boss on the final floor. */
 export function buildFloorMonsters(floor: number): MonsterInstanceSummary[] {
   const level = FLOOR_BASE_LEVEL + (floor - 1) * 3;
-  const hp = 60 + (floor - 1) * 40;
+  // Bumped from 60 + (floor-1)*40 — combined with combatStore's steeper monsterAttackPower,
+  // fights at a floor's own intended level now actually cost real HP instead of dying in a
+  // couple of hits (see the balance note on monsterAttackPower for the simulated numbers).
+  const hp = 80 + (floor - 1) * 90;
   const idBase = 9000 + floor * 100;
   const isLastFloor = floor === DUNGEON_MAX_FLOOR;
   const captainHp = Math.round(hp * (isLastFloor ? 2.5 : 1.8));

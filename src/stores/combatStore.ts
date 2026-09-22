@@ -32,8 +32,14 @@ const MONSTER_LEASH_RANGE = 6;
 const MONSTER_WANDER_RADIUS = 2.5;
 const MONSTER_WANDER_INTERVAL_MS: [number, number] = [2500, 5000];
 
+// Bumped from 4 + level*2 — fights were dying too fast (a few seconds, single-digit % of the
+// player's HP bar) even at the level a floor is nominally tuned for, let alone when actually
+// under-leveled for it, so there was never real pressure to use potions. Simulated against the
+// player's own per-level growth (+20 maxHp/+2 atk per level, see applyKill below): at this
+// rate an on-level fight costs a meaningful chunk of HP, and a deep-floor captain/boss fight
+// can exceed the player's whole HP bar without healing.
 function monsterAttackPower(level: number): number {
-  return 4 + level * 2;
+  return 6 + level * 3;
 }
 
 export interface MonsterCombatState {
