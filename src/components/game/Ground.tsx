@@ -24,7 +24,9 @@ import {
 import { Village, villageColliders } from './Village';
 import { CaveEntrance } from './CaveEntrance';
 
-const GROUND_SIZE = 400;
+// A bit larger than worldColliders.ts's FIELD_EXTENT (400) so the visible grass plane
+// extends past the walkable/decorated area instead of ending in a visible hard edge.
+const GROUND_SIZE = 460;
 const FIELD_HALF = GROUND_SIZE / 2;
 // The desert patch and river strip are drawn as their own planes layered just above the
 // grass (see the Y offsets below) rather than trying to make one texture biome-aware —

@@ -19,10 +19,10 @@ const COLUMN_MODEL = `${KAYKIT_DUNGEON}/column.gltf`;
 const TORCH_MODEL = `${KAYKIT_DUNGEON}/torch_lit.gltf`;
 
 const CELL_SIZE = 4;
-// Bumped from 5 -> 9 (odd, so the middle cell/doorway still sits exactly on the room's
-// center line) — the original 20x20 room read as cramped once monsters, columns and torches
-// were all crowded into it; 36x36 gives real room to maneuver during a fight.
-const GRID_CELLS = 9;
+// Bumped 5 -> 9 -> 11 (odd, so the middle cell/doorway still sits exactly on the room's
+// center line) across two feedback rounds — 20x20 read as cramped, 36x36 still did; 44x44
+// gives real room to maneuver during a fight with a bigger monster roster.
+const GRID_CELLS = 11;
 export const ROOM_HALF_X = (GRID_CELLS * CELL_SIZE) / 2;
 export const ROOM_HALF_Z = (GRID_CELLS * CELL_SIZE) / 2;
 const CELL_OFFSETS = Array.from({ length: GRID_CELLS }, (_, i) => (i - (GRID_CELLS - 1) / 2) * CELL_SIZE);
@@ -59,7 +59,7 @@ function regularMonster(
   hp: number,
   position: [number, number],
 ): MonsterInstanceSummary {
-  const isSkeleton = floor >= 2 && (slot === 2 || slot === 4);
+  const isSkeleton = floor >= 2 && (slot === 2 || slot === 6);
   return {
     instance_id: idBase + slot,
     monster_template_id: isSkeleton ? 3 : 2,
@@ -83,10 +83,14 @@ export function buildFloorMonsters(floor: number): MonsterInstanceSummary[] {
   const captainHp = Math.round(hp * (isLastFloor ? 2.5 : 1.8));
 
   return [
-    regularMonster(idBase, 1, floor, level, hp, [-10, 5]),
-    regularMonster(idBase, 2, floor, level, hp, [10, 5]),
-    regularMonster(idBase, 3, floor, level, hp, [0, 10]),
-    regularMonster(idBase, 5, floor, level, hp, [9, -7]),
+    regularMonster(idBase, 1, floor, level, hp, [-13, 6]),
+    regularMonster(idBase, 2, floor, level, hp, [13, 6]),
+    regularMonster(idBase, 3, floor, level, hp, [0, 13]),
+    regularMonster(idBase, 5, floor, level, hp, [12, -9]),
+    // Two more added alongside the room's second size bump — a bigger floor plan read empty
+    // with only 4 regulars + the captain scattered across it.
+    regularMonster(idBase, 6, floor, level, hp, [-12, -9]),
+    regularMonster(idBase, 7, floor, level, hp, [0, -13]),
     {
       instance_id: idBase + 4,
       monster_template_id: 2,
@@ -100,10 +104,10 @@ export function buildFloorMonsters(floor: number): MonsterInstanceSummary[] {
       // to MONSTER_WANDER_RADIUS (2.5) from their spawn point — so its static distance from
       // wherever the player actually enters (DUNGEON_SOUTH_SPAWN/DUNGEON_NORTH_SPAWN, both
       // near a doorway rather than room center) needs to clear MONSTER_DETECT_RANGE (6) by
-      // more than that wander radius. With the bigger room (ROOM_HALF_X/Z = 18) that margin
+      // more than that wander radius. With the bigger room (ROOM_HALF_X/Z = 22) that margin
       // is trivial from either spawn regardless of placement, so this just sits comfortably
       // off the east wall.
-      position_x: 14,
+      position_x: 17,
       position_y: 0,
       position_z: 0,
     },

@@ -7,8 +7,11 @@ import type { MonsterInstanceSummary } from '../../types/api';
 // dungeon's buildFloorMonsters, just for the field. Deterministic (fixed seed) so the roster
 // is stable across a session rather than reshuffling on every re-render/area transition.
 const SEED = 7;
-const FIELD_MONSTER_COUNT = 50;
-const SCATTER_EXTENT = 130;
+// Both scaled up alongside worldColliders.ts's FIELD_EXTENT (300 -> 400): count roughly
+// matches the ~1.8x area increase, and SCATTER_EXTENT keeps the same margin-from-edge ratio
+// the field's own decorations use (FIELD_EXTENT/2 minus a border, here rounded to 180).
+const FIELD_MONSTER_COUNT = 90;
+const SCATTER_EXTENT = 180;
 const SPAWN_CLEAR_RADIUS = 8;
 const CAVE_CLEAR_RADIUS = 6;
 

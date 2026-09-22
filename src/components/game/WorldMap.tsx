@@ -1,15 +1,23 @@
 import { useEffect, useState } from 'react';
 import { playerPosition, playerFacing } from './playerTransform';
-import { FIELD_ENTRANCE_POINT, RIVER_X_CENTER, RIVER_HALF_WIDTH, DESERT_X_START, VILLAGES } from './worldColliders';
+import {
+  FIELD_ENTRANCE_POINT,
+  RIVER_X_CENTER,
+  RIVER_HALF_WIDTH,
+  DESERT_X_START,
+  VILLAGES,
+  FIELD_EXTENT,
+} from './worldColliders';
 import { VILLAGE_CONFIGS } from './Village';
 import { DUNGEON_MAX_FLOOR, DUNGEON_EXIT_TRIGGER, DUNGEON_DESCEND_TRIGGER, ROOM_HALF_X, ROOM_HALF_Z } from './Dungeon';
 import { useCombatStore } from '../../stores/combatStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useWorldStore } from '../../stores/worldStore';
 
-// VIEW_HALF has to cover the field's real extent (worldColliders.ts's FIELD_EXTENT/2 = 150)
-// or the expanded map (desert, river, farther-out monsters) gets clipped at the svg's edge.
-const VIEW_HALF = 160;
+// Derived from FIELD_EXTENT (rather than a separately hand-tuned constant) plus a small margin
+// so the map can never clip again just because the field grew — this used to be a bare number
+// that drifted out of sync with worldColliders.ts's own FIELD_EXTENT.
+const VIEW_HALF = FIELD_EXTENT / 2 + 10;
 // Has to cover the dungeon room's real extent (Dungeon.tsx's ROOM_HALF_X/Z, currently 18) plus
 // a small margin, same reasoning as VIEW_HALF above.
 const DUNGEON_VIEW_HALF = Math.max(ROOM_HALF_X, ROOM_HALF_Z) + 4;
@@ -107,8 +115,8 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
 
   return (
     <svg
-      width={480}
-      height={480}
+      width={720}
+      height={720}
       viewBox={`${-VIEW_HALF} ${-VIEW_HALF} ${VIEW_HALF * 2} ${VIEW_HALF * 2}`}
       style={{ background: '#3f6b34', borderRadius: 6, display: 'block' }}
     >
@@ -121,6 +129,20 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
         width={RIVER_HALF_WIDTH * 2}
         height={VIEW_HALF * 2}
         fill="#2f7fa8"
+      />
+      {/* The one crossing point in the river's collider chain (see worldColliders.ts's
+          riverColliders/BRIDGE_Z/BRIDGE_GAP_HALF) — drawn as a short wooden deck spanning the
+          river's width so the map actually shows where to cross instead of just a solid blue
+          band with no way through. */}
+      <rect
+        x={RIVER_X_CENTER - RIVER_HALF_WIDTH - 1.5}
+        y={-5}
+        width={RIVER_HALF_WIDTH * 2 + 3}
+        height={10}
+        rx={1}
+        fill="#8a5a34"
+        stroke="#5c3b21"
+        strokeWidth={0.6}
       />
 
       {/* Individual rocks aren't worth showing on an overview map — hundreds of small gray
@@ -184,9 +206,9 @@ function DungeonMap({
 
   return (
     <svg
-      width={480}
-      height={400}
-      viewBox={`${-DUNGEON_VIEW_HALF} ${-DUNGEON_VIEW_HALF * 0.85} ${DUNGEON_VIEW_HALF * 2} ${DUNGEON_VIEW_HALF * 1.7}`}
+      width={680}
+      height={620}
+      viewBox={`${-DUNGEON_VIEW_HALF} ${-DUNGEON_VIEW_HALF * 0.9} ${DUNGEON_VIEW_HALF * 2} ${DUNGEON_VIEW_HALF * 1.8}`}
       style={{ background: '#1c1a20', borderRadius: 6, display: 'block' }}
     >
       <rect

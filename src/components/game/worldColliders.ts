@@ -2,7 +2,9 @@ import { mulberry32 } from './proceduralTextures';
 
 const SEED = 42;
 const DECORATION_COUNT = 1600;
-export const FIELD_EXTENT = 300;
+// Bumped from 300 -> 400 (still too small per feedback even after the earlier expansion) —
+// CharacterMesh's MAX_RADIUS must stay in sync (FIELD_EXTENT/2), same requirement as before.
+export const FIELD_EXTENT = 400;
 const CLEAR_RADIUS = 3.5;
 
 // Mirrors CharacterMesh's own movement collision radius — shared here so other systems (e.g.
