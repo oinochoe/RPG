@@ -36,79 +36,165 @@ function rectXZ(xa: number, xb: number, za: number, zb: number): Rect {
   return { x1: Math.min(xa, xb), x2: Math.max(xa, xb), z1: Math.min(za, zb), z2: Math.max(za, zb) };
 }
 
-// Layout tuning — 3 rooms in a fixed south/middle/north arrangement, connected by L-shaped
-// ("dogleg") corridors, with the middle room zigzagging left/right by floor parity. This is a
-// hand-authored winding shape rather than a randomized maze generator: simpler to keep
-// correct (guaranteed connected, no dead-end generation edge cases) while still reading as a
-// real winding dungeon instead of one flat room. The south/north rooms never move, which is
-// what lets DUNGEON_EXIT_TRIGGER/DUNGEON_SOUTH_SPAWN/etc. below stay plain fixed constants
-// instead of needing to be floor-dependent (see worldStore.ts's enterFloor/AreaTransitions.tsx
-// — both already assume fixed trigger points).
-const ROOM_HALF = 16;
+// Layout tuning — each floor is a chain of rooms connected by L-shaped ("dogleg") corridors,
+// per-floor room count/sizes/side-to-side offsets pulled from FLOOR_PLANS below rather than
+// one repeated shape — a floor-1-shaped "the dungeon" got old fast. Hand-authored per floor
+// rather than a randomized maze generator: simpler to keep correct (guaranteed connected, no
+// dead-end generation edge cases) while still reading as genuinely different floor to floor.
 const CORRIDOR_HALF = 6;
-const ROOM_GAP_Z = 80;
-const SIDE_OFFSET = 34;
+const CORRIDOR_LEG = 20;
 const DOORWAY_STUB_HALF = 3;
+// Arbitrary fixed anchor for each floor's entry room — dungeon floors are their own self-
+// contained coordinate space (see the Dungeon() doc comment below), so this never needs to
+// vary for the player to notice; what actually reads as "the entrance is always the same
+// place" is the room's own size and which way the first corridor jogs, both of which now vary
+// per floor via FLOOR_PLANS.
+const CHAIN_START_Z = -70;
 
-const SOUTH_ROOM = rectC(0, -ROOM_GAP_Z, ROOM_HALF, ROOM_HALF);
-const NORTH_ROOM = rectC(0, ROOM_GAP_Z, ROOM_HALF, ROOM_HALF);
-
-// Overall bounding half-extents (fixed, covers either zigzag direction) — used by WorldMap.tsx
-// and MiniMap.tsx to size the dungeon minimap's view, and by characterStore's blink-in-dungeon
-// fallback. Not "half the room" anymore (there is no single room), but "half the whole floor
-// plan," padded for the entry/exit doorway stubs.
-export const ROOM_HALF_X = SIDE_OFFSET + ROOM_HALF;
-export const ROOM_HALF_Z = ROOM_GAP_Z + ROOM_HALF + CELL_SIZE;
-
-// Gap in the south room's south wall — floor 1's exit leads back to the field, deeper floors
-// lead up one level. Fixed because SOUTH_ROOM never moves between floors.
-export const DUNGEON_EXIT_TRIGGER: [number, number] = [0, SOUTH_ROOM.z1 + 1];
-export const DUNGEON_EXIT_RADIUS = 1.8;
-// Gap in the north room's north wall (only present on floors below the last) — leads one
-// floor deeper. Fixed for the same reason.
-export const DUNGEON_DESCEND_TRIGGER: [number, number] = [0, NORTH_ROOM.z2 - 1];
-export const DUNGEON_DESCEND_RADIUS = 1.8;
-
-// Spawn a few units in from whichever doorway the player would have just walked through to
-// land on this floor. The offset (3, vs. the trigger radius of 1.8) keeps the transition
-// cooldown from being the only thing stopping an instant re-trigger.
-export const DUNGEON_SOUTH_SPAWN: [number, number] = [0, SOUTH_ROOM.z1 + 3];
-export const DUNGEON_NORTH_SPAWN: [number, number] = [0, NORTH_ROOM.z2 - 3];
-
-function sideForFloor(floor: number): number {
-  return floor % 2 === 1 ? SIDE_OFFSET : -SIDE_OFFSET;
+/** One room in a floor's chain: `x` is its center (offset from the dungeon's x=0 spine), `half`
+ * its half-size. Room 0 is the entry (south) room, the last is the exit (north) room. */
+interface RoomSpec {
+  x: number;
+  half: number;
 }
 
-/** The 3 rooms only (no corridors) — used for monster placement and characterStore's
- * blink-in-dungeon, both of which want "somewhere reasonable to stand," not a narrow hallway. */
-export function getFloorRooms(floor: number): { south: Rect; middle: Rect; north: Rect } {
-  return { south: SOUTH_ROOM, middle: rectC(sideForFloor(floor), 0, ROOM_HALF, ROOM_HALF), north: NORTH_ROOM };
+// 6 distinct shapes — varied room counts (3-5), sizes, and offset patterns, not mirrors of
+// each other. Floor 6 (the boss floor) ends in a deliberately oversized arena for contrast.
+const FLOOR_PLANS: RoomSpec[][] = [
+  [
+    { x: 0, half: 16 },
+    { x: 34, half: 15 },
+    { x: -10, half: 18 },
+  ],
+  [
+    { x: 0, half: 15 },
+    { x: -28, half: 14 },
+    { x: 14, half: 14 },
+    { x: -22, half: 17 },
+  ],
+  [
+    { x: 0, half: 14 },
+    { x: 0, half: 14 },
+    { x: 40, half: 24 },
+  ],
+  [
+    { x: 10, half: 16 },
+    { x: 52, half: 15 },
+    { x: -6, half: 15 },
+    { x: 38, half: 19 },
+  ],
+  [
+    { x: 0, half: 13 },
+    { x: -22, half: 13 },
+    { x: 18, half: 13 },
+    { x: -16, half: 13 },
+    { x: 12, half: 17 },
+  ],
+  [
+    { x: 0, half: 16 },
+    { x: -32, half: 16 },
+    { x: 0, half: 30 },
+  ],
+];
+
+function planForFloor(floor: number): RoomSpec[] {
+  return FLOOR_PLANS[(floor - 1) % FLOOR_PLANS.length];
+}
+
+/** This floor's room rects, in chain order (index 0 = entry/south, last = exit/north) —
+ * used for monster placement and characterStore's blink-in-dungeon, both of which want
+ * "somewhere reasonable to stand," not a narrow hallway. */
+export function getFloorRoomList(floor: number): Rect[] {
+  const plan = planForFloor(floor);
+  const rooms: Rect[] = [];
+  let z = CHAIN_START_Z;
+  for (let i = 0; i < plan.length; i++) {
+    if (i > 0) z += plan[i - 1].half + CORRIDOR_LEG * 2 + plan[i].half;
+    rooms.push(rectC(plan[i].x, z, plan[i].half, plan[i].half));
+  }
+  return rooms;
+}
+
+function entryRoomX(floor: number): number {
+  return planForFloor(floor)[0].x;
+}
+function exitRoomX(floor: number): number {
+  const plan = planForFloor(floor);
+  return plan[plan.length - 1].x;
+}
+
+// Overall bounding half-extents — computed once across every floor's actual layout (rather
+// than hand-estimated) so WorldMap.tsx/MiniMap.tsx's dungeon minimap frame is always big
+// enough regardless of which floor's shape is largest, padded for the doorway stubs.
+const { ROOM_HALF_X, ROOM_HALF_Z } = (() => {
+  let maxX = 0;
+  let maxZ = 0;
+  for (let floor = 1; floor <= DUNGEON_MAX_FLOOR; floor++) {
+    for (const room of getFloorRoomList(floor)) {
+      maxX = Math.max(maxX, Math.abs(room.x1), Math.abs(room.x2));
+      maxZ = Math.max(maxZ, Math.abs(room.z1), Math.abs(room.z2));
+    }
+  }
+  return { ROOM_HALF_X: maxX + CORRIDOR_HALF, ROOM_HALF_Z: maxZ + CELL_SIZE };
+})();
+export { ROOM_HALF_X, ROOM_HALF_Z };
+
+// Entry/exit points are floor-dependent now (each floor's entry room can sit at a different
+// x) — worldStore.ts's enterFloor() and AreaTransitions.tsx both call these per-floor instead
+// of importing fixed constants.
+export function getEntryTrigger(floor: number): [number, number] {
+  const rooms = getFloorRoomList(floor);
+  return [entryRoomX(floor), rooms[0].z1 + 1];
+}
+export function getEntrySpawn(floor: number): [number, number] {
+  const rooms = getFloorRoomList(floor);
+  return [entryRoomX(floor), rooms[0].z1 + 3];
+}
+export function getExitTrigger(floor: number): [number, number] | null {
+  if (floor >= DUNGEON_MAX_FLOOR) return null;
+  const rooms = getFloorRoomList(floor);
+  return [exitRoomX(floor), rooms[rooms.length - 1].z2 - 1];
+}
+export function getExitSpawn(floor: number): [number, number] {
+  const rooms = getFloorRoomList(floor);
+  return [exitRoomX(floor), rooms[rooms.length - 1].z2 - 3];
+}
+export const DUNGEON_EXIT_RADIUS = 1.8;
+export const DUNGEON_DESCEND_RADIUS = 1.8;
+
+/** The 3-5 rooms only (no corridors), same as getFloorRoomList — kept as an object-shaped
+ * alias for callers that want named south/north access without indexing. */
+export function getFloorRooms(floor: number): { south: Rect; north: Rect; all: Rect[] } {
+  const rooms = getFloorRoomList(floor);
+  return { south: rooms[0], north: rooms[rooms.length - 1], all: rooms };
 }
 
 /** Every rectangle making up this floor's walkable area — rooms, corridor legs, and the two
- * short doorway stubs that punch the entry/exit gaps into the south/north rooms' outer walls.
+ * short doorway stubs that punch the entry/exit gaps into the first/last rooms' outer walls.
  * The whole rendered floor (walls, floor tiles, colliders) derives from this one list via
  * rasterize()/wallsFromOpenCells() below, so there's a single source of truth for the shape. */
 export function getFloorRects(floor: number): Rect[] {
-  const { south, middle, north } = getFloorRooms(floor);
-  const side = sideForFloor(floor);
-  const bendZ1 = (south.z2 + middle.z1) / 2;
-  const bendZ2 = (middle.z2 + north.z1) / 2;
+  const plan = planForFloor(floor);
+  const rooms = getFloorRoomList(floor);
+  const rects: Rect[] = [...rooms];
 
-  const rects = [
-    south,
-    middle,
-    north,
-    rectXZ(-CORRIDOR_HALF, CORRIDOR_HALF, south.z2, bendZ1),
-    rectXZ(0, side, bendZ1 - CORRIDOR_HALF, bendZ1 + CORRIDOR_HALF),
-    rectXZ(side - CORRIDOR_HALF, side + CORRIDOR_HALF, bendZ1, middle.z1),
-    rectXZ(side - CORRIDOR_HALF, side + CORRIDOR_HALF, middle.z2, bendZ2),
-    rectXZ(side, 0, bendZ2 - CORRIDOR_HALF, bendZ2 + CORRIDOR_HALF),
-    rectXZ(-CORRIDOR_HALF, CORRIDOR_HALF, bendZ2, north.z1),
-    rectXZ(-DOORWAY_STUB_HALF, DOORWAY_STUB_HALF, south.z1 - CELL_SIZE, south.z1),
-  ];
+  for (let i = 0; i < rooms.length - 1; i++) {
+    const a = rooms[i];
+    const b = rooms[i + 1];
+    const ax = plan[i].x;
+    const bx = plan[i + 1].x;
+    const bendZ = (a.z2 + b.z1) / 2;
+    rects.push(rectXZ(ax - CORRIDOR_HALF, ax + CORRIDOR_HALF, a.z2, bendZ));
+    rects.push(rectXZ(ax, bx, bendZ - CORRIDOR_HALF, bendZ + CORRIDOR_HALF));
+    rects.push(rectXZ(bx - CORRIDOR_HALF, bx + CORRIDOR_HALF, bendZ, b.z1));
+  }
+
+  const entryX = plan[0].x;
+  rects.push(rectXZ(entryX - DOORWAY_STUB_HALF, entryX + DOORWAY_STUB_HALF, rooms[0].z1 - CELL_SIZE, rooms[0].z1));
   if (floor < DUNGEON_MAX_FLOOR) {
-    rects.push(rectXZ(-DOORWAY_STUB_HALF, DOORWAY_STUB_HALF, north.z2, north.z2 + CELL_SIZE));
+    const exitX = plan[plan.length - 1].x;
+    const last = rooms[rooms.length - 1];
+    rects.push(rectXZ(exitX - DOORWAY_STUB_HALF, exitX + DOORWAY_STUB_HALF, last.z2, last.z2 + CELL_SIZE));
   }
   return rects;
 }
@@ -185,7 +271,7 @@ function regularMonster(
   hp: number,
   position: [number, number],
 ): MonsterInstanceSummary {
-  const isSkeleton = floor >= 2 && (slot === 2 || slot === 6 || slot === 9);
+  const isSkeleton = floor >= 2 && slot % 3 === 0;
   return {
     instance_id: idBase + slot,
     monster_template_id: isSkeleton ? 3 : 2,
@@ -199,44 +285,59 @@ function regularMonster(
   };
 }
 
-/** Deterministic per-floor monster roster, spread across all 3 rooms (not the corridors)
- * instead of crammed into one — stronger the deeper you go, with a tougher captain guarding
- * the north room (the way to the next floor down) and a named boss on the final floor. */
+/** 3 positions per room (fractional offsets so they scale with that room's own size instead
+ * of a fixed distance that could clip a small room's walls or read sparse in a big one). */
+function roomMonsterPositions(room: Rect): [number, number][] {
+  const cx = (room.x1 + room.x2) / 2;
+  const cz = (room.z1 + room.z2) / 2;
+  const hx = (room.x2 - room.x1) / 2;
+  const hz = (room.z2 - room.z1) / 2;
+  return [
+    [cx - hx * 0.5, cz - hz * 0.3],
+    [cx + hx * 0.5, cz - hz * 0.3],
+    [cx, cz + hz * 0.35],
+  ];
+}
+
+/** Deterministic per-floor monster roster, spread across every room in the floor's chain
+ * (not the corridors) — stronger the deeper you go, with a tougher captain guarding the last
+ * room (the way to the next floor down) and a named boss on the final floor. */
 export function buildFloorMonsters(floor: number): MonsterInstanceSummary[] {
   const level = FLOOR_BASE_LEVEL + (floor - 1) * 3;
   const hp = 60 + (floor - 1) * 40;
   const idBase = 9000 + floor * 100;
   const isLastFloor = floor === DUNGEON_MAX_FLOOR;
   const captainHp = Math.round(hp * (isLastFloor ? 2.5 : 1.8));
-  const { south, middle, north } = getFloorRooms(floor);
+  const rooms = getFloorRoomList(floor);
 
-  return [
-    regularMonster(idBase, 1, floor, level, hp, [south.x1 + 8, south.z2 - 12]),
-    regularMonster(idBase, 2, floor, level, hp, [south.x2 - 8, south.z2 - 12]),
-    regularMonster(idBase, 8, floor, level, hp, [south.x1 + 16, south.z1 + 6]),
-    regularMonster(idBase, 3, floor, level, hp, [middle.x1 + 8, middle.z1 + 10]),
-    regularMonster(idBase, 5, floor, level, hp, [middle.x2 - 8, middle.z2 - 10]),
-    regularMonster(idBase, 9, floor, level, hp, [middle.x1 + 16, middle.z1 + 6]),
-    regularMonster(idBase, 6, floor, level, hp, [north.x1 + 8, north.z1 + 12]),
-    regularMonster(idBase, 7, floor, level, hp, [north.x2 - 8, north.z1 + 12]),
-    regularMonster(idBase, 10, floor, level, hp, [north.x1 + 16, north.z2 - 6]),
-    {
-      instance_id: idBase + 4,
-      monster_template_id: 2,
-      name: isLastFloor ? '고블린 군주' : '고블린 대장',
-      level: level + (isLastFloor ? 5 : 2),
-      current_hp: captainHp,
-      max_hp: captainHp,
-      // The captain is the one monster on this floor that's aggressive on sight (see
-      // worldStore's isDungeonEscortAggressive), so it sits in the north room — far enough
-      // from DUNGEON_NORTH_SPAWN (arriving here by ascending from a deeper floor) that
-      // MONSTER_DETECT_RANGE (6) + MONSTER_WANDER_RADIUS (2.5) can't reach it on arrival —
-      // guarding the way deeper rather than ambushing anyone who just walked in.
-      position_x: north.x2 - 8,
-      position_y: 0,
-      position_z: north.z1 + 4,
-    },
-  ];
+  const monsters: MonsterInstanceSummary[] = [];
+  let slot = 1;
+  for (const room of rooms) {
+    for (const pos of roomMonsterPositions(room)) {
+      monsters.push(regularMonster(idBase, slot++, floor, level, hp, pos));
+    }
+  }
+
+  const lastRoom = rooms[rooms.length - 1];
+  monsters.push({
+    instance_id: idBase + 99,
+    monster_template_id: 2,
+    name: isLastFloor ? '고블린 군주' : '고블린 대장',
+    level: level + (isLastFloor ? 5 : 2),
+    current_hp: captainHp,
+    max_hp: captainHp,
+    // The captain is the one monster on this floor that's aggressive on sight (see
+    // worldStore's isDungeonEscortAggressive), so it sits toward the near (south) side of the
+    // last room — far enough from getExitSpawn (arriving here by ascending from a deeper
+    // floor, near the room's far/north edge) that MONSTER_DETECT_RANGE (6) + wander (2.5)
+    // can't reach it on arrival — guarding the way deeper rather than ambushing anyone who
+    // just walked in.
+    position_x: lastRoom.x1 + (lastRoom.x2 - lastRoom.x1) * 0.7,
+    position_y: 0,
+    position_z: lastRoom.z1 + (lastRoom.z2 - lastRoom.z1) * 0.25,
+  });
+
+  return monsters;
 }
 
 const COLLIDER_RADIUS = 1.3;
@@ -253,8 +354,7 @@ export function getDungeonColliders(floor: number): Collider[] {
     }
   }
 
-  const { south, middle, north } = getFloorRooms(floor);
-  for (const room of [south, middle, north]) {
+  for (const room of getFloorRoomList(floor)) {
     for (const [x, z] of roomColumnOffsets(room)) colliders.push({ x, z, radius: 0.5 });
   }
 
@@ -333,17 +433,20 @@ function FloorMarker({ position, color }: { position: [number, number]; color: s
 
 /**
  * A self-contained dungeon floor — a genuinely separate instance (unlike the village), so it
- * reuses near-origin coordinates freely for every floor. 3 rooms (south/middle/north) linked
- * by winding corridors; the south doorway always leads back toward the field (floor 1) or up
- * a floor, the north doorway (present on every floor but the last) leads one floor deeper. See
- * worldStore.ts for the actual floor-swapping logic, and getFloorRects() above for the shape.
+ * reuses near-origin coordinates freely for every floor. A chain of rooms (3-5, see
+ * FLOOR_PLANS) linked by winding corridors, a different shape per floor; the entry doorway
+ * always leads back toward the field (floor 1) or up a floor, the exit doorway (present on
+ * every floor but the last) leads one floor deeper. See worldStore.ts for the actual
+ * floor-swapping logic, and getFloorRects() above for the shape.
  */
 export function Dungeon({ floor }: { floor: number }) {
-  const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
+  const hasExit = floor < DUNGEON_MAX_FLOOR;
   const open = useMemo(() => rasterize(getFloorRects(floor)), [floor]);
   const walls = useMemo(() => wallsFromOpenCells(open), [open]);
   const floorTiles = useMemo(() => floorTilesFromOpenCells(open), [open]);
-  const rooms = useMemo(() => getFloorRooms(floor), [floor]);
+  const rooms = useMemo(() => getFloorRoomList(floor), [floor]);
+  const entryTrigger = useMemo(() => getEntryTrigger(floor), [floor]);
+  const exitTrigger = useMemo(() => getExitTrigger(floor), [floor]);
 
   function handleFloorClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
@@ -366,7 +469,7 @@ export function Dungeon({ floor }: { floor: number }) {
         rotation={[-Math.PI / 2, 0, 0]}
         onClick={handleFloorClick}
         visible={false}
-        position={[0, 0, (rooms.south.z1 + rooms.north.z2) / 2]}
+        position={[0, 0, (rooms[0].z1 + rooms[rooms.length - 1].z2) / 2]}
       >
         <planeGeometry args={[ROOM_HALF_X * 2, ROOM_HALF_Z * 2]} />
       </mesh>
@@ -380,19 +483,19 @@ export function Dungeon({ floor }: { floor: number }) {
           <DungeonProp key={`wall-${i}`} url={WALL_MODEL} position={[w.x, 0, w.z]} rotationY={w.rotationY} />
         ))}
 
-        {[rooms.south, rooms.middle, rooms.north].flatMap((room, ri) =>
+        {rooms.flatMap((room, ri) =>
           roomColumnOffsets(room).map(([x, z], i) => (
             <DungeonProp key={`column-${ri}-${i}`} url={COLUMN_MODEL} position={[x, 0, z]} />
           )),
         )}
 
-        {[rooms.south, rooms.middle, rooms.north].flatMap((room, ri) =>
+        {rooms.flatMap((room, ri) =>
           roomTorchOffsets(room).map((pos, i) => <Torch key={`torch-${ri}-${i}`} position={pos} />),
         )}
       </Suspense>
 
-      <FloorMarker position={DUNGEON_EXIT_TRIGGER} color="#bcdcf0" />
-      {hasNorthGap && <FloorMarker position={DUNGEON_DESCEND_TRIGGER} color="#c084fc" />}
+      <FloorMarker position={entryTrigger} color="#bcdcf0" />
+      {hasExit && exitTrigger && <FloorMarker position={exitTrigger} color="#c084fc" />}
     </group>
   );
 }

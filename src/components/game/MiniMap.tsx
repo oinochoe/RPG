@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { playerPosition, playerFacing } from './playerTransform';
 import { RIVER_X_CENTER, RIVER_HALF_WIDTH, DESERT_X_START, VILLAGES, FIELD_ENTRANCE_POINT, riverPathD } from './worldColliders';
-import { DUNGEON_MAX_FLOOR, DUNGEON_EXIT_TRIGGER, DUNGEON_DESCEND_TRIGGER, getFloorRects } from './Dungeon';
+import { DUNGEON_MAX_FLOOR, getEntryTrigger, getExitTrigger, getFloorRects } from './Dungeon';
 import { ICON_PATH, MapIcon, SkullMarker, PlayerArrow } from './mapIcons';
 import { useCombatStore } from '../../stores/combatStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -73,6 +73,8 @@ function MiniDungeonView({ player, facing, floor }: { player: { x: number; z: nu
   const monsters = useCombatStore((s) => s.monsters);
   const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
   const rects = useMemo(() => getFloorRects(floor), [floor]);
+  const entryTrigger = useMemo(() => getEntryTrigger(floor), [floor]);
+  const exitTrigger = useMemo(() => getExitTrigger(floor), [floor]);
   const half = DUNGEON_LOCAL_HALF;
 
   return (
@@ -94,9 +96,9 @@ function MiniDungeonView({ player, facing, floor }: { player: { x: number; z: nu
           strokeWidth={0.5}
         />
       ))}
-      <MapIcon path={ICON_PATH.ladder} x={DUNGEON_EXIT_TRIGGER[0]} y={DUNGEON_EXIT_TRIGGER[1]} size={3} color="#bcdcf0" />
-      {hasNorthGap && (
-        <MapIcon path={ICON_PATH.ladder} x={DUNGEON_DESCEND_TRIGGER[0]} y={DUNGEON_DESCEND_TRIGGER[1]} size={3} color="#c084fc" />
+      <MapIcon path={ICON_PATH.ladder} x={entryTrigger[0]} y={entryTrigger[1]} size={3} color="#bcdcf0" />
+      {hasNorthGap && exitTrigger && (
+        <MapIcon path={ICON_PATH.ladder} x={exitTrigger[0]} y={exitTrigger[1]} size={3} color="#c084fc" />
       )}
 
       {Object.values(monsters)

@@ -16,7 +16,7 @@ import {
   inDesertZone,
   inCaveClearZone,
 } from '../components/game/worldColliders';
-import { getFloorRooms, getDungeonColliders, DUNGEON_SOUTH_SPAWN } from '../components/game/Dungeon';
+import { getFloorRooms, getDungeonColliders, getEntrySpawn } from '../components/game/Dungeon';
 import { buildFieldMonsters } from '../components/game/FieldMonsters';
 import type { CharacterClass, CharacterProfile, CharacterSummary, InventorySlot, ShopItem } from '../types/api';
 
@@ -52,10 +52,9 @@ function collidesAt(x: number, z: number, colliders: { x: number; z: number; rad
 function randomBlinkPoint(): [number, number] {
   const world = useWorldStore.getState();
   if (world.currentArea === 'dungeon') {
-    // Picks one of this floor's 3 rooms (not the connecting corridors — a narrow hallway
-    // isn't a great place to land) and rejection-samples a point inside it.
-    const rooms = getFloorRooms(world.dungeonFloor);
-    const roomList = [rooms.south, rooms.middle, rooms.north];
+    // Picks one of this floor's rooms (not the connecting corridors — a narrow hallway isn't
+    // a great place to land) and rejection-samples a point inside it.
+    const { all: roomList } = getFloorRooms(world.dungeonFloor);
     const colliders = getDungeonColliders(world.dungeonFloor);
     const margin = 1.5;
     for (let i = 0; i < BLINK_ATTEMPTS; i++) {
@@ -64,7 +63,7 @@ function randomBlinkPoint(): [number, number] {
       const z = room.z1 + margin + Math.random() * (room.z2 - room.z1 - margin * 2);
       if (!collidesAt(x, z, colliders)) return [x, z];
     }
-    return DUNGEON_SOUTH_SPAWN;
+    return getEntrySpawn(world.dungeonFloor);
   }
 
   const half = FIELD_EXTENT / 2 - FIELD_BLINK_MARGIN;

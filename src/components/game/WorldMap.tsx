@@ -10,14 +10,7 @@ import {
   riverPathD,
 } from './worldColliders';
 import { VILLAGE_CONFIGS } from './Village';
-import {
-  DUNGEON_MAX_FLOOR,
-  DUNGEON_EXIT_TRIGGER,
-  DUNGEON_DESCEND_TRIGGER,
-  ROOM_HALF_X,
-  ROOM_HALF_Z,
-  getFloorRects,
-} from './Dungeon';
+import { DUNGEON_MAX_FLOOR, getEntryTrigger, getExitTrigger, ROOM_HALF_X, ROOM_HALF_Z, getFloorRects } from './Dungeon';
 import { ICON_PATH, MapIcon, SkullMarker, PlayerArrow } from './mapIcons';
 import { useCombatStore } from '../../stores/combatStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -124,6 +117,8 @@ function DungeonMap({
   const monsters = useCombatStore((s) => s.monsters);
   const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
   const rects = useMemo(() => getFloorRects(floor), [floor]);
+  const entryTrigger = useMemo(() => getEntryTrigger(floor), [floor]);
+  const exitTrigger = useMemo(() => getExitTrigger(floor), [floor]);
 
   return (
     <svg
@@ -147,21 +142,15 @@ function DungeonMap({
         />
       ))}
 
-      <MapIcon path={ICON_PATH.ladder} x={DUNGEON_EXIT_TRIGGER[0]} y={DUNGEON_EXIT_TRIGGER[1]} size={2.6} color="#bcdcf0" />
-      <text x={DUNGEON_EXIT_TRIGGER[0]} y={DUNGEON_EXIT_TRIGGER[1] + 3.2} fill="#bcdcf0" fontSize={2.4} textAnchor="middle">
+      <MapIcon path={ICON_PATH.ladder} x={entryTrigger[0]} y={entryTrigger[1]} size={2.6} color="#bcdcf0" />
+      <text x={entryTrigger[0]} y={entryTrigger[1] + 3.2} fill="#bcdcf0" fontSize={2.4} textAnchor="middle">
         {floor <= 1 ? '입구' : '위층'}
       </text>
 
-      {hasNorthGap && (
+      {hasNorthGap && exitTrigger && (
         <>
-          <MapIcon
-            path={ICON_PATH.ladder}
-            x={DUNGEON_DESCEND_TRIGGER[0]}
-            y={DUNGEON_DESCEND_TRIGGER[1]}
-            size={2.6}
-            color="#c084fc"
-          />
-          <text x={DUNGEON_DESCEND_TRIGGER[0]} y={DUNGEON_DESCEND_TRIGGER[1] - 2.2} fill="#c084fc" fontSize={2.4} textAnchor="middle">
+          <MapIcon path={ICON_PATH.ladder} x={exitTrigger[0]} y={exitTrigger[1]} size={2.6} color="#c084fc" />
+          <text x={exitTrigger[0]} y={exitTrigger[1] - 2.2} fill="#c084fc" fontSize={2.4} textAnchor="middle">
             아래층
           </text>
         </>

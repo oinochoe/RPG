@@ -1,14 +1,8 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { playerPosition } from './playerTransform';
 import { FIELD_ENTRANCE_POINT, FIELD_ENTRANCE_RADIUS } from './worldColliders';
-import {
-  DUNGEON_EXIT_TRIGGER,
-  DUNGEON_EXIT_RADIUS,
-  DUNGEON_DESCEND_TRIGGER,
-  DUNGEON_DESCEND_RADIUS,
-  DUNGEON_MAX_FLOOR,
-} from './Dungeon';
+import { getEntryTrigger, DUNGEON_EXIT_RADIUS, getExitTrigger, DUNGEON_DESCEND_RADIUS } from './Dungeon';
 import { useWorldStore } from '../../stores/worldStore';
 import type { MonsterInstanceSummary } from '../../types/api';
 
@@ -27,6 +21,10 @@ export function AreaTransitions({ fieldMonsters }: { fieldMonsters: MonsterInsta
   const ascendFloor = useWorldStore((s) => s.ascendFloor);
   const exitDungeon = useWorldStore((s) => s.exitDungeon);
   const cooldown = useRef(0);
+  // Each floor's entry/exit points now depend on its own shape (see Dungeon.tsx's FLOOR_PLANS)
+  // rather than being fixed constants, so these are recomputed whenever the floor changes.
+  const entryTrigger = useMemo(() => getEntryTrigger(dungeonFloor), [dungeonFloor]);
+  const exitTrigger = useMemo(() => getExitTrigger(dungeonFloor), [dungeonFloor]);
 
   useFrame((_, delta) => {
     if (cooldown.current > 0) {
@@ -44,8 +42,8 @@ export function AreaTransitions({ fieldMonsters }: { fieldMonsters: MonsterInsta
       return;
     }
 
-    const dxSouth = playerPosition.x - DUNGEON_EXIT_TRIGGER[0];
-    const dzSouth = playerPosition.z - DUNGEON_EXIT_TRIGGER[1];
+    const dxSouth = playerPosition.x - entryTrigger[0];
+    const dzSouth = playerPosition.z - entryTrigger[1];
     if (Math.hypot(dxSouth, dzSouth) < DUNGEON_EXIT_RADIUS) {
       if (dungeonFloor <= 1) {
         exitDungeon(fieldMonsters);
@@ -56,9 +54,9 @@ export function AreaTransitions({ fieldMonsters }: { fieldMonsters: MonsterInsta
       return;
     }
 
-    if (dungeonFloor < DUNGEON_MAX_FLOOR) {
-      const dxNorth = playerPosition.x - DUNGEON_DESCEND_TRIGGER[0];
-      const dzNorth = playerPosition.z - DUNGEON_DESCEND_TRIGGER[1];
+    if (exitTrigger) {
+      const dxNorth = playerPosition.x - exitTrigger[0];
+      const dzNorth = playerPosition.z - exitTrigger[1];
       if (Math.hypot(dxNorth, dzNorth) < DUNGEON_DESCEND_RADIUS) {
         descendFloor();
         cooldown.current = TRANSITION_COOLDOWN_SEC;

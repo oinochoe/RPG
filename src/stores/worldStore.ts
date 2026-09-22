@@ -3,12 +3,7 @@ import { playerPosition } from '../components/game/playerTransform';
 import { clearMoveTarget } from '../components/game/moveTarget';
 import { activeColliders, rockColliders, FIELD_ENTRANCE_POINT } from '../components/game/worldColliders';
 import { villageColliders } from '../components/game/Village';
-import {
-  getDungeonColliders,
-  buildFloorMonsters,
-  DUNGEON_SOUTH_SPAWN,
-  DUNGEON_NORTH_SPAWN,
-} from '../components/game/Dungeon';
+import { getDungeonColliders, buildFloorMonsters, getEntrySpawn, getExitSpawn } from '../components/game/Dungeon';
 import { useCombatStore } from './combatStore';
 import type { MonsterInstanceSummary } from '../types/api';
 
@@ -30,13 +25,14 @@ function isDungeonEscortAggressive(monster: MonsterInstanceSummary): boolean {
 }
 
 // spawnSide is which doorway the player just walked through to get here: 'south' for
-// entering from the field or ascending from a deeper floor (both arrive via this floor's
-// south door), 'north' for descending from a shallower floor (arrives via the north door).
+// entering from the field or descending from a shallower floor (both arrive fresh at this
+// floor's own entry door), 'north' for ascending from a deeper floor (arrives back at this
+// floor's own exit door — the top of the same staircase they went down earlier).
 function enterFloor(floor: number, spawnSide: 'south' | 'north') {
   clearMoveTarget();
   activeColliders.list = getDungeonColliders(floor);
   useCombatStore.getState().loadMonsters(buildFloorMonsters(floor), isDungeonEscortAggressive);
-  const spawn = spawnSide === 'south' ? DUNGEON_SOUTH_SPAWN : DUNGEON_NORTH_SPAWN;
+  const spawn = spawnSide === 'south' ? getEntrySpawn(floor) : getExitSpawn(floor);
   playerPosition.set(spawn[0], 0, spawn[1]);
 }
 
