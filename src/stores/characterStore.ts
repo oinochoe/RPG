@@ -149,7 +149,7 @@ interface CharacterState {
   equipItem: (inventoryId: number) => Promise<void>;
   unequipItem: (inventoryId: number) => Promise<void>;
   fetchShop: (kind: 'merchant' | 'blacksmith') => Promise<void>;
-  buyItem: (itemTemplateId: number, price: number) => Promise<void>;
+  buyItem: (itemTemplateId: number, price: number, quantity?: number) => Promise<void>;
   sellItem: (inventoryId: number, price: number) => Promise<void>;
   setHotbarSlot: (slot: number, assignment: HotbarAssignment | null) => void;
   useHotbarSlot: (slot: number) => Promise<void>;
@@ -225,10 +225,10 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   // price is passed in by the caller (already known from the ShopItem/InventorySlot the
   // button was rendered from) rather than looked up here — the server doesn't touch gold
   // at all (see characters.ts's shop routes), so this is purely a local wallet update.
-  buyItem: async (itemTemplateId, price) => {
-    const { items } = await charactersApi.buyItem(itemTemplateId);
+  buyItem: async (itemTemplateId, price, quantity = 1) => {
+    const { items } = await charactersApi.buyItem(itemTemplateId, quantity);
     set({ inventory: items });
-    useCombatStore.getState().adjustGold(-price);
+    useCombatStore.getState().adjustGold(-price * quantity);
   },
 
   sellItem: async (inventoryId, price) => {

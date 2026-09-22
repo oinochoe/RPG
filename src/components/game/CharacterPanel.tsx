@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   useCombatStore,
   statPointCost,
+  skillDamageMultiplier,
   SKILLS_BY_CLASS,
   SKILL_MAX_LEVEL,
   type AllocatableStat,
@@ -210,6 +211,12 @@ function SkillCard({ skill, character }: { skill: SkillDef; character: Character
   const levelLocked = character.level < skill.requiredLevel;
   const canUpgrade = !pending && !levelLocked && player.skillUpgradePoints > 0 && skillLevel < SKILL_MAX_LEVEL;
   const learned = skillLevel > 0;
+  // Previews at level 1 while unlearned (rather than hiding the number entirely) so a
+  // player deciding whether to spend a point can see roughly what they're buying — matches
+  // castSkill's actual formula (attackPower * multiplier * a 0.8~1.2 variance band).
+  const previewMultiplier = skillDamageMultiplier(skill.baseDamageMultiplier, Math.max(skillLevel, 1));
+  const dmgMin = Math.round(player.attackPower * previewMultiplier * 0.8);
+  const dmgMax = Math.round(player.attackPower * previewMultiplier * 1.2);
   const isArmed = armedSkillId === skill.id;
   const assignedSlot = hotbar.findIndex((a) => a?.kind === 'skill' && a.skillTemplateId === skill.id);
 
@@ -269,8 +276,8 @@ function SkillCard({ skill, character }: { skill: SkillDef; character: Character
           </div>
           <div style={{ color: '#9aa08f', fontSize: 11, marginTop: 2 }}>
             {levelLocked
-              ? `Lv.${skill.requiredLevel} 필요`
-              : `MP ${skill.mpCost} · 쿨다운 ${skill.cooldownMs / 1000}초${skill.type === 'aoe' ? ` · 범위 ${skill.aoeRadius}` : ''} · 더블클릭 후 몬스터 클릭으로 시전`}
+              ? `Lv.${skill.requiredLevel} 필요 · 피해 ${dmgMin}~${dmgMax}${skill.type === 'aoe' ? ' (범위)' : ''}`
+              : `MP ${skill.mpCost} · 쿨다운 ${skill.cooldownMs / 1000}초 · 피해 ${dmgMin}~${dmgMax}${skill.type === 'aoe' ? ` · 범위 ${skill.aoeRadius}` : ''} · 더블클릭 후 몬스터 클릭으로 시전`}
           </div>
         </div>
         <button

@@ -600,9 +600,14 @@ charactersRoutes.get("/me/shop", async (c) => {
 
 charactersRoutes.post("/me/inventory/buy", async (c) => {
   const appUser = c.get("appUser");
-  const { item_template_id } = await readJsonBody(c);
+  const { item_template_id, quantity } = await readJsonBody(c);
   if (typeof item_template_id !== "number" || !Number.isInteger(item_template_id)) {
     throw new ApiError(400, "validation_failed", "invalid_request", "item_template_id는 정수여야 합니다.", "item_template_id");
+  }
+  // Optional — omitted (or 1) matches the old single-purchase behavior exactly.
+  const requestedQuantity = quantity === undefined ? 1 : quantity;
+  if (typeof requestedQuantity !== "number" || !Number.isInteger(requestedQuantity) || requestedQuantity < 1 || requestedQuantity > 99) {
+    throw new ApiError(400, "validation_failed", "invalid_quantity", "quantity는 1~99 사이의 정수여야 합니다.", "quantity");
   }
 
   const admin = getAdminClient();
@@ -622,6 +627,12 @@ charactersRoutes.post("/me/inventory/buy", async (c) => {
     throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "item_template_id");
   }
 
+  // Equippable gear always gets its own single row (each piece may end up with its own
+  // enchant_level down the line) — bulk purchase only makes sense for stackable consumables.
+  if (item.equip_slot !== null && requestedQuantity !== 1) {
+    throw new ApiError(400, "validation_failed", "not_stackable", "장비 아이템은 한 번에 하나만 구매할 수 있습니다.", "quantity");
+  }
+
   // Non-equippable items (consumables) stack onto an existing row instead of cluttering
   // the list with one row per purchase — equippable gear always gets its own row since
   // each piece may end up with its own enchant_level down the line.
@@ -639,7 +650,7 @@ charactersRoutes.post("/me/inventory/buy", async (c) => {
     if (stack) {
       const { error: updateError } = await admin
         .from("character_inventory")
-        .update({ quantity: stack.quantity + 1 })
+        .update({ quantity: stack.quantity + requestedQuantity })
         .eq("id", stack.id);
       if (updateError) {
         console.error("inventory stack update failed during buy:", updateError.message);
@@ -668,7 +679,7 @@ charactersRoutes.post("/me/inventory/buy", async (c) => {
     item_template_id,
     storage_type: "inventory",
     slot_index: nextSlot,
-    quantity: 1,
+    quantity: item.equip_slot === null ? requestedQuantity : 1,
     enchant_level: 0,
     is_equipped: false,
     equipped_slot: null,

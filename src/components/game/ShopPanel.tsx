@@ -18,6 +18,9 @@ const SHOP_TITLE: Record<'merchant' | 'blacksmith', string> = {
   blacksmith: '대장장이의 가게',
 };
 
+// quantity/onQuantityChange/maxQuantity are only passed for stackable buy rows (see
+// ShopPanel's equip_slot === null check) — equip gear and the sell tab always buy/sell one
+// at a time, so those rows render without a stepper at all rather than a stepper stuck at 1.
 function ShopRow({
   name,
   meta,
@@ -26,6 +29,9 @@ function ShopRow({
   actionLabel,
   disabled,
   onAction,
+  quantity,
+  onQuantityChange,
+  maxQuantity,
 }: {
   name: string;
   meta: string;
@@ -34,7 +40,12 @@ function ShopRow({
   actionLabel: string;
   disabled: boolean;
   onAction: () => void;
+  quantity?: number;
+  onQuantityChange?: (next: number) => void;
+  maxQuantity?: number;
 }) {
+  const hasStepper = quantity !== undefined && onQuantityChange !== undefined;
+  const totalPrice = hasStepper ? price * quantity : price;
   return (
     <div
       style={{
@@ -50,8 +61,53 @@ function ShopRow({
         <div style={{ color: '#f4f1e8', fontSize: 13, fontWeight: 600 }}>{name}</div>
         <div style={{ color: '#9aa08f', fontSize: 11 }}>{meta}</div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <span style={{ color: priceColor, fontSize: 12, fontWeight: 700 }}>{price} G</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        {hasStepper && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <button
+              onClick={() => onQuantityChange(Math.max(1, quantity - 1))}
+              disabled={quantity <= 1}
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                border: '1px solid rgba(232, 201, 122, 0.5)',
+                background: 'rgba(255,255,255,0.05)',
+                color: quantity <= 1 ? '#5c6058' : '#e8c97a',
+                fontSize: 11,
+                lineHeight: 1,
+                cursor: quantity <= 1 ? 'default' : 'pointer',
+                padding: 0,
+              }}
+            >
+              −
+            </button>
+            <span style={{ color: '#f4f1e8', fontSize: 12, fontWeight: 700, minWidth: 18, textAlign: 'center' }}>
+              {quantity}
+            </span>
+            <button
+              onClick={() => onQuantityChange(Math.min(maxQuantity ?? 99, quantity + 1))}
+              disabled={maxQuantity !== undefined && quantity >= maxQuantity}
+              style={{
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                border: '1px solid rgba(232, 201, 122, 0.5)',
+                background: 'rgba(255,255,255,0.05)',
+                color: maxQuantity !== undefined && quantity >= maxQuantity ? '#5c6058' : '#e8c97a',
+                fontSize: 11,
+                lineHeight: 1,
+                cursor: maxQuantity !== undefined && quantity >= maxQuantity ? 'default' : 'pointer',
+                padding: 0,
+              }}
+            >
+              +
+            </button>
+          </div>
+        )}
+        <span style={{ color: priceColor, fontSize: 12, fontWeight: 700, minWidth: 48, textAlign: 'right' }}>
+          {totalPrice} G
+        </span>
         <button
           onClick={onAction}
           disabled={disabled}
@@ -88,6 +144,9 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
   const [tab, setTab] = useState<'buy' | 'sell'>('buy');
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<number | null>(null);
+  // Per-item buy quantity, keyed by item_template_id — local UI state only, reset isn't
+  // needed since a fresh shop open starts every row back at the 1 default via the ?? below.
+  const [quantities, setQuantities] = useState<Record<number, number>>({});
   const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
     x: window.innerWidth / 2 - PANEL_WIDTH / 2,
     y: Math.max(16, window.innerHeight / 2 - 200),
@@ -101,11 +160,14 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
 
   if (!isOpen || !shopKind) return null;
 
-  async function handleBuy(itemTemplateId: number, price: number) {
+  async function handleBuy(itemTemplateId: number, price: number, quantity: number) {
     setError(null);
     setPendingId(itemTemplateId);
     try {
-      await buyItem(itemTemplateId, price);
+      await buyItem(itemTemplateId, price, quantity);
+      // Next purchase of this item starts back at 1 rather than staying at whatever bulk
+      // amount was just bought — avoids an accidental repeat-click re-buying 10 more.
+      setQuantities((q) => ({ ...q, [itemTemplateId]: 1 }));
     } catch (err) {
       setError(err instanceof Error ? err.message : '구매 중 오류가 발생했습니다.');
     } finally {
@@ -208,7 +270,15 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
                 const classOk =
                   !item.required_class || item.required_class === 'all' || item.required_class === character.character_class;
                 const levelOk = character.level >= item.required_level;
-                const canAfford = player.gold >= item.buy_price;
+                // Stackable only (equip gear always buys one at a time — see the server
+                // route's equip_slot check) — the affordability cap below uses this too, so
+                // an equip item's stepper is simply never rendered rather than rendered
+                // pinned at 1.
+                const stackable = item.equip_slot === null;
+                const maxAffordable = item.buy_price > 0 ? Math.floor(player.gold / item.buy_price) : 99;
+                const maxQuantity = Math.max(1, Math.min(99, maxAffordable));
+                const quantity = Math.min(quantities[item.id] ?? 1, maxQuantity);
+                const canAfford = player.gold >= item.buy_price * (stackable ? quantity : 1);
                 const disabled = pendingId === item.id || !classOk || !levelOk || !canAfford;
                 const bonus =
                   (item.attack_bonus > 0 ? `공격 +${item.attack_bonus} ` : '') +
@@ -233,7 +303,10 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
                     priceColor="#ffd54a"
                     actionLabel="구매"
                     disabled={disabled}
-                    onAction={() => handleBuy(item.id, item.buy_price)}
+                    onAction={() => handleBuy(item.id, item.buy_price, stackable ? quantity : 1)}
+                    quantity={stackable ? quantity : undefined}
+                    onQuantityChange={stackable ? (next) => setQuantities((q) => ({ ...q, [item.id]: next })) : undefined}
+                    maxQuantity={stackable ? maxQuantity : undefined}
                   />
                 );
               })

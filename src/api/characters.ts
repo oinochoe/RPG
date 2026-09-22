@@ -87,10 +87,10 @@ export function getShop(kind: 'merchant' | 'blacksmith'): Promise<ShopListRespon
   return apiRequest(`/characters/me/shop?kind=${kind}`);
 }
 
-export function buyItem(itemTemplateId: number): Promise<InventoryListResponse> {
+export function buyItem(itemTemplateId: number, quantity = 1): Promise<InventoryListResponse> {
   return apiRequest('/characters/me/inventory/buy', {
     method: 'POST',
-    body: { item_template_id: itemTemplateId },
+    body: { item_template_id: itemTemplateId, quantity },
   });
 }
 

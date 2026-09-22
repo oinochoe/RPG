@@ -172,8 +172,9 @@ export function findSkillDef(characterClass: CharacterProfile['character_class']
   return SKILLS_BY_CLASS[characterClass].find((s) => s.id === skillId);
 }
 
-// Each skill level above 1 adds +10% to the template's base multiplier.
-function skillDamageMultiplier(baseDamageMultiplier: number, skillLevel: number): number {
+// Each skill level above 1 adds +10% to the template's base multiplier. Exported so the
+// skill tab UI can preview expected damage without duplicating the formula.
+export function skillDamageMultiplier(baseDamageMultiplier: number, skillLevel: number): number {
   return baseDamageMultiplier * (1 + (skillLevel - 1) * 0.1);
 }
 
