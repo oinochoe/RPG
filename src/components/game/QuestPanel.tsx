@@ -112,9 +112,12 @@ export function QuestPanel() {
         <p style={{ color: '#9aa08f', fontSize: 13 }}>지금은 특별히 부탁할 일이 없네.</p>
       ) : !state ? (
         <>
-          <p style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{quest.title}</p>
-          <p style={{ color: '#9aa08f', fontSize: 12, marginBottom: 4 }}>
-            {quest.targetMonsterName} {quest.targetCount}마리를 처치해다오.
+          <p style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{quest.title}</p>
+          <p style={{ color: '#c9c4b3', fontSize: 12, lineHeight: 1.6, marginBottom: 10, fontStyle: 'italic' }}>
+            "{quest.hookText}"
+          </p>
+          <p style={{ color: '#9aa08f', fontSize: 11, marginBottom: 4 }}>
+            {quest.targetMonsterName} {quest.targetCount}마리 처치
           </p>
           <p style={{ color: '#ffd54a', fontSize: 12, marginBottom: 12 }}>{rewardLine}</p>
           {levelLocked ? (
@@ -126,10 +129,13 @@ export function QuestPanel() {
           )}
         </>
       ) : state.status === 'completed' ? (
-        <p style={{ color: '#9aa08f', fontSize: 13 }}>이미 완료한 부탁이야. 고맙네.</p>
+        <>
+          <p style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{quest.title}</p>
+          <p style={{ color: '#c9c4b3', fontSize: 12, lineHeight: 1.6, fontStyle: 'italic' }}>"{quest.completionText}"</p>
+        </>
       ) : ready ? (
         <>
-          <p style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{quest.title}</p>
+          <p style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{quest.title}</p>
           <p style={{ color: '#7be08a', fontSize: 12, marginBottom: 8 }}>목표를 달성했다!</p>
           <p style={{ color: '#ffd54a', fontSize: 12, marginBottom: 12 }}>{rewardLine}</p>
           <button onClick={handleClaim} disabled={pending} style={acceptButtonStyle(pending)}>
@@ -138,7 +144,10 @@ export function QuestPanel() {
         </>
       ) : (
         <>
-          <p style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, marginBottom: 6 }}>{quest.title}</p>
+          <p style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{quest.title}</p>
+          <p style={{ color: '#c9c4b3', fontSize: 12, lineHeight: 1.6, marginBottom: 10, fontStyle: 'italic' }}>
+            "{quest.hookText}"
+          </p>
           <p style={{ color: '#9aa08f', fontSize: 12 }}>
             {quest.targetMonsterName} {state.progress_count} / {quest.targetCount} 처치 중
           </p>
