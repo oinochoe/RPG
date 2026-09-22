@@ -28,17 +28,130 @@ const POLL_MS = 100;
 // Computed once — VIEW_HALF is a module constant, so the visible window never changes.
 const RIVER_PATH = riverPathD(-VIEW_HALF, VIEW_HALF);
 
+/** Small decorative compass rose (replaces the old 4 plain edge-mounted letters) — a fixed
+ * ornament in the map's corner, in the same world-coordinate space as everything else since
+ * this SVG has no separate screen-space overlay layer. */
+function CompassRose({ cx, cy, r }: { cx: number; cy: number; r: number }) {
+  return (
+    <g opacity={0.9}>
+      <circle cx={cx} cy={cy} r={r} fill="rgba(15, 25, 12, 0.4)" stroke="#e8c97a" strokeWidth={0.5} />
+      <polygon
+        points={`${cx},${cy - r * 0.72} ${cx + r * 0.2},${cy} ${cx},${cy + r * 0.72} ${cx - r * 0.2},${cy}`}
+        fill="#e8c97a"
+      />
+      <polygon
+        points={`${cx - r * 0.72},${cy} ${cx},${cy - r * 0.2} ${cx + r * 0.72},${cy} ${cx},${cy + r * 0.2}`}
+        fill="rgba(232, 201, 122, 0.55)"
+      />
+      <circle cx={cx} cy={cy} r={r * 0.1} fill="#f4f1e8" />
+      <text x={cx} y={cy - r - 1.3} fill="#e8c97a" fontSize={r * 0.5} textAnchor="middle" fontWeight={700}>
+        N
+      </text>
+      <text x={cx} y={cy + r + r * 0.5 + 0.6} fill="#e8c97a" fontSize={r * 0.4} textAnchor="middle">
+        S
+      </text>
+      <text x={cx - r - r * 0.35} y={cy + r * 0.35} fill="#e8c97a" fontSize={r * 0.4} textAnchor="middle">
+        W
+      </text>
+      <text x={cx + r + r * 0.35} y={cy + r * 0.35} fill="#e8c97a" fontSize={r * 0.4} textAnchor="middle">
+        E
+      </text>
+    </g>
+  );
+}
+
+/** Double-line gold frame plus small corner flourishes — the parchment-map border, drawn in
+ * the same world-space viewBox rather than as a CSS border, so it scales with the map.
+ * Separate halfX/halfZ (rather than one shared half) since the dungeon map's viewBox isn't
+ * square. */
+function MapFrame({ halfX, halfZ }: { halfX: number; halfZ: number }) {
+  const inset1 = 2;
+  const inset2 = 5;
+  const corner = 10;
+  const corners: [number, number][] = [
+    [-halfX + inset2, -halfZ + inset2],
+    [halfX - inset2, -halfZ + inset2],
+    [-halfX + inset2, halfZ - inset2],
+    [halfX - inset2, halfZ - inset2],
+  ];
+  return (
+    <g>
+      <rect
+        x={-halfX + inset1}
+        y={-halfZ + inset1}
+        width={(halfX - inset1) * 2}
+        height={(halfZ - inset1) * 2}
+        fill="none"
+        stroke="#e8c97a"
+        strokeWidth={1.4}
+        rx={4}
+        opacity={0.85}
+      />
+      <rect
+        x={-halfX + inset2}
+        y={-halfZ + inset2}
+        width={(halfX - inset2) * 2}
+        height={(halfZ - inset2) * 2}
+        fill="none"
+        stroke="#e8c97a"
+        strokeWidth={0.5}
+        rx={3}
+        opacity={0.5}
+      />
+      {corners.map(([x, y], i) => (
+        <path
+          key={i}
+          d={`M ${x - corner} ${y} L ${x} ${y} L ${x} ${y - corner}`}
+          fill="none"
+          stroke="#e8c97a"
+          strokeWidth={1.6}
+          strokeLinecap="round"
+          opacity={0.7}
+          transform={`rotate(${90 * (i === 1 ? 1 : i === 2 ? 3 : i === 3 ? 2 : 0)} ${x} ${y})`}
+        />
+      ))}
+    </g>
+  );
+}
+
 function FieldMap({ player, facing }: { player: { x: number; z: number }; facing: number }) {
   return (
     <svg
       width={720}
       height={720}
       viewBox={`${-VIEW_HALF} ${-VIEW_HALF} ${VIEW_HALF * 2} ${VIEW_HALF * 2}`}
-      style={{ background: '#3f6b34', borderRadius: 6, display: 'block' }}
+      style={{ background: '#2f4f27', borderRadius: 6, display: 'block' }}
     >
+      <defs>
+        <radialGradient id="fieldGrass" cx="50%" cy="50%" r="75%">
+          <stop offset="0%" stopColor="#4d7a3d" />
+          <stop offset="100%" stopColor="#2a4423" />
+        </radialGradient>
+        <linearGradient id="fieldDesert" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#c9a865" />
+          <stop offset="100%" stopColor="#e8cf9a" />
+        </linearGradient>
+        <radialGradient id="fieldVignette" cx="50%" cy="50%" r="72%">
+          <stop offset="55%" stopColor="black" stopOpacity="0" />
+          <stop offset="100%" stopColor="black" stopOpacity="0.4" />
+        </radialGradient>
+        {/* Subtle parchment-grain overlay — a bare flat-color fill read as too clean/digital. */}
+        <filter id="fieldGrain" x="-5%" y="-5%" width="110%" height="110%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves={2} seed={7} stitchTiles="stitch" />
+          <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0" />
+        </filter>
+      </defs>
+
+      <rect x={-VIEW_HALF} y={-VIEW_HALF} width={VIEW_HALF * 2} height={VIEW_HALF * 2} fill="url(#fieldGrass)" />
       {/* Desert biome + river — same zone boundaries the actual field uses (worldColliders.ts),
           so the map matches what's really out there instead of just showing uniform grass. */}
-      <rect x={DESERT_X_START} y={-VIEW_HALF} width={VIEW_HALF - DESERT_X_START} height={VIEW_HALF * 2} fill="#d9b877" />
+      <rect
+        x={DESERT_X_START}
+        y={-VIEW_HALF}
+        width={VIEW_HALF - DESERT_X_START}
+        height={VIEW_HALF * 2}
+        fill="url(#fieldDesert)"
+      />
       <path d={RIVER_PATH} fill="#2f7fa8" />
       {/* The one crossing point in the river's collider chain (see worldColliders.ts's
           riverColliders/BRIDGE_Z/BRIDGE_GAP_HALF) — drawn as a short wooden deck spanning the
@@ -53,6 +166,14 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
         fill="#8a5a34"
         stroke="#5c3b21"
         strokeWidth={0.6}
+      />
+      <rect
+        x={-VIEW_HALF}
+        y={-VIEW_HALF}
+        width={VIEW_HALF * 2}
+        height={VIEW_HALF * 2}
+        filter="url(#fieldGrain)"
+        opacity={0.6}
       />
 
       {/* Individual rocks aren't worth showing on an overview map — hundreds of small gray
@@ -88,10 +209,15 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
 
       <PlayerArrow x={player.x} y={player.z} facingRad={facing} size={11} />
 
-      <text x={0} y={-VIEW_HALF + 4} fill="#cfe8d0" fontSize={3} textAnchor="middle">N</text>
-      <text x={0} y={VIEW_HALF - 1.5} fill="#cfe8d0" fontSize={3} textAnchor="middle">S</text>
-      <text x={-VIEW_HALF + 3} y={1} fill="#cfe8d0" fontSize={3} textAnchor="middle">W</text>
-      <text x={VIEW_HALF - 3} y={1} fill="#cfe8d0" fontSize={3} textAnchor="middle">E</text>
+      <rect
+        x={-VIEW_HALF}
+        y={-VIEW_HALF}
+        width={VIEW_HALF * 2}
+        height={VIEW_HALF * 2}
+        fill="url(#fieldVignette)"
+      />
+      <MapFrame halfX={VIEW_HALF} halfZ={VIEW_HALF} />
+      <CompassRose cx={VIEW_HALF - 20} cy={-VIEW_HALF + 20} r={7} />
     </svg>
   );
 }
@@ -115,8 +241,23 @@ function DungeonMap({
       width={440}
       height={700}
       viewBox={`${-DUNGEON_VIEW_HALF_X} ${-DUNGEON_VIEW_HALF_Z} ${DUNGEON_VIEW_HALF_X * 2} ${DUNGEON_VIEW_HALF_Z * 2}`}
-      style={{ background: '#1c1a20', borderRadius: 6, display: 'block' }}
+      style={{ background: '#100e13', borderRadius: 6, display: 'block' }}
     >
+      <defs>
+        <linearGradient id="dungeonFloorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#34313b" />
+          <stop offset="100%" stopColor="#211f27" />
+        </linearGradient>
+        <radialGradient id="dungeonVignette" cx="50%" cy="50%" r="70%">
+          <stop offset="55%" stopColor="black" stopOpacity="0" />
+          <stop offset="100%" stopColor="black" stopOpacity="0.55" />
+        </radialGradient>
+        <filter id="dungeonGrain" x="-5%" y="-5%" width="110%" height="110%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves={2} seed={3} stitchTiles="stitch" />
+          <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.06 0" />
+        </filter>
+      </defs>
+
       {/* Each room/corridor/doorway-stub rect from getFloorRects, drawn directly — the SVG
           shape matches the 3D geometry exactly since both derive from the same rect list. */}
       {rects.map((r, i) => (
@@ -126,11 +267,19 @@ function DungeonMap({
           y={r.z1}
           width={r.x2 - r.x1}
           height={r.z2 - r.z1}
-          fill="#2c2933"
+          fill="url(#dungeonFloorGrad)"
           stroke="#4a4750"
           strokeWidth={0.5}
         />
       ))}
+      <rect
+        x={-DUNGEON_VIEW_HALF_X}
+        y={-DUNGEON_VIEW_HALF_Z}
+        width={DUNGEON_VIEW_HALF_X * 2}
+        height={DUNGEON_VIEW_HALF_Z * 2}
+        filter="url(#dungeonGrain)"
+        opacity={0.7}
+      />
 
       <MapIcon path={ICON_PATH.ladder} x={entryTrigger[0]} y={entryTrigger[1]} size={2.6} color="#bcdcf0" />
       <text x={entryTrigger[0]} y={entryTrigger[1] + 3.2} fill="#bcdcf0" fontSize={2.4} textAnchor="middle">
@@ -147,6 +296,15 @@ function DungeonMap({
       )}
 
       <PlayerArrow x={player.x} y={player.z} facingRad={facing} size={2.6} />
+
+      <rect
+        x={-DUNGEON_VIEW_HALF_X}
+        y={-DUNGEON_VIEW_HALF_Z}
+        width={DUNGEON_VIEW_HALF_X * 2}
+        height={DUNGEON_VIEW_HALF_Z * 2}
+        fill="url(#dungeonVignette)"
+      />
+      <MapFrame halfX={DUNGEON_VIEW_HALF_X} halfZ={DUNGEON_VIEW_HALF_Z} />
     </svg>
   );
 }
