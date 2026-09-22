@@ -18,7 +18,7 @@ interface DamagePopup {
 
 export interface MonsterVariant {
   nameAccent: string;
-  model: 'slime' | 'goblin' | 'skeleton' | 'cactoro' | 'giant';
+  model: 'slime' | 'goblin' | 'skeleton' | 'cactoro' | 'giant' | 'orc' | 'ghoul' | 'fairy';
   labelHeight: number;
 }
 
@@ -50,6 +50,24 @@ export const GIANT_VARIANT: MonsterVariant = {
   nameAccent: '#e0538a',
   model: 'giant',
   labelHeight: 1.6,
+};
+
+export const ORC_VARIANT: MonsterVariant = {
+  nameAccent: '#7a9c5e',
+  model: 'orc',
+  labelHeight: 1.05,
+};
+
+export const GHOUL_VARIANT: MonsterVariant = {
+  nameAccent: '#9bab7a',
+  model: 'ghoul',
+  labelHeight: 0.95,
+};
+
+export const FAIRY_VARIANT: MonsterVariant = {
+  nameAccent: '#f0a8e0',
+  model: 'fairy',
+  labelHeight: 0.6,
 };
 
 // How long the body keeps rendering (playing its Death clip) after currentHp hits 0, before
@@ -149,11 +167,69 @@ const GIANT_CONFIG: RiggedMonsterConfig = {
   facingOffset: 0,
 };
 
-const MONSTER_CONFIG: Record<'goblin' | 'slime' | 'cactoro' | 'giant', RiggedMonsterConfig> = {
+// Orc (Quaternius, CC0 — https://poly.pizza/m/5vO2YJsPEf) — 오크 마을's field monster. Same
+// CharacterArmature| clip convention as Cactoro/Giant's own packs. See
+// public/models/quaternius-orc/License.txt.
+const ORC_CONFIG: RiggedMonsterConfig = {
+  modelUrl: '/models/quaternius-orc/Orc.glb',
+  targetHeight: 0.95,
+  clips: {
+    idle: 'CharacterArmature|Idle',
+    walk: 'CharacterArmature|Run',
+    attack: 'CharacterArmature|Punch',
+    hit: 'CharacterArmature|HitReact',
+    death: 'CharacterArmature|Death',
+  },
+  attackAnimMs: 450,
+  hitAnimMs: 300,
+  facingOffset: 0,
+};
+
+// Ghoul (Quaternius "Zombie", CC0 — https://poly.pizza/m/VlXjG0N8Eg) — 구울 평원's field monster,
+// the farthest/hardest new zone. This pack exports both bare and CharacterArmature|-prefixed
+// copies of every clip; using the prefixed ones for consistency with the rest of this table.
+// See public/models/quaternius-ghoul/License.txt.
+const GHOUL_CONFIG: RiggedMonsterConfig = {
+  modelUrl: '/models/quaternius-ghoul/Ghoul.glb',
+  targetHeight: 0.88,
+  clips: {
+    idle: 'CharacterArmature|Idle',
+    walk: 'CharacterArmature|Run',
+    attack: 'CharacterArmature|Punch',
+    hit: 'CharacterArmature|HitReact',
+    death: 'CharacterArmature|Death',
+  },
+  attackAnimMs: 480,
+  hitAnimMs: 300,
+  facingOffset: 0,
+};
+
+// Fairy (Quaternius "Hywirl", CC0 — https://poly.pizza/m/zjr7CmWGER) — 요정의 숲's field monster.
+// A flyer: no ground Idle/Walk clips exist, only Flying_Idle/Fast_Flying, so those stand in for
+// idle/walk here. See public/models/quaternius-fairy/License.txt.
+const FAIRY_CONFIG: RiggedMonsterConfig = {
+  modelUrl: '/models/quaternius-fairy/Fairy.glb',
+  targetHeight: 0.45,
+  clips: {
+    idle: 'CharacterArmature|Flying_Idle',
+    walk: 'CharacterArmature|Fast_Flying',
+    attack: 'CharacterArmature|Headbutt',
+    hit: 'CharacterArmature|HitReact',
+    death: 'CharacterArmature|Death',
+  },
+  attackAnimMs: 400,
+  hitAnimMs: 260,
+  facingOffset: 0,
+};
+
+const MONSTER_CONFIG: Record<'goblin' | 'slime' | 'cactoro' | 'giant' | 'orc' | 'ghoul' | 'fairy', RiggedMonsterConfig> = {
   goblin: GOBLIN_CONFIG,
   slime: SLIME_CONFIG,
   cactoro: CACTORO_CONFIG,
   giant: GIANT_CONFIG,
+  orc: ORC_CONFIG,
+  ghoul: GHOUL_CONFIG,
+  fairy: FAIRY_CONFIG,
 };
 
 // Skeleton characters (KayKit - Character Pack: Skeletons) share the same rig/bone-naming

@@ -89,7 +89,7 @@ const STUCK_PROBE_DIST = 1.2;
 // Matches worldColliders.ts's FIELD_EXTENT/2 (400/2=200) and scatterDesertProps' own radius
 // clamp, so the desert biome's far edge is (mostly) reachable rather than fenced off by a
 // tighter movement boundary than what decorations were actually scattered out to.
-const MAX_RADIUS = 200;
+const MAX_RADIUS = 470;
 const ARRIVE_EPSILON = 0.15;
 
 // The camera sits at a fixed diagonal offset (CameraRig's OFFSET, e.g. (18,16,18)) rather

@@ -25,9 +25,9 @@ interface DropTableEntry {
 // monster_drop_templates table exists in the schema but was never populated (nothing reads
 // it either), so this is the actual source of truth for what a kill can drop. Keyed by
 // monster_template_id (see FieldMonsters.ts/Dungeon.tsx's own comments for that convention:
-// 1=슬라임, 2=고블린, 3=스켈레톤, 4=가시선인장, 5=거인 군주). Weights are relative, not
-// percentages — rollDropEntry below divides by their sum (plus each table's own "nothing"
-// weight) to get real probabilities, so they don't need to add up to 100.
+// 1=슬라임, 2=고블린, 3=스켈레톤, 4=가시선인장, 5=거인 군주, 6=오크, 7=구울, 8=요정). Weights
+// are relative, not percentages — rollDropEntry below divides by their sum (plus each table's
+// own "nothing" weight) to get real probabilities, so they don't need to add up to 100.
 const DROP_TABLE: Record<number, DropTableEntry[]> = {
   1: [
     { itemTemplateId: 7, itemName: '체력 물약', itemType: 'consumable', weight: 45 },
@@ -52,12 +52,33 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
     { itemTemplateId: 14, itemName: '마을 귀환 주문서', itemType: 'scroll', weight: 20 },
   ],
+  // 오크 마을's field monster — a real weapon drop (강철 검) alongside the usual potions, since
+  // orcs are tougher than anything in the original field short of the dungeon boss.
+  6: [
+    { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 35 },
+    { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 20 },
+    { itemTemplateId: 9, itemName: '강철 검', itemType: 'weapon', weight: 8 },
+  ],
+  // 구울 평원's field monster — the hardest of the 4 new zones, so its table leans toward the
+  // upper-tier consumables and a real chance at the teleport scroll.
+  7: [
+    { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 40 },
+    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
+    { itemTemplateId: 15, itemName: '순간이동 주문서', itemType: 'scroll', weight: 12 },
+  ],
+  // 요정의 숲's field monster — a magic-leaning table (mana potions plus a rare staff) matching
+  // its fae theme.
+  8: [
+    { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 30 },
+    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 20 },
+    { itemTemplateId: 10, itemName: '대현자의 지팡이', itemType: 'weapon', weight: 5 },
+  ],
 };
 
 // The remaining share of each table's total roll that means "no drop" — e.g. slime's 40
 // against its own 60 (45+15) of real entries means a 40% chance of nothing, 45% health
 // potion, 15% mana potion. The boss (5) always drops something.
-const NOTHING_WEIGHT: Record<number, number> = { 1: 40, 2: 35, 3: 35, 4: 40, 5: 0 };
+const NOTHING_WEIGHT: Record<number, number> = { 1: 40, 2: 35, 3: 35, 4: 40, 5: 0, 6: 40, 7: 35, 8: 40 };
 
 function rollDropEntry(monsterTemplateId: number): DropTableEntry | null {
   const entries = DROP_TABLE[monsterTemplateId];

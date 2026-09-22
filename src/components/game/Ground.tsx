@@ -17,6 +17,7 @@ import {
   RIVER_X_CENTER,
   RIVER_HALF_WIDTH,
   DESERT_X_START,
+  DESERT_X_END,
   riverXAt,
   type Decoration,
   type TreeKind,
@@ -27,13 +28,14 @@ import { CaveEntrance } from './CaveEntrance';
 
 // A bit larger than worldColliders.ts's FIELD_EXTENT (400) so the visible grass plane
 // extends past the walkable/decorated area instead of ending in a visible hard edge.
-const GROUND_SIZE = 460;
-const FIELD_HALF = GROUND_SIZE / 2;
+const GROUND_SIZE = 960;
 // The desert patch and river strip are drawn as their own planes layered just above the
 // grass (see the Y offsets below) rather than trying to make one texture biome-aware —
 // simplest way to get a hard, deliberate edge between zones with the same
 // canvas-texture-per-material approach every other surface in this game already uses.
-const DESERT_WIDTH = FIELD_HALF - DESERT_X_START;
+// Fixed to the desert's own logical bounds (not GROUND_SIZE-derived) so the sand patch
+// doesn't visually bleed into 구울 평원, which starts right where the desert ends.
+const DESERT_WIDTH = DESERT_X_END - DESERT_X_START;
 
 const KENNEY_NATURE = '/models/kenney-nature';
 const TREE_MODEL: Record<TreeKind, string> = {

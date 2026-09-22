@@ -13,7 +13,16 @@ import { QuestProximity } from './QuestProximity';
 import { LootProximity } from './LootProximity';
 import { ItemDropMesh } from './ItemDropMesh';
 import { CharacterMesh } from './CharacterMesh';
-import { MonsterMesh, GOBLIN_VARIANT, SKELETON_VARIANT, CACTORO_VARIANT, GIANT_VARIANT } from './MonsterMesh';
+import {
+  MonsterMesh,
+  GOBLIN_VARIANT,
+  SKELETON_VARIANT,
+  CACTORO_VARIANT,
+  GIANT_VARIANT,
+  ORC_VARIANT,
+  GHOUL_VARIANT,
+  FAIRY_VARIANT,
+} from './MonsterMesh';
 import { CameraRig } from './CameraRig';
 import { LightRig } from './LightRig';
 import { playerPosition } from './playerTransform';
@@ -67,6 +76,9 @@ function useNearbyFieldMonsterIds(monsters: MonsterInstanceSummary[]): Set<numbe
 function fieldMonsterVariant(templateId: number) {
   if (templateId === 3) return SKELETON_VARIANT;
   if (templateId === 4) return CACTORO_VARIANT;
+  if (templateId === 6) return ORC_VARIANT;
+  if (templateId === 7) return GHOUL_VARIANT;
+  if (templateId === 8) return FAIRY_VARIANT;
   return undefined;
 }
 
@@ -172,7 +184,7 @@ export function Scene({
       <color attach="background" args={[isDungeon ? DUNGEON_FOG_COLOR : FIELD_FOG_COLOR]} />
       <fog
         attach="fog"
-        args={isDungeon ? [DUNGEON_FOG_COLOR, 14, 40] : [FIELD_FOG_COLOR, 34, 95]}
+        args={isDungeon ? [DUNGEON_FOG_COLOR, 14, 40] : [FIELD_FOG_COLOR, 34, 145]}
       />
 
       <hemisphereLight args={['#e8f4ff', '#3f6b34', isDungeon ? 0.08 : 0.32]} />

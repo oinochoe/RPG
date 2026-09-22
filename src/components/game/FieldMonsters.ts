@@ -1,5 +1,18 @@
 import { mulberry32 } from './proceduralTextures';
-import { FIELD_ENTRANCE_POINT, FIELD_EXTENT, DESERT_X_START, inRiverZone, inDesertZone, inVillageClearZone } from './worldColliders';
+import {
+  FIELD_ENTRANCE_POINT,
+  FIELD_EXTENT,
+  DESERT_X_START,
+  DESERT_X_END,
+  OUTER_ZONE_BOUND,
+  inRiverZone,
+  inDesertZone,
+  inVillageClearZone,
+  inFairyForestZone,
+  inOrcVillageZone,
+  inBoneFieldZone,
+  inGhoulFieldZone,
+} from './worldColliders';
 import type { MonsterInstanceSummary } from '../../types/api';
 
 // The server's POST /exploration/enter-map always returns monsters: [] (no real monster-
@@ -33,7 +46,6 @@ const SKELETON_MIN_TIER = 2;
 // being empty of monsters entirely.
 const DESERT_MONSTER_COUNT = 35;
 const DESERT_SCATTER_SEED = 21;
-const DESERT_X_END = FIELD_EXTENT / 2;
 const DESERT_MONSTER_LEVEL = 3;
 const DESERT_MONSTER_HP = 75;
 
@@ -54,6 +66,117 @@ function buildDesertMonsters(idBaseStart: number): MonsterInstanceSummary[] {
       level: DESERT_MONSTER_LEVEL,
       current_hp: DESERT_MONSTER_HP,
       max_hp: DESERT_MONSTER_HP,
+      position_x: Math.round(x * 10) / 10,
+      position_y: 0,
+      position_z: Math.round(z * 10) / 10,
+    });
+  }
+  return monsters;
+}
+
+// The 4 outer-ring danger zones past OUTER_ZONE_BOUND (see worldColliders.ts's
+// inFairyForestZone/inOrcVillageZone/inBoneFieldZone/inGhoulFieldZone) — all tougher than
+// anything in the original field, rejection-sampled within each zone's rectangular bounds the
+// same way buildDesertMonsters samples the desert band.
+const FIELD_HALF = FIELD_EXTENT / 2;
+const OUTER_MONSTER_COUNT = 40;
+const OUTER_MONSTER_LEVEL = 5;
+const OUTER_MONSTER_HP = 110;
+const GHOUL_MONSTER_LEVEL = 7;
+const GHOUL_MONSTER_HP = 150;
+
+function buildFairyForestMonsters(idBaseStart: number): MonsterInstanceSummary[] {
+  const rng = mulberry32(31);
+  const monsters: MonsterInstanceSummary[] = [];
+  let idBase = idBaseStart;
+  let attempts = 0;
+  while (monsters.length < OUTER_MONSTER_COUNT && attempts < OUTER_MONSTER_COUNT * 50) {
+    attempts++;
+    const x = -FIELD_HALF + rng() * (DESERT_X_END + FIELD_HALF);
+    const z = OUTER_ZONE_BOUND + rng() * (FIELD_HALF - OUTER_ZONE_BOUND);
+    if (!inFairyForestZone(x, z)) continue;
+    monsters.push({
+      instance_id: idBase++,
+      monster_template_id: 8,
+      name: '요정',
+      level: OUTER_MONSTER_LEVEL,
+      current_hp: OUTER_MONSTER_HP,
+      max_hp: OUTER_MONSTER_HP,
+      position_x: Math.round(x * 10) / 10,
+      position_y: 0,
+      position_z: Math.round(z * 10) / 10,
+    });
+  }
+  return monsters;
+}
+
+function buildOrcVillageMonsters(idBaseStart: number): MonsterInstanceSummary[] {
+  const rng = mulberry32(32);
+  const monsters: MonsterInstanceSummary[] = [];
+  let idBase = idBaseStart;
+  let attempts = 0;
+  while (monsters.length < OUTER_MONSTER_COUNT && attempts < OUTER_MONSTER_COUNT * 50) {
+    attempts++;
+    const x = -FIELD_HALF + rng() * (DESERT_X_END + FIELD_HALF);
+    const z = -FIELD_HALF + rng() * (FIELD_HALF - OUTER_ZONE_BOUND);
+    if (!inOrcVillageZone(x, z)) continue;
+    monsters.push({
+      instance_id: idBase++,
+      monster_template_id: 6,
+      name: '오크',
+      level: OUTER_MONSTER_LEVEL,
+      current_hp: OUTER_MONSTER_HP,
+      max_hp: OUTER_MONSTER_HP,
+      position_x: Math.round(x * 10) / 10,
+      position_y: 0,
+      position_z: Math.round(z * 10) / 10,
+    });
+  }
+  return monsters;
+}
+
+function buildBoneFieldMonsters(idBaseStart: number): MonsterInstanceSummary[] {
+  const rng = mulberry32(33);
+  const monsters: MonsterInstanceSummary[] = [];
+  let idBase = idBaseStart;
+  let attempts = 0;
+  while (monsters.length < OUTER_MONSTER_COUNT && attempts < OUTER_MONSTER_COUNT * 50) {
+    attempts++;
+    const x = -FIELD_HALF + rng() * (FIELD_HALF - OUTER_ZONE_BOUND);
+    const z = (rng() - 0.5) * OUTER_ZONE_BOUND * 2;
+    if (!inBoneFieldZone(x, z)) continue;
+    monsters.push({
+      instance_id: idBase++,
+      monster_template_id: 3,
+      name: '해골 전사',
+      level: OUTER_MONSTER_LEVEL,
+      current_hp: OUTER_MONSTER_HP,
+      max_hp: OUTER_MONSTER_HP,
+      position_x: Math.round(x * 10) / 10,
+      position_y: 0,
+      position_z: Math.round(z * 10) / 10,
+    });
+  }
+  return monsters;
+}
+
+function buildGhoulFieldMonsters(idBaseStart: number): MonsterInstanceSummary[] {
+  const rng = mulberry32(34);
+  const monsters: MonsterInstanceSummary[] = [];
+  let idBase = idBaseStart;
+  let attempts = 0;
+  while (monsters.length < OUTER_MONSTER_COUNT && attempts < OUTER_MONSTER_COUNT * 50) {
+    attempts++;
+    const x = DESERT_X_END + rng() * (FIELD_HALF - DESERT_X_END);
+    const z = (rng() - 0.5) * FIELD_HALF * 2;
+    if (!inGhoulFieldZone(x)) continue;
+    monsters.push({
+      instance_id: idBase++,
+      monster_template_id: 7,
+      name: '구울',
+      level: GHOUL_MONSTER_LEVEL,
+      current_hp: GHOUL_MONSTER_HP,
+      max_hp: GHOUL_MONSTER_HP,
       position_x: Math.round(x * 10) / 10,
       position_y: 0,
       position_z: Math.round(z * 10) / 10,
@@ -102,6 +225,14 @@ export function buildFieldMonsters(): MonsterInstanceSummary[] {
   }
 
   monsters.push(...buildDesertMonsters(idBase));
+  idBase += DESERT_MONSTER_COUNT;
+  monsters.push(...buildFairyForestMonsters(idBase));
+  idBase += OUTER_MONSTER_COUNT;
+  monsters.push(...buildOrcVillageMonsters(idBase));
+  idBase += OUTER_MONSTER_COUNT;
+  monsters.push(...buildBoneFieldMonsters(idBase));
+  idBase += OUTER_MONSTER_COUNT;
+  monsters.push(...buildGhoulFieldMonsters(idBase));
 
   return monsters;
 }

@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { playerPosition, playerFacing } from './playerTransform';
-import { RIVER_X_CENTER, RIVER_HALF_WIDTH, DESERT_X_START, VILLAGES, FIELD_ENTRANCE_POINT, riverPathD } from './worldColliders';
+import {
+  RIVER_X_CENTER,
+  RIVER_HALF_WIDTH,
+  DESERT_X_START,
+  DESERT_X_END,
+  OUTER_ZONE_BOUND,
+  VILLAGES,
+  FIELD_ENTRANCE_POINT,
+  riverPathD,
+} from './worldColliders';
 import { DUNGEON_MAX_FLOOR, getEntryTrigger, getExitTrigger, getFloorRects } from './Dungeon';
 import { ICON_PATH, MapIcon, PlayerArrow } from './mapIcons';
 import { useUIStore } from '../../stores/uiStore';
@@ -38,7 +47,14 @@ function MiniFieldView({ player, facing }: { player: { x: number; z: number }; f
       style={{ display: 'block' }}
     >
       <rect x={-BACKDROP_HALF} y={-BACKDROP_HALF} width={BACKDROP_HALF * 2} height={BACKDROP_HALF * 2} fill="#3f6b34" />
-      <rect x={DESERT_X_START} y={-BACKDROP_HALF} width={BACKDROP_HALF * 2} height={BACKDROP_HALF * 2} fill="#d9b877" />
+      <rect x={DESERT_X_START} y={-BACKDROP_HALF} width={DESERT_X_END - DESERT_X_START} height={BACKDROP_HALF * 2} fill="#d9b877" />
+      {/* The 4 outer-ring danger zones — same colors as WorldMap.tsx's full map, just without
+          the text labels (no room in a 190px corner view); BACKDROP_HALF-sized so the SVG
+          viewport itself clips them, same approach as the grass/desert bands above. */}
+      <rect x={-BACKDROP_HALF} y={OUTER_ZONE_BOUND} width={DESERT_X_END + BACKDROP_HALF} height={BACKDROP_HALF} fill="#3f6b4a" />
+      <rect x={-BACKDROP_HALF} y={-BACKDROP_HALF} width={DESERT_X_END + BACKDROP_HALF} height={BACKDROP_HALF - OUTER_ZONE_BOUND} fill="#6b4a3a" />
+      <rect x={-BACKDROP_HALF} y={-OUTER_ZONE_BOUND} width={BACKDROP_HALF - OUTER_ZONE_BOUND} height={OUTER_ZONE_BOUND * 2} fill="#9c9484" />
+      <rect x={DESERT_X_END} y={-BACKDROP_HALF} width={BACKDROP_HALF} height={BACKDROP_HALF * 2} fill="#3a4a3a" />
       <path d={riverPathD(player.z - half - 5, player.z + half + 5)} fill="#2f7fa8" />
       <rect
         x={RIVER_X_CENTER - RIVER_HALF_WIDTH - 1.5}

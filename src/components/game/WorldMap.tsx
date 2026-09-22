@@ -5,6 +5,8 @@ import {
   RIVER_X_CENTER,
   RIVER_HALF_WIDTH,
   DESERT_X_START,
+  DESERT_X_END,
+  OUTER_ZONE_BOUND,
   VILLAGES,
   FIELD_EXTENT,
   riverPathD,
@@ -148,10 +150,58 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
       <rect
         x={DESERT_X_START}
         y={-VIEW_HALF}
-        width={VIEW_HALF - DESERT_X_START}
+        width={DESERT_X_END - DESERT_X_START}
         height={VIEW_HALF * 2}
         fill="url(#fieldDesert)"
       />
+      {/* The 4 outer-ring danger zones past OUTER_ZONE_BOUND (see worldColliders.ts's
+          inFairyForestZone/inOrcVillageZone/inBoneFieldZone/inGhoulFieldZone) — flat tinted
+          bands with a name label, matching how the desert band above is drawn, so quest NPCs'
+          "어느 마을인지" village callouts have a visible zone to point to on the map. */}
+      <rect
+        x={-VIEW_HALF}
+        y={OUTER_ZONE_BOUND}
+        width={DESERT_X_END - -VIEW_HALF}
+        height={VIEW_HALF - OUTER_ZONE_BOUND}
+        fill="#3f6b4a"
+        opacity={0.75}
+      />
+      <text x={(-VIEW_HALF + DESERT_X_END) / 2} y={(OUTER_ZONE_BOUND + VIEW_HALF) / 2} fill="#eaffe0" fontSize={7} textAnchor="middle" fontWeight={700}>
+        요정의 숲
+      </text>
+      <rect
+        x={-VIEW_HALF}
+        y={-VIEW_HALF}
+        width={DESERT_X_END - -VIEW_HALF}
+        height={VIEW_HALF - OUTER_ZONE_BOUND}
+        fill="#6b4a3a"
+        opacity={0.75}
+      />
+      <text x={(-VIEW_HALF + DESERT_X_END) / 2} y={-(OUTER_ZONE_BOUND + VIEW_HALF) / 2} fill="#ffe8d0" fontSize={7} textAnchor="middle" fontWeight={700}>
+        오크 마을
+      </text>
+      <rect
+        x={-VIEW_HALF}
+        y={-OUTER_ZONE_BOUND}
+        width={-OUTER_ZONE_BOUND - -VIEW_HALF}
+        height={OUTER_ZONE_BOUND * 2}
+        fill="#9c9484"
+        opacity={0.75}
+      />
+      <text x={(-VIEW_HALF - OUTER_ZONE_BOUND) / 2} y={0} fill="#2a241c" fontSize={7} textAnchor="middle" fontWeight={700}>
+        해골 평원
+      </text>
+      <rect
+        x={DESERT_X_END}
+        y={-VIEW_HALF}
+        width={VIEW_HALF - DESERT_X_END}
+        height={VIEW_HALF * 2}
+        fill="#3a4a3a"
+        opacity={0.8}
+      />
+      <text x={(DESERT_X_END + VIEW_HALF) / 2} y={0} fill="#d0f0c0" fontSize={7} textAnchor="middle" fontWeight={700}>
+        구울 평원
+      </text>
       <path d={RIVER_PATH} fill="#2f7fa8" />
       {/* The one crossing point in the river's collider chain (see worldColliders.ts's
           riverColliders/BRIDGE_Z/BRIDGE_GAP_HALF) — drawn as a short wooden deck spanning the

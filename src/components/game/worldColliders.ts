@@ -1,10 +1,15 @@
 import { mulberry32 } from './proceduralTextures';
 
 const SEED = 42;
-const DECORATION_COUNT = 1600;
-// Bumped from 300 -> 400 (still too small per feedback even after the earlier expansion) —
-// CharacterMesh's MAX_RADIUS must stay in sync (FIELD_EXTENT/2), same requirement as before.
-export const FIELD_EXTENT = 400;
+// Scaled up alongside FIELD_EXTENT's own 400 -> 640 bump (the new outer-ring zones, see
+// OUTER_ZONE_BOUND below, need their own rock/tuft cover too) — not the full ~2.6x area
+// ratio, since these are instanced meshes but still real geometry to cull/sort each frame.
+const DECORATION_COUNT = 2400;
+// Bumped from 300 -> 400 -> 640 (the last one specifically to open up room for 4 new
+// outer-ring danger zones past the original content — see OUTER_ZONE_BOUND/inFairyForestZone
+// etc. below). CharacterMesh's MAX_RADIUS and Ground.tsx's GROUND_SIZE must stay in sync
+// (both now sized around this square's actual diagonal reach, not just half-width).
+export const FIELD_EXTENT = 640;
 const CLEAR_RADIUS = 3.5;
 
 // Mirrors CharacterMesh's own movement collision radius — shared here so other systems (e.g.
@@ -18,6 +23,12 @@ export const PLAYER_COLLISION_RADIUS = 0.4;
 export const RIVER_X_CENTER = 85;
 export const RIVER_HALF_WIDTH = 9;
 export const DESERT_X_START = RIVER_X_CENTER + RIVER_HALF_WIDTH;
+// A fixed band width, independent of FIELD_EXTENT — inDesertZone used to have no upper bound
+// at all (just `x > DESERT_X_START`), so it silently grew to fill however much room
+// FIELD_EXTENT gave it. Now that there's a real zone (구울 평원, see inGhoulFieldZone) meant to
+// start right where the desert ends, the desert needs its own fixed edge instead of eating
+// whatever space is left.
+export const DESERT_X_END = 210;
 // Where Ground.tsx's single decorative bridge sits — the only crossing point once the river
 // actually blocks movement (see riverColliders below). Half-width comfortably clears the
 // bridge model's own footprint (~3.3 units at its scale) plus walking room on either side.
@@ -43,7 +54,37 @@ export function inRiverZone(x: number, z: number): boolean {
 }
 
 export function inDesertZone(x: number): boolean {
-  return x > DESERT_X_START;
+  return x > DESERT_X_START && x <= DESERT_X_END;
+}
+
+// The original playable square's own edge (the old FIELD_EXTENT/2, before the 640 bump) —
+// every pre-existing zone (villages, river/desert, the field's own tiered slime/skeleton
+// scatter in FieldMonsters.ts) stays inside this. The 4 new zones below all start past it, so
+// none of them can overlap what already existed.
+export const OUTER_ZONE_BOUND = 200;
+
+// 요정의 숲 (Fairy Forest) — the north outer band, capped before DESERT_X_END so it doesn't
+// reach into 구울 평원's own wedge in the NE corner.
+export function inFairyForestZone(x: number, z: number): boolean {
+  return z > OUTER_ZONE_BOUND && x <= DESERT_X_END;
+}
+
+// 오크 마을 (Orc Village) — the south outer band, same DESERT_X_END cap as the forest above.
+export function inOrcVillageZone(x: number, z: number): boolean {
+  return z < -OUTER_ZONE_BOUND && x <= DESERT_X_END;
+}
+
+// 해골 평원 (Bone Field) — the west outer band, bounded in z so it doesn't creep into the
+// forest/orc bands' own corners.
+export function inBoneFieldZone(x: number, z: number): boolean {
+  return x < -OUTER_ZONE_BOUND && z >= -OUTER_ZONE_BOUND && z <= OUTER_ZONE_BOUND;
+}
+
+// 구울 평원 (Ghoul Field) — everything past the desert's own fixed edge, full z range (so it
+// also covers the NE/SE corners past the forest/orc bands' own DESERT_X_END cap) — the
+// farthest-out, hardest zone, reachable only by continuing east past the desert.
+export function inGhoulFieldZone(x: number): boolean {
+  return x > DESERT_X_END;
 }
 
 // A river you can just walk across isn't much of a divider — this chains overlapping circle
@@ -202,9 +243,6 @@ export interface DesertPropDecoration {
 const DESERT_PROP_KINDS: DesertPropKind[] = ['cactusTall', 'cactusShort', 'palm', 'palmBend', 'rockTall'];
 const DESERT_PROP_COUNT = 70;
 const DESERT_SEED = 88;
-// FIELD_EXTENT/2 is the scatter's outer edge on the desert side; DESERT_X_START..that is the
-// desert's actual width.
-const DESERT_X_END = FIELD_EXTENT / 2;
 
 /** Cacti/palms/rocks scattered across the desert zone only (east of the river). */
 export function scatterDesertProps(): DesertPropDecoration[] {
