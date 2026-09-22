@@ -9,7 +9,7 @@ import { Projectile } from './Projectile';
 import { FxSprite } from './FxSprite';
 import { playerPosition, playerFacing } from './playerTransform';
 import { moveTarget, clearMoveTarget } from './moveTarget';
-import { resolveMovement } from './worldColliders';
+import { resolveMovement, PLAYER_COLLISION_RADIUS } from './worldColliders';
 import { OFFSET as CAMERA_OFFSET } from './CameraRig';
 import { playSound, playFootstep } from '../../lib/sound';
 import { useCombatStore } from '../../stores/combatStore';
@@ -62,7 +62,6 @@ const TARGET_HEIGHT = 0.9;
 const ATTACK_DURATION_MS = 300;
 const MOVE_FADE_SEC = 0.15;
 const MOVE_SPEED = 6;
-const PLAYER_COLLISION_RADIUS = 0.4;
 const FOOTSTEP_INTERVAL_MS = 320;
 // Overall playable boundary (field + village combined) — LightRig follows the player, so
 // this no longer needs to fit inside a fixed shadow frustum, just the decorated ground itself.

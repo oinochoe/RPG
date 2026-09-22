@@ -2,8 +2,13 @@ import { mulberry32 } from './proceduralTextures';
 
 const SEED = 42;
 const DECORATION_COUNT = 1600;
-const FIELD_EXTENT = 300;
+export const FIELD_EXTENT = 300;
 const CLEAR_RADIUS = 3.5;
+
+// Mirrors CharacterMesh's own movement collision radius — shared here so other systems (e.g.
+// characterStore's teleport-scroll blink) that need to place the player without walking them
+// there can reuse the exact same radius resolveMovement already collides against.
+export const PLAYER_COLLISION_RADIUS = 0.4;
 
 // East of the river is a desert biome instead of grass — RIVER_* defines the water strip
 // separating them. Both zones run the full Z range so they read as a clean band rather than
@@ -72,7 +77,7 @@ export const FIELD_ENTRANCE_POINT: [number, number] = [34, 22];
 export const FIELD_ENTRANCE_RADIUS = 1.8;
 const CAVE_CLEAR_RADIUS = 5;
 
-function inCaveClearZone(x: number, z: number): boolean {
+export function inCaveClearZone(x: number, z: number): boolean {
   const dx = x - FIELD_ENTRANCE_POINT[0];
   const dz = z - FIELD_ENTRANCE_POINT[1];
   return Math.hypot(dx, dz) < CAVE_CLEAR_RADIUS;

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { playerPosition, playerFacing } from './playerTransform';
 import { FIELD_ENTRANCE_POINT, RIVER_X_CENTER, RIVER_HALF_WIDTH, DESERT_X_START, VILLAGES } from './worldColliders';
 import { VILLAGE_CONFIGS } from './Village';
-import { DUNGEON_MAX_FLOOR, DUNGEON_EXIT_TRIGGER, DUNGEON_DESCEND_TRIGGER } from './Dungeon';
+import { DUNGEON_MAX_FLOOR, DUNGEON_EXIT_TRIGGER, DUNGEON_DESCEND_TRIGGER, ROOM_HALF_X, ROOM_HALF_Z } from './Dungeon';
 import { useCombatStore } from '../../stores/combatStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useWorldStore } from '../../stores/worldStore';
@@ -10,7 +10,9 @@ import { useWorldStore } from '../../stores/worldStore';
 // VIEW_HALF has to cover the field's real extent (worldColliders.ts's FIELD_EXTENT/2 = 150)
 // or the expanded map (desert, river, farther-out monsters) gets clipped at the svg's edge.
 const VIEW_HALF = 160;
-const DUNGEON_VIEW_HALF = 14;
+// Has to cover the dungeon room's real extent (Dungeon.tsx's ROOM_HALF_X/Z, currently 18) plus
+// a small margin, same reasoning as VIEW_HALF above.
+const DUNGEON_VIEW_HALF = Math.max(ROOM_HALF_X, ROOM_HALF_Z) + 4;
 const POLL_MS = 100;
 
 // Single-path icons from game-icons.net (CC BY 3.0 — Lorc/Delapouite/badges, credited in
@@ -187,7 +189,16 @@ function DungeonMap({
       viewBox={`${-DUNGEON_VIEW_HALF} ${-DUNGEON_VIEW_HALF * 0.85} ${DUNGEON_VIEW_HALF * 2} ${DUNGEON_VIEW_HALF * 1.7}`}
       style={{ background: '#1c1a20', borderRadius: 6, display: 'block' }}
     >
-      <rect x={-12} y={-10} width={24} height={20} rx={1} fill="#2c2933" stroke="#4a4750" strokeWidth={0.5} />
+      <rect
+        x={-ROOM_HALF_X}
+        y={-ROOM_HALF_Z}
+        width={ROOM_HALF_X * 2}
+        height={ROOM_HALF_Z * 2}
+        rx={1}
+        fill="#2c2933"
+        stroke="#4a4750"
+        strokeWidth={0.5}
+      />
 
       <MapIcon path={ICON_PATH.ladder} x={DUNGEON_EXIT_TRIGGER[0]} y={DUNGEON_EXIT_TRIGGER[1]} size={2.6} color="#bcdcf0" />
       <text x={DUNGEON_EXIT_TRIGGER[0]} y={DUNGEON_EXIT_TRIGGER[1] + 3.2} fill="#bcdcf0" fontSize={2.4} textAnchor="middle">

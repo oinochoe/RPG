@@ -68,7 +68,7 @@ export interface InventorySlot {
   sell_price: number;
   heal_hp: number;
   restore_mp: number;
-  teleport_target: 'village' | 'dungeon' | null;
+  teleport_target: 'village' | 'blink' | null;
 }
 
 export interface InventoryListResponse {
@@ -88,7 +88,7 @@ export interface ShopItem {
   sell_price: number;
   heal_hp: number;
   restore_mp: number;
-  teleport_target: 'village' | 'dungeon' | null;
+  teleport_target: 'village' | 'blink' | null;
 }
 
 export interface ShopListResponse {

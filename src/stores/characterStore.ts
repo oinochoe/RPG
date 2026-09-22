@@ -6,28 +6,85 @@ import { useWorldStore } from './worldStore';
 import { playSound } from '../lib/sound';
 import { playerPosition } from '../components/game/playerTransform';
 import { clearMoveTarget } from '../components/game/moveTarget';
-import { VILLAGE_CENTER } from '../components/game/Village';
-import { FIELD_ENTRANCE_POINT } from '../components/game/worldColliders';
+import {
+  FIELD_EXTENT,
+  VILLAGES,
+  PLAYER_COLLISION_RADIUS,
+  activeColliders,
+  inVillageClearZone,
+  inRiverZone,
+  inDesertZone,
+  inCaveClearZone,
+} from '../components/game/worldColliders';
+import { ROOM_HALF_X, ROOM_HALF_Z, getDungeonColliders } from '../components/game/Dungeon';
 import { buildFieldMonsters } from '../components/game/FieldMonsters';
 import type { CharacterClass, CharacterProfile, CharacterSummary, InventorySlot, ShopItem } from '../types/api';
 
 // Shared by useHotbarSlot's teleport_target handling below — 'village' works from anywhere
-// (leaves the dungeon first if needed, same as walking out through its exit would), 'dungeon'
-// only does anything from the field (dungeon floors all reuse near-origin coordinates rather
-// than having a real position on the field, so there's nothing meaningful to warp to from
-// inside one). Landing exactly on FIELD_ENTRANCE_POINT is deliberate: AreaTransitions.tsx's
-// own per-frame proximity check then auto-enters the dungeon on the very next frame, so this
-// reuses that existing transition instead of duplicating it.
-function teleportTo(target: 'village' | 'dungeon') {
+// (leaves the dungeon first if needed, same as walking out through its exit would, so
+// playerPosition reflects a real field position before picking the nearest village).
+function nearestVillage(x: number, z: number) {
+  return VILLAGES.reduce((closest, zone) => {
+    const dist = Math.hypot(x - zone.center[0], z - zone.center[1]);
+    return dist < closest.dist ? { zone, dist } : closest;
+  }, { zone: VILLAGES[0], dist: Infinity }).zone;
+}
+
+const BLINK_ATTEMPTS = 60;
+// Keeps the blink away from the field's very edge/center clutter, same margin style as
+// scatterDecorations' own CLEAR_RADIUS.
+const FIELD_BLINK_MARGIN = 6;
+
+function collidesAt(x: number, z: number, colliders: { x: number; z: number; radius: number }[]): boolean {
+  return colliders.some((c) => {
+    const dx = x - c.x;
+    const dz = z - c.z;
+    const minDist = c.radius + PLAYER_COLLISION_RADIUS;
+    return dx * dx + dz * dz < minDist * minDist;
+  });
+}
+
+// A "순간이동 주문서" blink used to warp the player from the field to the dungeon entrance,
+// crossing area types — this instead teleports to a random reachable spot within whichever
+// area the player is already in: the field stays in the field, a dungeon floor stays on that
+// same floor. Rejection-sampled against that area's real colliders (bounded attempts, same
+// pattern FieldMonsters.ts uses) so it can't strand the player inside a wall/rock/river.
+function randomBlinkPoint(): [number, number] {
+  const world = useWorldStore.getState();
+  if (world.currentArea === 'dungeon') {
+    const colliders = getDungeonColliders(world.dungeonFloor);
+    const halfX = ROOM_HALF_X - 1.5;
+    const halfZ = ROOM_HALF_Z - 1.5;
+    for (let i = 0; i < BLINK_ATTEMPTS; i++) {
+      const x = (Math.random() * 2 - 1) * halfX;
+      const z = (Math.random() * 2 - 1) * halfZ;
+      if (!collidesAt(x, z, colliders)) return [x, z];
+    }
+    return [0, 0];
+  }
+
+  const half = FIELD_EXTENT / 2 - FIELD_BLINK_MARGIN;
+  for (let i = 0; i < BLINK_ATTEMPTS; i++) {
+    const x = (Math.random() * 2 - 1) * half;
+    const z = (Math.random() * 2 - 1) * half;
+    if (inVillageClearZone(x, z) || inCaveClearZone(x, z) || inRiverZone(x) || inDesertZone(x)) continue;
+    if (collidesAt(x, z, activeColliders.list)) continue;
+    return [x, z];
+  }
+  return [playerPosition.x, playerPosition.z];
+}
+
+function teleportTo(target: 'village' | 'blink') {
   const world = useWorldStore.getState();
   if (target === 'village') {
     if (world.currentArea === 'dungeon') {
       world.exitDungeon(buildFieldMonsters());
     }
-    playerPosition.set(VILLAGE_CENTER[0], 0, VILLAGE_CENTER[1]);
+    const village = nearestVillage(playerPosition.x, playerPosition.z);
+    playerPosition.set(village.center[0], 0, village.center[1]);
   } else {
-    if (world.currentArea === 'dungeon') return;
-    playerPosition.set(FIELD_ENTRANCE_POINT[0], 0, FIELD_ENTRANCE_POINT[1]);
+    const [x, z] = randomBlinkPoint();
+    playerPosition.set(x, 0, z);
   }
   clearMoveTarget();
 }
