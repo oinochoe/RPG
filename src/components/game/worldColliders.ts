@@ -6,12 +6,16 @@ const FIELD_EXTENT = 300;
 const CLEAR_RADIUS = 3.5;
 
 // East of the river is a desert biome instead of grass — RIVER_* defines the water strip
-// separating them (a visual/thematic divider, not a real obstacle: nothing stops the player
-// from walking across it, same "flat top-down area" simplification as the rest of the
-// field). Both zones run the full Z range so they read as a clean band rather than a patch.
+// separating them. Both zones run the full Z range so they read as a clean band rather than
+// a patch.
 export const RIVER_X_CENTER = 85;
 export const RIVER_HALF_WIDTH = 9;
 export const DESERT_X_START = RIVER_X_CENTER + RIVER_HALF_WIDTH;
+// Where Ground.tsx's single decorative bridge sits — the only crossing point once the river
+// actually blocks movement (see riverColliders below). Half-width comfortably clears the
+// bridge model's own footprint (~3.3 units at its scale) plus walking room on either side.
+const BRIDGE_Z = 0;
+const BRIDGE_GAP_HALF = 4.5;
 
 export function inRiverZone(x: number): boolean {
   return Math.abs(x - RIVER_X_CENTER) <= RIVER_HALF_WIDTH;
@@ -20,6 +24,22 @@ export function inRiverZone(x: number): boolean {
 export function inDesertZone(x: number): boolean {
   return x > DESERT_X_START;
 }
+
+// A river you can just walk across isn't much of a divider — this chains overlapping circle
+// colliders (same primitive rocks/trees already use) along the water's centerline so it's a
+// real obstacle, with a gap left open at BRIDGE_Z for the one crossing point.
+const RIVER_COLLIDER_RADIUS = RIVER_HALF_WIDTH;
+const RIVER_COLLIDER_SPACING = RIVER_COLLIDER_RADIUS * 1.8;
+
+export const riverColliders: Collider[] = (() => {
+  const colliders: Collider[] = [];
+  const half = FIELD_EXTENT / 2;
+  for (let z = -half; z <= half; z += RIVER_COLLIDER_SPACING) {
+    if (Math.abs(z - BRIDGE_Z) < BRIDGE_GAP_HALF) continue;
+    colliders.push({ x: RIVER_X_CENTER, z, radius: RIVER_COLLIDER_RADIUS });
+  }
+  return colliders;
+})();
 
 export interface VillageZone {
   center: [number, number];
@@ -189,7 +209,7 @@ export const desertPropColliders: Collider[] = scatterDesertProps().map((p) => (
 // which — unlike the village — really is a separate space entered through a loading
 // transition. Same shared-singleton pattern as playerPosition/moveTarget.
 export const activeColliders: { list: Collider[] } = {
-  list: [...rockColliders, ...treeColliders, ...desertPropColliders],
+  list: [...rockColliders, ...treeColliders, ...desertPropColliders, ...riverColliders],
 };
 
 function collidesWithObstacle(x: number, z: number, entityRadius: number): boolean {

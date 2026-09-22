@@ -12,6 +12,7 @@ import {
   rockColliders,
   treeColliders,
   desertPropColliders,
+  riverColliders,
   activeColliders,
   RIVER_X_CENTER,
   RIVER_HALF_WIDTH,
@@ -162,7 +163,7 @@ export function Ground() {
   const desertProps = useMemo(() => scatterDesertProps(), []);
 
   useEffect(() => {
-    activeColliders.list = [...rockColliders, ...treeColliders, ...desertPropColliders, ...villageColliders];
+    activeColliders.list = [...rockColliders, ...treeColliders, ...desertPropColliders, ...riverColliders, ...villageColliders];
   }, []);
 
   function handleGroundClick(event: ThreeEvent<MouseEvent>) {

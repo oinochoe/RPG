@@ -7,7 +7,7 @@ import { NameTag } from './NameTag';
 import { HealthBar } from './HealthBar';
 import { Projectile } from './Projectile';
 import { FxSprite } from './FxSprite';
-import { playerPosition } from './playerTransform';
+import { playerPosition, playerFacing } from './playerTransform';
 import { moveTarget, clearMoveTarget } from './moveTarget';
 import { resolveMovement } from './worldColliders';
 import { OFFSET as CAMERA_OFFSET } from './CameraRig';
@@ -480,6 +480,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     groupRef.current.position.z = playerPosition.z;
     groupRef.current.position.y = baseY;
     groupRef.current.rotation.y = facing.current;
+    playerFacing.radians = facing.current;
 
     isMoving ? playAction('Walking_A') : playAction('Idle_A');
 

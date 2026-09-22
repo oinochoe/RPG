@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { playerPosition } from './playerTransform';
-import { rockColliders, FIELD_ENTRANCE_POINT, RIVER_X_CENTER, RIVER_HALF_WIDTH, DESERT_X_START, VILLAGES } from './worldColliders';
+import { playerPosition, playerFacing } from './playerTransform';
+import { FIELD_ENTRANCE_POINT, RIVER_X_CENTER, RIVER_HALF_WIDTH, DESERT_X_START, VILLAGES } from './worldColliders';
 import { VILLAGE_CONFIGS } from './Village';
 import { DUNGEON_MAX_FLOOR, DUNGEON_EXIT_TRIGGER, DUNGEON_DESCEND_TRIGGER } from './Dungeon';
 import { useCombatStore } from '../../stores/combatStore';
@@ -20,9 +20,6 @@ const POLL_MS = 100;
 // and reverted). viewBox 0 0 512 512 unless noted; nested <svg> scales each one down to
 // world-unit size without needing to hand-tune a transform.
 const ICON_PATH = {
-  // delapouite/position-marker.svg
-  position:
-    'M256 17.108c-75.73 0-137.122 61.392-137.122 137.122.055 23.25 6.022 46.107 11.58 56.262L256 494.892l119.982-274.244h-.063c11.27-20.324 17.188-43.18 17.202-66.418C393.122 78.5 331.73 17.108 256 17.108zm0 68.56a68.56 68.56 0 0 1 68.56 68.562A68.56 68.56 0 0 1 256 222.79a68.56 68.56 0 0 1-68.56-68.56A68.56 68.56 0 0 1 256 85.67z',
   // delapouite/family-house.svg
   house:
     'M55.379 25l-28.4 142H172.27L256 83.271 339.729 167H485.02l-28.4-142zM256 108.727L179.729 185H41v302h158v-87c0-18.25 7.166-33.077 18.021-42.727C227.877 347.624 242 343 256 343s28.123 4.624 38.979 14.273C305.834 366.923 313 381.75 313 400v87h158V185H332.271zm0 38.544l57 57V297H199v-92.729zm0 25.456l-39 39V279h78v-67.271zM71 199h98v98H71zm272 0h98v98h-98zM89 217v30h62v-30zm272 0v30h62v-30zM89 265v14h62v-14zm272 0v14h62v-14zM71 359h98v98H71v-98zm272 0h98v98h-98v-98zm-87 2c-10 0-19.877 3.376-27.021 9.727C221.834 377.077 217 386.25 217 400v87h78v-87c0-13.75-4.834-22.923-11.979-29.273C275.877 364.376 266 361 256 361zM89 377v62h62v-62zm272 0v62h62v-62z',
@@ -71,7 +68,39 @@ function SkullMarker({ x, y, size, color }: { x: number; y: number; size: number
   );
 }
 
-function FieldMap({ player }: { player: { x: number; z: number } }) {
+// A drawn (not sourced) directional arrow — simple enough that a hand-drawn shape is lower-
+// risk here than another icon file, and it needs to be a shape I can rotate by an exact
+// angle anyway, which a fixed icon can't do. Points "up" (north, -y in SVG's y-down space)
+// at rotation 0; `facingRad` is CharacterMesh's own atan2(dx,dz) facing value, converted to
+// the SVG rotation that makes the arrow visually point the same screen direction the
+// character is (0 → north/up, 90° → east/right, verified against all 4 cardinal cases).
+function PlayerArrow({
+  x,
+  y,
+  facingRad,
+  size,
+}: {
+  x: number;
+  y: number;
+  facingRad: number;
+  size: number;
+}) {
+  const deg = 180 - (facingRad * 180) / Math.PI;
+  return (
+    <g transform={`translate(${x} ${y}) rotate(${deg})`}>
+      <circle r={size * 0.75} fill="#57c25b" opacity={0.25} />
+      <polygon
+        points={`0,${-size} ${size * 0.62},${size * 0.7} 0,${size * 0.35} ${-size * 0.62},${size * 0.7}`}
+        fill="#57c25b"
+        stroke="#f4f1e8"
+        strokeWidth={size * 0.12}
+        strokeLinejoin="round"
+      />
+    </g>
+  );
+}
+
+function FieldMap({ player, facing }: { player: { x: number; z: number }; facing: number }) {
   const monsters = useCombatStore((s) => s.monsters);
 
   return (
@@ -92,28 +121,17 @@ function FieldMap({ player }: { player: { x: number; z: number } }) {
         fill="#2f7fa8"
       />
 
-      {rockColliders.map((rock, i) => (
-        <circle key={i} cx={rock.x} cy={rock.z} r={0.6} fill="#5a5148" />
-      ))}
+      {/* Individual rocks aren't worth showing on an overview map — hundreds of small gray
+          dots read as noise, not information (this used to plot every rockCollider). */}
 
       {VILLAGES.map((zone, i) => (
         <g key={i}>
-          <rect
-            x={zone.center[0] - zone.size / 2}
-            y={zone.center[1] - zone.size / 2}
-            width={zone.size}
-            height={zone.size}
-            rx={2}
-            fill="#8a7f72"
-            stroke="#e8c97a"
-            strokeWidth={0.4}
-          />
-          <MapIcon path={ICON_PATH.house} x={zone.center[0]} y={zone.center[1]} size={7} color="#e8c97a" />
+          <MapIcon path={ICON_PATH.house} x={zone.center[0]} y={zone.center[1]} size={10} color="#e8c97a" />
           <text
             x={zone.center[0]}
-            y={zone.center[1] - zone.size / 2 - 1.5}
+            y={zone.center[1] + 8}
             fill="#e8c97a"
-            fontSize={3.2}
+            fontSize={3.4}
             textAnchor="middle"
             fontWeight={700}
           >
@@ -140,7 +158,7 @@ function FieldMap({ player }: { player: { x: number; z: number } }) {
           <SkullMarker key={m.instanceId} x={m.position[0]} y={m.position[2]} size={2.6} color="#d3487a" />
         ))}
 
-      <MapIcon path={ICON_PATH.position} x={player.x} y={player.z} size={5} color="#57c25b" />
+      <PlayerArrow x={player.x} y={player.z} facingRad={facing} size={11} />
 
       <text x={0} y={-VIEW_HALF + 4} fill="#cfe8d0" fontSize={3} textAnchor="middle">N</text>
       <text x={0} y={VIEW_HALF - 1.5} fill="#cfe8d0" fontSize={3} textAnchor="middle">S</text>
@@ -150,7 +168,15 @@ function FieldMap({ player }: { player: { x: number; z: number } }) {
   );
 }
 
-function DungeonMap({ player, floor }: { player: { x: number; z: number }; floor: number }) {
+function DungeonMap({
+  player,
+  facing,
+  floor,
+}: {
+  player: { x: number; z: number };
+  facing: number;
+  floor: number;
+}) {
   const monsters = useCombatStore((s) => s.monsters);
   const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
 
@@ -189,7 +215,7 @@ function DungeonMap({ player, floor }: { player: { x: number; z: number }; floor
           <SkullMarker key={m.instanceId} x={m.position[0]} y={m.position[2]} size={2.2} color="#e0538a" />
         ))}
 
-      <MapIcon path={ICON_PATH.position} x={player.x} y={player.z} size={4.2} color="#57c25b" />
+      <PlayerArrow x={player.x} y={player.z} facingRad={facing} size={2.6} />
     </svg>
   );
 }
@@ -199,14 +225,13 @@ export function WorldMap() {
   const closeMap = useUIStore((s) => s.closeMap);
   const currentArea = useWorldStore((s) => s.currentArea);
   const dungeonFloor = useWorldStore((s) => s.dungeonFloor);
-  const [player, setPlayer] = useState({ x: 0, z: 0 });
+  const [player, setPlayer] = useState({ x: 0, z: 0, facing: 0 });
 
   useEffect(() => {
     if (!isOpen) return;
-    const id = window.setInterval(() => {
-      setPlayer({ x: playerPosition.x, z: playerPosition.z });
-    }, POLL_MS);
-    setPlayer({ x: playerPosition.x, z: playerPosition.z });
+    const poll = () => setPlayer({ x: playerPosition.x, z: playerPosition.z, facing: playerFacing.radians });
+    const id = window.setInterval(poll, POLL_MS);
+    poll();
     return () => window.clearInterval(id);
   }, [isOpen]);
 
@@ -246,9 +271,9 @@ export function WorldMap() {
           <span style={{ color: '#9aa08f', fontSize: 12 }}>M 또는 ESC로 닫기</span>
         </div>
         {currentArea === 'dungeon' ? (
-          <DungeonMap player={player} floor={dungeonFloor} />
+          <DungeonMap player={player} facing={player.facing} floor={dungeonFloor} />
         ) : (
-          <FieldMap player={player} />
+          <FieldMap player={player} facing={player.facing} />
         )}
       </div>
     </div>
