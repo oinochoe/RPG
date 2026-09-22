@@ -23,6 +23,19 @@ body {
   background: radial-gradient(circle at 50% 20%, #24391f 0%, #0f1a0d 70%);
   color: var(--color-ink);
   min-height: 100vh;
+  /* Rapid clicking/dragging during combat and the draggable panels (character/inventory/
+     system menu) kept highlighting stray text across the page — this is a game UI, not a
+     document, so text selection isn't something players actually want here. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ...except actual text fields (character name entry, etc.) — selecting/editing text inside
+   these still needs to work normally. */
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 #root {

@@ -105,19 +105,39 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
     fetchInventory().catch(() => setError('인벤토리를 불러오지 못했습니다.'));
   }, [isOpen, fetchInventory]);
 
+  // Derived above the isOpen early-return (hooks below need them) rather than after it, where
+  // they used to live — same values, just reordered.
+  const selected = inventory.find((item) => item.id === selectedId) ?? null;
+  const consumable = selected ? selected.heal_hp > 0 || selected.restore_mp > 0 || !!selected.teleport_target : false;
+  const assignedSlot = selected
+    ? hotbar.findIndex((a) => a?.kind === 'item' && a.itemTemplateId === selected.item_template_id)
+    : -1;
+
+  // Select an item, then press its number — same registration the on-screen number buttons
+  // below do, just as an actual keyboard shortcut instead of a click. GamePage's own global
+  // digit-key handler already bails out while the inventory is open, so these are free to use.
+  useEffect(() => {
+    if (!isOpen || !selected || !consumable) return;
+    function onKeyDown(e: KeyboardEvent) {
+      const match = /^Digit([1-9])$/.exec(e.code);
+      if (!match) return;
+      const slot = Number(match[1]) - 1;
+      if (slot >= HOTBAR_SIZE) return;
+      e.preventDefault();
+      setHotbarSlot(slot, assignedSlot === slot ? null : { kind: 'item', itemTemplateId: selected!.item_template_id });
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, selected, consumable, assignedSlot, setHotbarSlot]);
+
   if (!isOpen) return null;
 
-  const selected = inventory.find((item) => item.id === selectedId) ?? null;
   const equippable = selected ? selected.equip_slot !== null : false;
-  const consumable = selected ? selected.heal_hp > 0 || selected.restore_mp > 0 || !!selected.teleport_target : false;
   const levelOk = selected ? character.level >= selected.required_level : false;
   const classOk = selected
     ? !selected.required_class || selected.required_class === 'all' || selected.required_class === character.character_class
     : false;
   const canEquip = equippable && levelOk && classOk;
-  const assignedSlot = selected
-    ? hotbar.findIndex((a) => a?.kind === 'item' && a.itemTemplateId === selected.item_template_id)
-    : -1;
 
   // Shared by the 장착/해제 button (acts on `selected`) and double-clicking any grid cell
   // (acts on whichever item was double-clicked, which may not be the currently selected

@@ -17,7 +17,14 @@ import { SystemMenu } from '../components/game/SystemMenu';
 import { LoadingScreen } from '../components/ui/spinner';
 import { translateApiError } from './errorMessages';
 
-const HOTBAR_KEYS: Record<string, number> = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3 };
+const HOTBAR_KEYS: Record<string, number> = {
+  Digit1: 0,
+  Digit2: 1,
+  Digit3: 2,
+  Digit4: 3,
+  Digit5: 4,
+  Digit6: 5,
+};
 
 // Ragnarok-style targeting reticle — swapped in for the default cursor while a skill is
 // armed (see combatStore's isAimingSkill) so "click to fire" has an obvious visual cue.

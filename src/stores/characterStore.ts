@@ -100,7 +100,7 @@ function sumEquippedBonus(items: InventorySlot[]): { attack: number; defense: nu
   return { attack, defense };
 }
 
-export const HOTBAR_SIZE = 4;
+export const HOTBAR_SIZE = 6;
 
 // A slot holds either a consumable (resolved against inventory at use-time by
 // item_template_id, same as before) or the player's one class skill (no id needed — there's

@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Shield, Sparkles, Swords, Target, Trash2 } from 'lucide-react';
 import { useCharacterStore } from '../stores/characterStore';
@@ -34,11 +34,23 @@ export function CharactersPage() {
   // Separate from busyId (which also covers delete) so the 선택 button's spinner only shows
   // for an actual character-entry attempt, not while a different row's delete is in flight.
   const [selectingId, setSelectingId] = useState<number | null>(null);
+  // Deleting a character was a single unconfirmed click away from permanently losing it —
+  // this arms a "확인" state on the first click (auto-reverting after a few seconds) and only
+  // actually deletes on a second click while armed, same lightweight inline-confirm pattern
+  // as GitHub's delete buttons, rather than a jarring native confirm() popup.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const confirmDeleteTimer = useRef<number | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchCharacters().catch((err) => setError(translateApiError(err)));
   }, [fetchCharacters]);
+
+  useEffect(() => {
+    return () => {
+      if (confirmDeleteTimer.current) window.clearTimeout(confirmDeleteTimer.current);
+    };
+  }, []);
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
@@ -76,6 +88,17 @@ export function CharactersPage() {
     } finally {
       setBusyId(null);
     }
+  }
+
+  function handleDeleteClick(characterId: number) {
+    if (confirmDeleteTimer.current) window.clearTimeout(confirmDeleteTimer.current);
+    if (confirmDeleteId === characterId) {
+      setConfirmDeleteId(null);
+      handleDelete(characterId);
+      return;
+    }
+    setConfirmDeleteId(characterId);
+    confirmDeleteTimer.current = window.setTimeout(() => setConfirmDeleteId(null), 3000);
   }
 
   return (
@@ -126,10 +149,14 @@ export function CharactersPage() {
                       size="sm"
                       variant="danger"
                       disabled={busy}
-                      onClick={() => handleDelete(character.id)}
-                      aria-label="삭제"
+                      onClick={() => handleDeleteClick(character.id)}
+                      aria-label={confirmDeleteId === character.id ? '삭제 확인 (다시 누르면 삭제됩니다)' : '삭제'}
                     >
-                      <Trash2 className="size-3.5" />
+                      {confirmDeleteId === character.id ? (
+                        <span className="whitespace-nowrap px-0.5 text-xs">정말 삭제?</span>
+                      ) : (
+                        <Trash2 className="size-3.5" />
+                      )}
                     </Button>
                   </div>
                 </li>

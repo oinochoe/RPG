@@ -14,7 +14,7 @@ export const HOTBAR_DRAG_MIME = 'application/x-rpg-item-template-id';
 export const HOTBAR_DRAG_SKILL_MIME = 'application/x-rpg-hotbar-skill';
 
 /**
- * Quickbar for consumables and the class skill — 4 slots, keys 1-4 (wired in GamePage's
+ * Quickbar for consumables and the class skill — 6 slots, keys 1-6 (wired in GamePage's
  * keydown handler). Assignments are session-local only (see characterStore's hotbar field).
  * A slot can be filled two ways — whichever the player prefers — both driven from wherever
  * the thing being assigned lives (InventoryPanel for items, CharacterPanel's skill tab for
