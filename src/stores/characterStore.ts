@@ -77,6 +77,15 @@ function randomBlinkPoint(): [number, number] {
   return [playerPosition.x, playerPosition.z];
 }
 
+// Every village has a fountain collider sitting exactly at its center (see Village.tsx's
+// villageColliders) — landing precisely on village.center put the player dead inside it. Once
+// a position starts already overlapping a collider, resolveMovement rejects every direction
+// equally (any nearby target position is still within the collider's radius too), so this
+// wasn't just an ugly spawn, it was a genuine permanent softlock. Same fixed +Z offset
+// PlayerCombatEffects.tsx's own RESPAWN_POINT already uses for the identical reason, just with
+// a more comfortable margin past the fountain's radius.
+const VILLAGE_LANDING_OFFSET_Z = 2.5;
+
 function teleportTo(target: 'village' | 'blink') {
   const world = useWorldStore.getState();
   if (target === 'village') {
@@ -84,7 +93,7 @@ function teleportTo(target: 'village' | 'blink') {
       world.exitDungeon(buildFieldMonsters());
     }
     const village = nearestVillage(playerPosition.x, playerPosition.z);
-    playerPosition.set(village.center[0], 0, village.center[1]);
+    playerPosition.set(village.center[0], 0, village.center[1] + VILLAGE_LANDING_OFFSET_Z);
   } else {
     const [x, z] = randomBlinkPoint();
     playerPosition.set(x, 0, z);
