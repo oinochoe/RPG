@@ -2,8 +2,35 @@ import { create } from 'zustand';
 import * as charactersApi from '../api/characters';
 import { useCombatStore } from './combatStore';
 import { useUIStore } from './uiStore';
+import { useWorldStore } from './worldStore';
 import { playSound } from '../lib/sound';
+import { playerPosition } from '../components/game/playerTransform';
+import { clearMoveTarget } from '../components/game/moveTarget';
+import { VILLAGE_CENTER } from '../components/game/Village';
+import { FIELD_ENTRANCE_POINT } from '../components/game/worldColliders';
+import { buildFieldMonsters } from '../components/game/FieldMonsters';
 import type { CharacterClass, CharacterProfile, CharacterSummary, InventorySlot, ShopItem } from '../types/api';
+
+// Shared by useHotbarSlot's teleport_target handling below — 'village' works from anywhere
+// (leaves the dungeon first if needed, same as walking out through its exit would), 'dungeon'
+// only does anything from the field (dungeon floors all reuse near-origin coordinates rather
+// than having a real position on the field, so there's nothing meaningful to warp to from
+// inside one). Landing exactly on FIELD_ENTRANCE_POINT is deliberate: AreaTransitions.tsx's
+// own per-frame proximity check then auto-enters the dungeon on the very next frame, so this
+// reuses that existing transition instead of duplicating it.
+function teleportTo(target: 'village' | 'dungeon') {
+  const world = useWorldStore.getState();
+  if (target === 'village') {
+    if (world.currentArea === 'dungeon') {
+      world.exitDungeon(buildFieldMonsters());
+    }
+    playerPosition.set(VILLAGE_CENTER[0], 0, VILLAGE_CENTER[1]);
+  } else {
+    if (world.currentArea === 'dungeon') return;
+    playerPosition.set(FIELD_ENTRANCE_POINT[0], 0, FIELD_ENTRANCE_POINT[1]);
+  }
+  clearMoveTarget();
+}
 
 function sumEquippedBonus(items: InventorySlot[]): { attack: number; defense: number } {
   let attack = 0;
@@ -175,7 +202,12 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       set({ inventory: items });
       useCombatStore.getState().heal(row.heal_hp);
       useCombatStore.getState().restoreMp(row.restore_mp);
-      playSound('potion', 0.5);
+      if (row.teleport_target) {
+        teleportTo(row.teleport_target);
+        playSound('cast', 0.5);
+      } else {
+        playSound('potion', 0.5);
+      }
     } finally {
       set((s) => {
         const hotbarPending = [...s.hotbarPending];

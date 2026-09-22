@@ -32,7 +32,7 @@ function GridCell({
 }) {
   // Only consumables are hotbar-assignable (equip/use items go through the 장착 button or a
   // double-click instead).
-  const draggable = !!item && (item.heal_hp > 0 || item.restore_mp > 0);
+  const draggable = !!item && (item.heal_hp > 0 || item.restore_mp > 0 || !!item.teleport_target);
   const rarityFrame = item ? RARITY_SLOT_FRAME[itemRarity(item.required_level)] : null;
 
   return (
@@ -109,7 +109,7 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
 
   const selected = inventory.find((item) => item.id === selectedId) ?? null;
   const equippable = selected ? selected.equip_slot !== null : false;
-  const consumable = selected ? selected.heal_hp > 0 || selected.restore_mp > 0 : false;
+  const consumable = selected ? selected.heal_hp > 0 || selected.restore_mp > 0 || !!selected.teleport_target : false;
   const levelOk = selected ? character.level >= selected.required_level : false;
   const classOk = selected
     ? !selected.required_class || selected.required_class === 'all' || selected.required_class === character.character_class
@@ -239,6 +239,8 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                   {selected.defense_bonus > 0 && <div>방어 +{selected.defense_bonus}</div>}
                   {selected.heal_hp > 0 && <div>체력 +{selected.heal_hp}</div>}
                   {selected.restore_mp > 0 && <div>마나 +{selected.restore_mp}</div>}
+                  {selected.teleport_target === 'village' && <div>사용 시 마을로 이동</div>}
+                  {selected.teleport_target === 'dungeon' && <div>사용 시 던전 입구로 이동</div>}
                   {selected.equip_slot && <div>부위: {EQUIP_SLOT_LABEL[selected.equip_slot] ?? selected.equip_slot}</div>}
                   {!levelOk && <div style={{ color: '#e0538a' }}>Lv.{selected.required_level} 필요</div>}
                   {!classOk && <div style={{ color: '#e0538a' }}>직업 제한</div>}
