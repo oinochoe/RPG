@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { playerPosition, playerFacing } from './playerTransform';
 import { RIVER_X_CENTER, RIVER_HALF_WIDTH, DESERT_X_START, VILLAGES, FIELD_ENTRANCE_POINT, riverPathD } from './worldColliders';
-import { DUNGEON_MAX_FLOOR, DUNGEON_EXIT_TRIGGER, DUNGEON_DESCEND_TRIGGER, ROOM_HALF_X, ROOM_HALF_Z } from './Dungeon';
+import { DUNGEON_MAX_FLOOR, DUNGEON_EXIT_TRIGGER, DUNGEON_DESCEND_TRIGGER, getFloorRects } from './Dungeon';
 import { ICON_PATH, MapIcon, SkullMarker, PlayerArrow } from './mapIcons';
 import { useCombatStore } from '../../stores/combatStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -19,6 +19,10 @@ const CORNER_SIZE = 190;
 // full map's whole-field view; this is meant to answer "what's near me right now," not replace
 // the M-key map for route planning.
 const FIELD_LOCAL_HALF = 45;
+// Same "what's near me" framing for the dungeon corner view — panning with the player instead
+// of trying to squeeze the whole winding 3-room floor into a 190px square (which the full
+// M-key map already shows in full).
+const DUNGEON_LOCAL_HALF = 40;
 // Anything drawn as a flat biome band (grass/desert/river) is sized way past any reachable
 // player position and left for the SVG viewport itself to clip, rather than recomputing exact
 // bounds against a viewBox that pans with the player every frame.
@@ -68,24 +72,28 @@ function MiniFieldView({ player, facing }: { player: { x: number; z: number }; f
 function MiniDungeonView({ player, facing, floor }: { player: { x: number; z: number }; facing: number; floor: number }) {
   const monsters = useCombatStore((s) => s.monsters);
   const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
-  const half = Math.max(ROOM_HALF_X, ROOM_HALF_Z) + 2;
+  const rects = useMemo(() => getFloorRects(floor), [floor]);
+  const half = DUNGEON_LOCAL_HALF;
 
   return (
     <svg
       width={CORNER_SIZE}
       height={CORNER_SIZE}
-      viewBox={`${-half} ${-half} ${half * 2} ${half * 2}`}
+      viewBox={`${player.x - half} ${player.z - half} ${half * 2} ${half * 2}`}
       style={{ display: 'block', background: '#1c1a20' }}
     >
-      <rect
-        x={-ROOM_HALF_X}
-        y={-ROOM_HALF_Z}
-        width={ROOM_HALF_X * 2}
-        height={ROOM_HALF_Z * 2}
-        fill="#2c2933"
-        stroke="#4a4750"
-        strokeWidth={0.5}
-      />
+      {rects.map((r, i) => (
+        <rect
+          key={i}
+          x={r.x1}
+          y={r.z1}
+          width={r.x2 - r.x1}
+          height={r.z2 - r.z1}
+          fill="#2c2933"
+          stroke="#4a4750"
+          strokeWidth={0.5}
+        />
+      ))}
       <MapIcon path={ICON_PATH.ladder} x={DUNGEON_EXIT_TRIGGER[0]} y={DUNGEON_EXIT_TRIGGER[1]} size={3} color="#bcdcf0" />
       {hasNorthGap && (
         <MapIcon path={ICON_PATH.ladder} x={DUNGEON_DESCEND_TRIGGER[0]} y={DUNGEON_DESCEND_TRIGGER[1]} size={3} color="#c084fc" />

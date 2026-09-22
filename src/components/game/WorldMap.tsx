@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { playerPosition, playerFacing } from './playerTransform';
 import {
   FIELD_ENTRANCE_POINT,
@@ -10,7 +10,14 @@ import {
   riverPathD,
 } from './worldColliders';
 import { VILLAGE_CONFIGS } from './Village';
-import { DUNGEON_MAX_FLOOR, DUNGEON_EXIT_TRIGGER, DUNGEON_DESCEND_TRIGGER, ROOM_HALF_X, ROOM_HALF_Z } from './Dungeon';
+import {
+  DUNGEON_MAX_FLOOR,
+  DUNGEON_EXIT_TRIGGER,
+  DUNGEON_DESCEND_TRIGGER,
+  ROOM_HALF_X,
+  ROOM_HALF_Z,
+  getFloorRects,
+} from './Dungeon';
 import { ICON_PATH, MapIcon, SkullMarker, PlayerArrow } from './mapIcons';
 import { useCombatStore } from '../../stores/combatStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -20,9 +27,11 @@ import { useWorldStore } from '../../stores/worldStore';
 // so the map can never clip again just because the field grew — this used to be a bare number
 // that drifted out of sync with worldColliders.ts's own FIELD_EXTENT.
 const VIEW_HALF = FIELD_EXTENT / 2 + 10;
-// Has to cover the dungeon room's real extent (Dungeon.tsx's ROOM_HALF_X/Z, currently 18) plus
-// a small margin, same reasoning as VIEW_HALF above.
-const DUNGEON_VIEW_HALF = Math.max(ROOM_HALF_X, ROOM_HALF_Z) + 4;
+// Separate X/Z half-extents (not one reused value) since the dungeon floor plan is now a tall,
+// narrow S-shape (3 rooms stacked along Z, connected by corridors) rather than a square room —
+// a single shared "half" would either clip the tall axis or waste space on the narrow one.
+const DUNGEON_VIEW_HALF_X = ROOM_HALF_X + 4;
+const DUNGEON_VIEW_HALF_Z = ROOM_HALF_Z + 4;
 const POLL_MS = 100;
 // Computed once — VIEW_HALF is a module constant, so the visible window never changes.
 const RIVER_PATH = riverPathD(-VIEW_HALF, VIEW_HALF);
@@ -114,24 +123,29 @@ function DungeonMap({
 }) {
   const monsters = useCombatStore((s) => s.monsters);
   const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
+  const rects = useMemo(() => getFloorRects(floor), [floor]);
 
   return (
     <svg
-      width={680}
-      height={620}
-      viewBox={`${-DUNGEON_VIEW_HALF} ${-DUNGEON_VIEW_HALF * 0.9} ${DUNGEON_VIEW_HALF * 2} ${DUNGEON_VIEW_HALF * 1.8}`}
+      width={440}
+      height={700}
+      viewBox={`${-DUNGEON_VIEW_HALF_X} ${-DUNGEON_VIEW_HALF_Z} ${DUNGEON_VIEW_HALF_X * 2} ${DUNGEON_VIEW_HALF_Z * 2}`}
       style={{ background: '#1c1a20', borderRadius: 6, display: 'block' }}
     >
-      <rect
-        x={-ROOM_HALF_X}
-        y={-ROOM_HALF_Z}
-        width={ROOM_HALF_X * 2}
-        height={ROOM_HALF_Z * 2}
-        rx={1}
-        fill="#2c2933"
-        stroke="#4a4750"
-        strokeWidth={0.5}
-      />
+      {/* Each room/corridor/doorway-stub rect from getFloorRects, drawn directly — the SVG
+          shape matches the 3D geometry exactly since both derive from the same rect list. */}
+      {rects.map((r, i) => (
+        <rect
+          key={i}
+          x={r.x1}
+          y={r.z1}
+          width={r.x2 - r.x1}
+          height={r.z2 - r.z1}
+          fill="#2c2933"
+          stroke="#4a4750"
+          strokeWidth={0.5}
+        />
+      ))}
 
       <MapIcon path={ICON_PATH.ladder} x={DUNGEON_EXIT_TRIGGER[0]} y={DUNGEON_EXIT_TRIGGER[1]} size={2.6} color="#bcdcf0" />
       <text x={DUNGEON_EXIT_TRIGGER[0]} y={DUNGEON_EXIT_TRIGGER[1] + 3.2} fill="#bcdcf0" fontSize={2.4} textAnchor="middle">
