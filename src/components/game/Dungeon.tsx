@@ -15,6 +15,13 @@ const WALL_MODEL = `${KAYKIT_DUNGEON}/wall.gltf`;
 const FLOOR_TILE_MODEL = `${KAYKIT_DUNGEON}/floor_tile_large.gltf`;
 const COLUMN_MODEL = `${KAYKIT_DUNGEON}/column.gltf`;
 const TORCH_MODEL = `${KAYKIT_DUNGEON}/torch_lit.gltf`;
+// A full flight (its own bounding box: 4×5.1×4 at scale 1 — every stairs_* variant in this
+// pack is the same ~5.1 tall, built for connecting two actual floor levels), used here purely
+// as a decorative "this leads somewhere" silhouette next to FloorMarker's glow effect — this
+// dungeon has no real elevation (every floor is its own flat instance, see worldStore.ts), so
+// it's scaled well down rather than rendered at the grid's real 1:1 scale.
+const STAIRS_MODEL = `${KAYKIT_DUNGEON}/stairs_narrow.gltf`;
+const STAIRS_SCALE = 0.4;
 
 export const CELL_SIZE = 4;
 export const DUNGEON_MAX_FLOOR = 6;
@@ -463,6 +470,12 @@ function FloorMarker({ position, color }: { position: [number, number]; color: s
         <meshBasicMaterial color={color} transparent opacity={0.35} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} />
       </mesh>
       <pointLight position={[0, 1.2, 0]} color={color} intensity={1.8} distance={8} />
+      {/* Purely decorative — sits just outside the trigger radius so it never blocks the
+          actual walk-in check, see DUNGEON_EXIT_RADIUS/DUNGEON_DESCEND_RADIUS (both 1.8). Its
+          own Suspense boundary since FloorMarker renders outside the floor's main one. */}
+      <Suspense fallback={null}>
+        <DungeonProp url={STAIRS_MODEL} position={[0, 0, 1.6]} rotationY={Math.PI} scale={STAIRS_SCALE} />
+      </Suspense>
     </group>
   );
 }
@@ -540,3 +553,4 @@ useGLTF.preload(WALL_MODEL);
 useGLTF.preload(FLOOR_TILE_MODEL);
 useGLTF.preload(COLUMN_MODEL);
 useGLTF.preload(TORCH_MODEL);
+useGLTF.preload(STAIRS_MODEL);

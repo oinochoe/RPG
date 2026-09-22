@@ -11,6 +11,12 @@ export interface QuestDef {
   id: number;
   title: string;
   giverNpcName: string;
+  // Which of the 3 villages that NPC actually stands in (see Village.tsx's VILLAGE_CONFIGS —
+  // 촌장=새벽여울, 농부/경비병=황금이삭, 파수꾼/노인=북녘등불) — duplicated here rather than
+  // cross-referencing Village.tsx at render time, same denormalization QuestDef already does
+  // for targetMonsterName/rewardItemName. Lets the quest log say where to go, not just who to
+  // find.
+  villageName: string;
   targetMonsterId: number;
   targetMonsterName: string;
   targetCount: number;
@@ -40,6 +46,7 @@ export const QUEST_DEFS: QuestDef[] = [
     id: 1,
     title: '여울의 작은 꽃',
     giverNpcName: '촌장',
+    villageName: '새벽여울',
     targetMonsterId: 1,
     targetMonsterName: '슬라임',
     targetCount: 5,
@@ -57,6 +64,7 @@ export const QUEST_DEFS: QuestDef[] = [
     id: 2,
     title: '무너지는 밭',
     giverNpcName: '농부',
+    villageName: '황금이삭',
     targetMonsterId: 1,
     targetMonsterName: '슬라임',
     targetCount: 8,
@@ -73,6 +81,7 @@ export const QUEST_DEFS: QuestDef[] = [
     id: 3,
     title: '옛 전우들',
     giverNpcName: '경비병',
+    villageName: '황금이삭',
     targetMonsterId: 3,
     targetMonsterName: '스켈레톤',
     targetCount: 5,
@@ -90,6 +99,7 @@ export const QUEST_DEFS: QuestDef[] = [
     id: 4,
     title: '꺼지지 않는 등불',
     giverNpcName: '파수꾼',
+    villageName: '북녘등불',
     targetMonsterId: 4,
     targetMonsterName: '가시선인장',
     targetCount: 6,
@@ -106,6 +116,7 @@ export const QUEST_DEFS: QuestDef[] = [
     id: 5,
     title: '돌아오지 않은 아들',
     giverNpcName: '노인',
+    villageName: '북녘등불',
     targetMonsterId: 2,
     targetMonsterName: '고블린',
     targetCount: 6,
@@ -127,6 +138,7 @@ export const QUEST_DEFS: QuestDef[] = [
     id: 6,
     title: '여울의 작은 심부름',
     giverNpcName: '촌장',
+    villageName: '새벽여울',
     targetMonsterId: 1,
     targetMonsterName: '슬라임',
     targetCount: 3,
@@ -143,6 +155,7 @@ export const QUEST_DEFS: QuestDef[] = [
     id: 7,
     title: '다시, 밭 순찰',
     giverNpcName: '농부',
+    villageName: '황금이삭',
     targetMonsterId: 1,
     targetMonsterName: '슬라임',
     targetCount: 4,
@@ -159,6 +172,7 @@ export const QUEST_DEFS: QuestDef[] = [
     id: 8,
     title: '성문 경계',
     giverNpcName: '경비병',
+    villageName: '황금이삭',
     targetMonsterId: 3,
     targetMonsterName: '스켈레톤',
     targetCount: 3,
@@ -175,6 +189,7 @@ export const QUEST_DEFS: QuestDef[] = [
     id: 9,
     title: '사막 길 순찰',
     giverNpcName: '파수꾼',
+    villageName: '북녘등불',
     targetMonsterId: 4,
     targetMonsterName: '가시선인장',
     targetCount: 4,
@@ -191,6 +206,7 @@ export const QUEST_DEFS: QuestDef[] = [
     id: 10,
     title: '던전 어귀 정찰',
     giverNpcName: '노인',
+    villageName: '북녘등불',
     targetMonsterId: 2,
     targetMonsterName: '고블린',
     targetCount: 4,

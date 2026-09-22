@@ -30,7 +30,7 @@ function QuestRow({ quest, state, playerLevel }: { quest: QuestDef; state: Activ
   const statusLabel = !state
     ? playerLevel < quest.requiredLevel
       ? `Lv.${quest.requiredLevel} 필요`
-      : `${quest.giverNpcName}에게 이동해 수락`
+      : `${quest.villageName} · ${quest.giverNpcName}에게 이동해 수락`
     : state.status === 'completed'
       ? '완료'
       : ready
@@ -41,7 +41,9 @@ function QuestRow({ quest, state, playerLevel }: { quest: QuestDef; state: Activ
     <div style={{ padding: '8px 4px', borderBottom: '1px solid rgba(232, 201, 122, 0.15)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
         <span style={{ color: '#f4f1e8', fontSize: 13, fontWeight: 700 }}>{quest.title}</span>
-        <span style={{ color: '#9aa08f', fontSize: 11 }}>{quest.giverNpcName}</span>
+        <span style={{ color: '#9aa08f', fontSize: 11 }}>
+          {quest.villageName} · {quest.giverNpcName}
+        </span>
       </div>
       <div style={{ color: '#9aa08f', fontSize: 11, marginBottom: 4 }}>
         {quest.targetMonsterName} {quest.targetCount}마리 처치
