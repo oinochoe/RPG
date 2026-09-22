@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { playerPosition, playerFacing } from './playerTransform';
-import { RIVER_X_CENTER, RIVER_HALF_WIDTH, DESERT_X_START, VILLAGES, FIELD_ENTRANCE_POINT } from './worldColliders';
+import { RIVER_X_CENTER, RIVER_HALF_WIDTH, DESERT_X_START, VILLAGES, FIELD_ENTRANCE_POINT, riverPathD } from './worldColliders';
 import { DUNGEON_MAX_FLOOR, DUNGEON_EXIT_TRIGGER, DUNGEON_DESCEND_TRIGGER, ROOM_HALF_X, ROOM_HALF_Z } from './Dungeon';
 import { ICON_PATH, MapIcon, SkullMarker, PlayerArrow } from './mapIcons';
 import { useCombatStore } from '../../stores/combatStore';
@@ -37,13 +37,7 @@ function MiniFieldView({ player, facing }: { player: { x: number; z: number }; f
     >
       <rect x={-BACKDROP_HALF} y={-BACKDROP_HALF} width={BACKDROP_HALF * 2} height={BACKDROP_HALF * 2} fill="#3f6b34" />
       <rect x={DESERT_X_START} y={-BACKDROP_HALF} width={BACKDROP_HALF * 2} height={BACKDROP_HALF * 2} fill="#d9b877" />
-      <rect
-        x={RIVER_X_CENTER - RIVER_HALF_WIDTH}
-        y={-BACKDROP_HALF}
-        width={RIVER_HALF_WIDTH * 2}
-        height={BACKDROP_HALF * 2}
-        fill="#2f7fa8"
-      />
+      <path d={riverPathD(player.z - half - 5, player.z + half + 5)} fill="#2f7fa8" />
       <rect
         x={RIVER_X_CENTER - RIVER_HALF_WIDTH - 1.5}
         y={-5}

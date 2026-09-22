@@ -52,11 +52,6 @@ export function GamePage() {
       } else if (e.code === 'F1') {
         e.preventDefault();
         useUIStore.getState().toggleSystemMenu();
-      } else if (e.code === 'KeyU') {
-        // Emergency unstuck — see characterStore's unstuck() for why this exists (getting
-        // wedged in world geometry with no way to walk free otherwise).
-        e.preventDefault();
-        useCharacterStore.getState().unstuck();
       } else if (e.code === 'Escape') {
         // Cancels an armed skill aim first, if one's active, rather than also closing
         // whatever panel happens to be open underneath it — Escape backing out of aiming

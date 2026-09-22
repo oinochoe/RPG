@@ -7,6 +7,7 @@ import {
   DESERT_X_START,
   VILLAGES,
   FIELD_EXTENT,
+  riverPathD,
 } from './worldColliders';
 import { VILLAGE_CONFIGS } from './Village';
 import { DUNGEON_MAX_FLOOR, DUNGEON_EXIT_TRIGGER, DUNGEON_DESCEND_TRIGGER, ROOM_HALF_X, ROOM_HALF_Z } from './Dungeon';
@@ -23,6 +24,8 @@ const VIEW_HALF = FIELD_EXTENT / 2 + 10;
 // a small margin, same reasoning as VIEW_HALF above.
 const DUNGEON_VIEW_HALF = Math.max(ROOM_HALF_X, ROOM_HALF_Z) + 4;
 const POLL_MS = 100;
+// Computed once — VIEW_HALF is a module constant, so the visible window never changes.
+const RIVER_PATH = riverPathD(-VIEW_HALF, VIEW_HALF);
 
 function FieldMap({ player, facing }: { player: { x: number; z: number }; facing: number }) {
   const monsters = useCombatStore((s) => s.monsters);
@@ -37,13 +40,7 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
       {/* Desert biome + river — same zone boundaries the actual field uses (worldColliders.ts),
           so the map matches what's really out there instead of just showing uniform grass. */}
       <rect x={DESERT_X_START} y={-VIEW_HALF} width={VIEW_HALF - DESERT_X_START} height={VIEW_HALF * 2} fill="#d9b877" />
-      <rect
-        x={RIVER_X_CENTER - RIVER_HALF_WIDTH}
-        y={-VIEW_HALF}
-        width={RIVER_HALF_WIDTH * 2}
-        height={VIEW_HALF * 2}
-        fill="#2f7fa8"
-      />
+      <path d={RIVER_PATH} fill="#2f7fa8" />
       {/* The one crossing point in the river's collider chain (see worldColliders.ts's
           riverColliders/BRIDGE_Z/BRIDGE_GAP_HALF) — drawn as a short wooden deck spanning the
           river's width so the map actually shows where to cross instead of just a solid blue

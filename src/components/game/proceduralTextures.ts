@@ -112,7 +112,10 @@ export function useSandTexture(): THREE.Texture {
   }, []);
 }
 
-/** A tileable canvas-painted river-water texture — a flat strip, not a real fluid sim. */
+/** A tileable canvas-painted river-water texture — a flat strip, not a real fluid sim. Flowing
+ * streaks run along V (the texture's repeat.set(6, 22) means many more repeats lengthwise than
+ * across, matching the river's actual long/narrow shape) so RiverStrip's UV-scroll animation
+ * reads as current moving downstream instead of just static noise. */
 export function useWaterTexture(): THREE.Texture {
   return useMemo(() => {
     const size = 512;
@@ -122,16 +125,35 @@ export function useWaterTexture(): THREE.Texture {
     const ctx = canvas.getContext('2d')!;
     const rng = mulberry32(99);
 
-    ctx.fillStyle = '#2f7fa8';
+    const gradient = ctx.createLinearGradient(0, 0, size, 0);
+    gradient.addColorStop(0, '#255f80');
+    gradient.addColorStop(0.5, '#3688ad');
+    gradient.addColorStop(1, '#255f80');
+    ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, size, size);
 
-    // Horizontal-ish ripple bands (river flow direction) plus a few highlight streaks.
-    for (let i = 0; i < 40; i++) {
+    // Long, mostly-vertical flow streaks (the texture's V axis) — thin and elongated rather
+    // than round blobs, so they read as current rather than random speckle once tiled+scrolled.
+    for (let i = 0; i < 70; i++) {
+      const x = rng() * size;
+      const len = 90 + rng() * 220;
       const y = rng() * size;
-      const h = 4 + rng() * 10;
-      ctx.fillStyle = rng() < 0.5 ? 'rgba(120, 200, 224, 0.18)' : 'rgba(20, 60, 90, 0.18)';
+      const wobble = (rng() - 0.5) * 30;
+      ctx.strokeStyle = rng() < 0.55 ? 'rgba(150, 214, 232, 0.22)' : 'rgba(15, 48, 70, 0.22)';
+      ctx.lineWidth = 2 + rng() * 5;
+      ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.ellipse(rng() * size, y, 60 + rng() * 120, h, 0, 0, Math.PI * 2);
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(x + wobble, y + len * 0.5, x, y + len);
+      ctx.stroke();
+    }
+
+    // Sparkle highlights — small bright flecks for a bit of sunlit-water sparkle.
+    for (let i = 0; i < 55; i++) {
+      const r = 0.8 + rng() * 1.8;
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.15 + rng() * 0.35})`;
+      ctx.beginPath();
+      ctx.ellipse(rng() * size, rng() * size, r, r * 0.5, rng() * Math.PI, 0, Math.PI * 2);
       ctx.fill();
     }
 

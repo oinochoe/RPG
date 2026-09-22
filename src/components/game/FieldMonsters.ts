@@ -1,5 +1,5 @@
 import { mulberry32 } from './proceduralTextures';
-import { FIELD_ENTRANCE_POINT, inRiverZone, inDesertZone, inVillageClearZone } from './worldColliders';
+import { FIELD_ENTRANCE_POINT, FIELD_EXTENT, DESERT_X_START, inRiverZone, inDesertZone, inVillageClearZone } from './worldColliders';
 import type { MonsterInstanceSummary } from '../../types/api';
 
 // The server's POST /exploration/enter-map always returns monsters: [] (no real monster-
@@ -27,6 +27,41 @@ function inCaveClearZone(x: number, z: number): boolean {
 // than a random mix.
 const SKELETON_MIN_TIER = 2;
 
+// Desert-only fauna — reuses the skeleton rig/model (template_id 3) rather than a new asset,
+// distinguished by name and a sandy tint (see Scene.tsx's monsterTint), same reskin-via-tint
+// technique already used for dungeon captains/lords. A distinct enemy for the desert instead
+// of it being empty of monsters entirely.
+const DESERT_MONSTER_COUNT = 35;
+const DESERT_SCATTER_SEED = 21;
+const DESERT_X_END = FIELD_EXTENT / 2;
+const DESERT_MONSTER_LEVEL = 3;
+const DESERT_MONSTER_HP = 75;
+
+function buildDesertMonsters(idBaseStart: number): MonsterInstanceSummary[] {
+  const rng = mulberry32(DESERT_SCATTER_SEED);
+  const monsters: MonsterInstanceSummary[] = [];
+  let idBase = idBaseStart;
+  let attempts = 0;
+  while (monsters.length < DESERT_MONSTER_COUNT && attempts < DESERT_MONSTER_COUNT * 50) {
+    attempts++;
+    const x = DESERT_X_START + rng() * (DESERT_X_END - DESERT_X_START);
+    const z = (rng() - 0.5) * FIELD_EXTENT;
+    if (Math.hypot(x, z) > DESERT_X_END) continue;
+    monsters.push({
+      instance_id: idBase++,
+      monster_template_id: 3,
+      name: '미라',
+      level: DESERT_MONSTER_LEVEL,
+      current_hp: DESERT_MONSTER_HP,
+      max_hp: DESERT_MONSTER_HP,
+      position_x: Math.round(x * 10) / 10,
+      position_y: 0,
+      position_z: Math.round(z * 10) / 10,
+    });
+  }
+  return monsters;
+}
+
 /** Scattered field monsters — a level/species range that gently rewards wandering farther
  * from spawn, same "stronger the deeper/farther you go" idea as the dungeon's floors. */
 export function buildFieldMonsters(): MonsterInstanceSummary[] {
@@ -42,9 +77,10 @@ export function buildFieldMonsters(): MonsterInstanceSummary[] {
     if (Math.hypot(x, z) < SPAWN_CLEAR_RADIUS) continue;
     if (inVillageClearZone(x, z)) continue;
     if (inCaveClearZone(x, z)) continue;
-    // Slimes/skeletons are grass-zone fauna — the desert (past the river) is reserved for its
-    // own props for now, no monster type has been made for it yet.
-    if (inRiverZone(x) || inDesertZone(x)) continue;
+    // Slimes/skeletons are grass-zone fauna — the desert (past the river) gets its own
+    // separate scatter pass below (buildDesertMonsters), not mixed in with this loop's
+    // distance-based tiering.
+    if (inRiverZone(x, z) || inDesertZone(x)) continue;
 
     const distFromSpawn = Math.hypot(x, z);
     const tier = Math.min(2, Math.floor(distFromSpawn / 55));
@@ -64,6 +100,8 @@ export function buildFieldMonsters(): MonsterInstanceSummary[] {
       position_z: Math.round(z * 10) / 10,
     });
   }
+
+  monsters.push(...buildDesertMonsters(idBase));
 
   return monsters;
 }

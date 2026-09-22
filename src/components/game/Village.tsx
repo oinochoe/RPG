@@ -93,7 +93,8 @@ const KENNEY_TOWN = '/models/kenney-town';
 
 export const VILLAGE_CONFIGS: VillageConfig[] = [
   {
-    name: '마을',
+    // The starting town — "Dawn Shallows," a quiet river-side beginning.
+    name: '새벽여울',
     shopNpcs: [
       { kind: 'merchant', name: '상인', offset: [7, -3] },
       { kind: 'blacksmith', name: '대장장이', offset: [-7, -3] },
@@ -102,8 +103,9 @@ export const VILLAGE_CONFIGS: VillageConfig[] = [
   },
   {
     // A second town further south — same building set, different NPCs/props (market stalls,
-    // a lantern, a windmill) so it doesn't just read as a copy-pasted village.
-    name: '남쪽 마을',
+    // a lantern, a windmill) so it doesn't just read as a copy-pasted village. "Golden Grain,"
+    // for the windmill/farmer theme.
+    name: '황금이삭',
     shopNpcs: [
       { kind: 'merchant', name: '상인', offset: [7, -3] },
       { kind: 'blacksmith', name: '대장장이', offset: [-7, -3] },
@@ -122,8 +124,9 @@ export const VILLAGE_CONFIGS: VillageConfig[] = [
   },
   {
     // A third town up north — same building set again, told apart by its watchpost framing
-    // (lanterns flanking the entrance, no windmill/stalls) and its own flavor NPCs.
-    name: '북쪽 마을',
+    // (lanterns flanking the entrance, no windmill/stalls) and its own flavor NPCs. "Northern
+    // Lantern," matching the lantern-flanked entrance.
+    name: '북녘등불',
     shopNpcs: [
       { kind: 'merchant', name: '상인', offset: [7, -3] },
       { kind: 'blacksmith', name: '대장장이', offset: [-7, -3] },

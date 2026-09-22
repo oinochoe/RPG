@@ -24,8 +24,22 @@ export const DESERT_X_START = RIVER_X_CENTER + RIVER_HALF_WIDTH;
 const BRIDGE_Z = 0;
 const BRIDGE_GAP_HALF = 4.5;
 
-export function inRiverZone(x: number): boolean {
-  return Math.abs(x - RIVER_X_CENTER) <= RIVER_HALF_WIDTH;
+// A perfectly straight river read as flat/artificial — this bends its centerline into a
+// gentle meander instead. `(cos(...) - 1)` stays in [-2, 0], so the curve only ever bends
+// toward -x (the grass side) and never toward the desert: riverXAt(BRIDGE_Z) == RIVER_X_CENTER
+// exactly (cos(0)-1 == 0), so the bridge/cave-entrance/field-entrance positions that were
+// already tuned around the old straight RIVER_X_CENTER still line up, and the river's max
+// reach toward the desert never exceeds RIVER_X_CENTER (same as before), so DESERT_X_START
+// doesn't need to move either.
+const RIVER_MEANDER_AMPLITUDE = 14;
+const RIVER_MEANDER_WAVELENGTH = 110;
+
+export function riverXAt(z: number): number {
+  return RIVER_X_CENTER + RIVER_MEANDER_AMPLITUDE * (Math.cos((z / RIVER_MEANDER_WAVELENGTH) * Math.PI * 2) - 1);
+}
+
+export function inRiverZone(x: number, z: number): boolean {
+  return Math.abs(x - riverXAt(z)) <= RIVER_HALF_WIDTH;
 }
 
 export function inDesertZone(x: number): boolean {
@@ -34,28 +48,45 @@ export function inDesertZone(x: number): boolean {
 
 // A river you can just walk across isn't much of a divider — this chains overlapping circle
 // colliders (same primitive rocks/trees already use) along the water's centerline so it's a
-// real obstacle, with a gap left open at BRIDGE_Z for the one crossing point.
+// real obstacle, with a gap left open at BRIDGE_Z for the one crossing point. Spaced much
+// tighter along z than a straight river would need: the centerline's x now shifts with the
+// meander between consecutive colliders too, so a wide z-step could let two consecutive
+// circles drift far enough apart (in x) to open an unintended gap in the chain. At this
+// amplitude/wavelength the worst-case per-step x-shift stays well under half the collider
+// radius, keeping every step's circles solidly overlapping.
 const RIVER_COLLIDER_RADIUS = RIVER_HALF_WIDTH;
-const RIVER_COLLIDER_SPACING = RIVER_COLLIDER_RADIUS * 1.8;
+const RIVER_COLLIDER_SPACING = 4;
 
 export const riverColliders: Collider[] = (() => {
   const colliders: Collider[] = [];
   const half = FIELD_EXTENT / 2;
   // Walk outward from the bridge gap in both directions instead of stepping from -half with a
   // fixed spacing and skipping whatever lands near BRIDGE_Z — that only left a real gap when
-  // half happened to be a multiple of the spacing. Once FIELD_EXTENT changed, no collider's
-  // center fell within BRIDGE_GAP_HALF of z=0 anymore, so nothing got skipped and the "gap"
-  // silently disappeared, sealing the whole river shut (bridge visible, uncrossable). Starting
-  // each side's first collider exactly flush with the gap's edge guarantees the gap is always
-  // real and always exactly BRIDGE_GAP_HALF wide, independent of FIELD_EXTENT.
+  // half happened to be a multiple of the spacing. Starting each side's first collider exactly
+  // flush with the gap's edge guarantees the gap is always real and always exactly
+  // BRIDGE_GAP_HALF wide, independent of FIELD_EXTENT.
   for (let z = BRIDGE_Z + BRIDGE_GAP_HALF + RIVER_COLLIDER_RADIUS; z <= half; z += RIVER_COLLIDER_SPACING) {
-    colliders.push({ x: RIVER_X_CENTER, z, radius: RIVER_COLLIDER_RADIUS });
+    colliders.push({ x: riverXAt(z), z, radius: RIVER_COLLIDER_RADIUS });
   }
   for (let z = BRIDGE_Z - BRIDGE_GAP_HALF - RIVER_COLLIDER_RADIUS; z >= -half; z -= RIVER_COLLIDER_SPACING) {
-    colliders.push({ x: RIVER_X_CENTER, z, radius: RIVER_COLLIDER_RADIUS });
+    colliders.push({ x: riverXAt(z), z, radius: RIVER_COLLIDER_RADIUS });
   }
   return colliders;
 })();
+
+/** Builds an SVG path `d` string for the river's water polygon (left edge out, right edge
+ * back) between zMin/zMax — shared by WorldMap.tsx's full map and MiniMap.tsx's corner map so
+ * neither draws the old straight rect anymore, and neither re-derives the curve on its own. */
+export function riverPathD(zMin: number, zMax: number, step = 6): string {
+  const left: string[] = [];
+  const right: string[] = [];
+  for (let z = zMin; z <= zMax; z += step) {
+    const cx = riverXAt(z);
+    left.push(`${(cx - RIVER_HALF_WIDTH).toFixed(1)} ${z.toFixed(1)}`);
+    right.push(`${(cx + RIVER_HALF_WIDTH).toFixed(1)} ${z.toFixed(1)}`);
+  }
+  return `M ${left.join(' L ')} L ${right.reverse().join(' L ')} Z`;
+}
 
 export interface VillageZone {
   center: [number, number];
@@ -114,7 +145,7 @@ export function scatterDecorations(): Decoration[] {
     if (inCaveClearZone(x, z)) continue;
     // Grass rocks/tufts don't belong on the sand or in the river — the desert biome and its
     // own props (see scatterDesertProps) take over past the river.
-    if (inRiverZone(x) || inDesertZone(x)) continue;
+    if (inRiverZone(x, z) || inDesertZone(x)) continue;
     decorations.push({
       position: [x, 0, z],
       rotationY: rng() * Math.PI * 2,
@@ -148,7 +179,7 @@ export function scatterTrees(): TreeDecoration[] {
     if (Math.hypot(x, z) < CLEAR_RADIUS + 4) continue;
     if (inVillageClearZone(x, z)) continue;
     if (inCaveClearZone(x, z)) continue;
-    if (inRiverZone(x) || inDesertZone(x)) continue;
+    if (inRiverZone(x, z) || inDesertZone(x)) continue;
     trees.push({
       position: [x, 0, z],
       rotationY: rng() * Math.PI * 2,

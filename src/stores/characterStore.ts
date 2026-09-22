@@ -4,7 +4,7 @@ import { useCombatStore } from './combatStore';
 import { useUIStore } from './uiStore';
 import { useWorldStore } from './worldStore';
 import { playSound } from '../lib/sound';
-import { playerPosition } from '../components/game/playerTransform';
+import { playerPosition, playerStuck } from '../components/game/playerTransform';
 import { clearMoveTarget } from '../components/game/moveTarget';
 import {
   FIELD_EXTENT,
@@ -67,7 +67,7 @@ function randomBlinkPoint(): [number, number] {
   for (let i = 0; i < BLINK_ATTEMPTS; i++) {
     const x = (Math.random() * 2 - 1) * half;
     const z = (Math.random() * 2 - 1) * half;
-    if (inVillageClearZone(x, z) || inCaveClearZone(x, z) || inRiverZone(x) || inDesertZone(x)) continue;
+    if (inVillageClearZone(x, z) || inCaveClearZone(x, z) || inRiverZone(x, z) || inDesertZone(x)) continue;
     if (collidesAt(x, z, activeColliders.list)) continue;
     return [x, z];
   }
@@ -139,8 +139,9 @@ interface CharacterState {
   useHotbarSlot: (slot: number) => Promise<void>;
   // Free (no item/cooldown) escape hatch for getting wedged in world geometry — same
   // guaranteed-safe destination as the 마을 귀환 주문서 item's teleportTo('village'), just
-  // triggerable directly (see GamePage's KeyU binding and SystemMenu's button) instead of
-  // needing one in inventory.
+  // triggerable directly (see SystemMenu's button) instead of needing one in inventory. Gated
+  // by playerStuck (see CharacterMesh's stuck-detection heuristic) rather than always
+  // available, since a free unconditional village return would just duplicate that item.
   unstuck: () => void;
 }
 
@@ -280,7 +281,9 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   },
 
   unstuck: () => {
+    if (!playerStuck.value) return;
     teleportTo('village');
+    playerStuck.value = false;
     playSound('cast', 0.5);
   },
 }));

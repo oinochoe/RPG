@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { useUIStore } from "../../stores/uiStore";
 import { useCharacterStore } from "../../stores/characterStore";
+import { playerStuck } from "./playerTransform";
 import { useDraggablePanel } from "./useDraggablePanel";
 
 const PANEL_WIDTH = 280;
+const STUCK_POLL_MS = 300;
 
 const KEYBINDS: [string, string][] = [
   ["이동", "WASD / 방향키"],
@@ -16,7 +18,6 @@ const KEYBINDS: [string, string][] = [
   ["캐릭터 / 장비", "C"],
   ["인벤토리", "I"],
   ["단축키 슬롯", "1 - 4"],
-  ["긴급 탈출 (마을로 이동)", "U"],
   ["메뉴", "F1 / ESC"],
 ];
 
@@ -32,11 +33,23 @@ export function SystemMenu() {
   // this menu shows every time; 캐릭터 선택/로그아웃 (what someone actually opens F1 to do
   // most of the time) get top billing instead.
   const [showKeybinds, setShowKeybinds] = useState(false);
+  const [isStuck, setIsStuck] = useState(false);
   const navigate = useNavigate();
   const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
     x: window.innerWidth / 2 - PANEL_WIDTH / 2,
     y: Math.max(16, window.innerHeight / 2 - 180),
   }));
+
+  // Only polled while the menu is actually open — playerStuck is a plain mutable object (see
+  // playerTransform.ts), not React state, so the escape button's enabled/disabled look needs
+  // this to notice CharacterMesh's stuck-detection heuristic flipping it.
+  useEffect(() => {
+    if (!isOpen) return;
+    const poll = () => setIsStuck(playerStuck.value);
+    poll();
+    const id = window.setInterval(poll, STUCK_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -135,23 +148,29 @@ export function SystemMenu() {
       </button>
       <button
         onClick={() => {
+          if (!isStuck) return;
           useCharacterStore.getState().unstuck();
           closeSystemMenu();
         }}
-        title="지형에 끼었을 때 가까운 마을로 즉시 이동합니다 (단축키 U)"
+        disabled={!isStuck}
+        title={
+          isStuck
+            ? "지형에 낀 상태가 감지되었습니다 — 가까운 마을로 즉시 이동합니다"
+            : "지형에 낀 상태에서만 사용할 수 있습니다 (평소 이동에는 마을 귀환 주문서를 사용하세요)"
+        }
         style={{
           width: "100%",
           padding: "6px 0",
           marginTop: 6,
           borderRadius: 6,
-          border: "1px solid rgba(224, 83, 138, 0.4)",
-          background: "rgba(224, 83, 138, 0.12)",
-          color: "#e0538a",
+          border: `1px solid rgba(224, 83, 138, ${isStuck ? 0.4 : 0.15})`,
+          background: isStuck ? "rgba(224, 83, 138, 0.12)" : "rgba(224, 83, 138, 0.04)",
+          color: isStuck ? "#e0538a" : "rgba(224, 83, 138, 0.4)",
           fontSize: 12,
-          cursor: "pointer",
+          cursor: isStuck ? "pointer" : "not-allowed",
         }}
       >
-        긴급 탈출 (마을로 이동)
+        긴급 탈출 {isStuck ? "(마을로 이동)" : "(끼었을 때만 사용 가능)"}
       </button>
 
       <button

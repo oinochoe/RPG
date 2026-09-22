@@ -65,10 +65,13 @@ function monsterScale(name: string): number {
 
 // Elites get a color tint (multiplied onto the base material) instead of a separate model —
 // darker/redder the higher-ranked the monster, so a 군주 reads as visually tougher than a
-// 대장 at a glance even before its bigger scale/health bar register.
+// 대장 at a glance even before its bigger scale/health bar register. 미라 (desert mummy) reuses
+// the same skeleton rig/model but with a sandy tint instead of a new asset — same reskin
+// technique, just for telling a desert enemy apart from a dungeon one rather than for rank.
 function monsterTint(name: string): THREE.ColorRepresentation | undefined {
   if (name.includes('군주')) return '#8a1f2b';
   if (name.includes('대장')) return '#c4553a';
+  if (name.includes('미라')) return '#c9a05c';
   return undefined;
 }
 
@@ -174,6 +177,7 @@ export function Scene({
                 key={monster.instance_id}
                 monster={monster}
                 variant={monster.monster_template_id === 3 ? SKELETON_VARIANT : undefined}
+                tint={monsterTint(monster.name)}
               />
             ))}
         </>

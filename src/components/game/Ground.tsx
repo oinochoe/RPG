@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
-import type { ThreeEvent } from '@react-three/fiber';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useGrassTexture, useSandTexture, useWaterTexture } from './proceduralTextures';
 import { setMoveTarget } from './moveTarget';
@@ -17,6 +17,7 @@ import {
   RIVER_X_CENTER,
   RIVER_HALF_WIDTH,
   DESERT_X_START,
+  riverXAt,
   type Decoration,
   type TreeKind,
   type DesertPropKind,
@@ -51,6 +52,22 @@ const DESERT_PROP_MODEL: Record<DesertPropKind, string> = {
   rockTall: `${KENNEY_NATURE}/rock_tallA.glb`,
 };
 const BRIDGE_MODEL = `${KENNEY_NATURE}/bridge_wood.glb`;
+// bridge_wood.glb's own bounding box (read from the GLB's accessor min/max, same technique
+// used to size the other Kenney assets) is 1.04×0.4×1.04 — a single repeatable deck module,
+// not a one-piece span. Placed just once at the old scale it only covered ~3.3 units, leaving
+// it looking like a disconnected plank dropped in the middle of a much wider river instead of
+// actually joining both banks. Tiled across the crossing instead, like the dungeon's floor
+// tiles.
+const BRIDGE_SCALE = 3.2;
+const BRIDGE_SEGMENT_SPAN = 1.04 * BRIDGE_SCALE;
+// Reaches a bit past the waterline onto solid ground on each side so the deck visibly meets
+// the bank instead of ending right at the water's edge.
+const BRIDGE_BANK_OVERLAP = 2.5;
+const BRIDGE_HALF_SPAN = RIVER_HALF_WIDTH + BRIDGE_BANK_OVERLAP;
+const BRIDGE_SEGMENT_COUNT = Math.ceil((BRIDGE_HALF_SPAN * 2) / BRIDGE_SEGMENT_SPAN) + 1;
+const BRIDGE_SEGMENT_OFFSETS = Array.from({ length: BRIDGE_SEGMENT_COUNT }, (_, i) =>
+  BRIDGE_SEGMENT_COUNT === 1 ? 0 : -BRIDGE_HALF_SPAN + (i * (BRIDGE_HALF_SPAN * 2)) / (BRIDGE_SEGMENT_COUNT - 1),
+);
 
 function Rocks({ decorations }: { decorations: Decoration[] }) {
   const rocks = useMemo(() => decorations.filter((d) => d.kind === 'rock'), [decorations]);
@@ -148,12 +165,77 @@ function DesertPatch() {
   );
 }
 
+const RIVER_SEGMENTS = 90;
+// Bank-shadow gradient (vertex colors, multiplied onto the water texture) — brightest at the
+// centerline, darker toward each edge, so the strip doesn't read as one flat uniform slab.
+const RIVER_CENTER_TINT = new THREE.Color(1, 1, 1);
+const RIVER_BANK_TINT = new THREE.Color(0.55, 0.62, 0.68);
+const RIVER_FLOW_SPEED = 0.1;
+
+/** A straight plane can't follow worldColliders.ts's riverXAt() meander, so this builds a
+ * ribbon strip by hand: 3 vertices per cross-section (left bank, center, right bank) at each
+ * z-step, sampling riverXAt(z) for the centerline. UVs match planeGeometry's own convention
+ * (u 0..1 across width, v 0..1 along length) so the water texture's existing repeat.set(6, 22)
+ * still tiles the same way it did on the old flat plane. */
+function buildRiverGeometry(): THREE.BufferGeometry {
+  const half = GROUND_SIZE / 2;
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const colors: number[] = [];
+  const indices: number[] = [];
+
+  for (let i = 0; i <= RIVER_SEGMENTS; i++) {
+    const t = i / RIVER_SEGMENTS;
+    const z = -half + t * half * 2;
+    const cx = riverXAt(z);
+    positions.push(cx - RIVER_HALF_WIDTH, 0, z, cx, 0, z, cx + RIVER_HALF_WIDTH, 0, z);
+    uvs.push(0, t, 0.5, t, 1, t);
+    colors.push(
+      RIVER_BANK_TINT.r, RIVER_BANK_TINT.g, RIVER_BANK_TINT.b,
+      RIVER_CENTER_TINT.r, RIVER_CENTER_TINT.g, RIVER_CENTER_TINT.b,
+      RIVER_BANK_TINT.r, RIVER_BANK_TINT.g, RIVER_BANK_TINT.b,
+    );
+  }
+
+  for (let i = 0; i < RIVER_SEGMENTS; i++) {
+    const a = i * 3;
+    const b = (i + 1) * 3;
+    // Left-center and center-right quads, each split into 2 triangles wound to face +Y.
+    indices.push(a, b, a + 1, b, b + 1, a + 1);
+    indices.push(a + 1, b + 1, a + 2, b + 1, b + 2, a + 2);
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 function RiverStrip() {
   const waterTexture = useWaterTexture();
+  const geometry = useMemo(() => buildRiverGeometry(), []);
+
+  // A tiled static texture alone still reads as flat — scrolling its V offset over time gives
+  // the water an actual sense of current instead of just noise, which a straight plane image
+  // (real tile or not) could never provide on its own.
+  useFrame((_, delta) => {
+    waterTexture.offset.y -= delta * RIVER_FLOW_SPEED;
+  });
+
   return (
-    <mesh position={[RIVER_X_CENTER, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-      <planeGeometry args={[RIVER_HALF_WIDTH * 2, GROUND_SIZE]} />
-      <meshStandardMaterial map={waterTexture} roughness={0.3} metalness={0.1} transparent opacity={0.92} />
+    <mesh position={[0, 0.02, 0]} geometry={geometry}>
+      <meshStandardMaterial
+        map={waterTexture}
+        vertexColors
+        roughness={0.3}
+        metalness={0.1}
+        transparent
+        opacity={0.92}
+        side={THREE.DoubleSide}
+      />
     </mesh>
   );
 }
@@ -210,7 +292,9 @@ export function Ground() {
             scale={prop.scale}
           />
         ))}
-        <NatureProp url={BRIDGE_MODEL} position={[RIVER_X_CENTER, 0.05, 0]} scale={3.2} />
+        {BRIDGE_SEGMENT_OFFSETS.map((offset, i) => (
+          <NatureProp key={`bridge-${i}`} url={BRIDGE_MODEL} position={[RIVER_X_CENTER + offset, 0.05, 0]} scale={BRIDGE_SCALE} />
+        ))}
       </Suspense>
 
       <Village />

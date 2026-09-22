@@ -7,7 +7,7 @@ import { NameTag } from './NameTag';
 import { HealthBar } from './HealthBar';
 import { Projectile } from './Projectile';
 import { FxSprite } from './FxSprite';
-import { playerPosition, playerFacing } from './playerTransform';
+import { playerPosition, playerFacing, playerStuck } from './playerTransform';
 import { moveTarget, clearMoveTarget } from './moveTarget';
 import { resolveMovement, PLAYER_COLLISION_RADIUS } from './worldColliders';
 import { OFFSET as CAMERA_OFFSET } from './CameraRig';
@@ -63,6 +63,13 @@ const ATTACK_DURATION_MS = 300;
 const MOVE_FADE_SEC = 0.15;
 const MOVE_SPEED = 6;
 const FOOTSTEP_INTERVAL_MS = 320;
+// "Stuck" heuristic: the player has been actively trying to move (keys held or a moveTarget
+// set) for this long while net displacement from where that attempt started stays under
+// STUCK_RESET_DISTANCE. At MOVE_SPEED=6, unobstructed movement covers ~15 units in that time —
+// sliding normally along a single wall still nets real displacement (axis-separated collision
+// keeps the open axis free), so this only trips for genuinely boxed-in positions.
+const STUCK_THRESHOLD_MS = 2500;
+const STUCK_RESET_DISTANCE = 0.6;
 // Overall playable boundary (field + village combined) — LightRig follows the player, so
 // this no longer needs to fit inside a fixed shadow frustum, just the decorated ground itself.
 // Matches worldColliders.ts's FIELD_EXTENT/2 (400/2=200) and scatterDesertProps' own radius
@@ -256,6 +263,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   const keysDown = useRef<Set<string>>(new Set());
   const facing = useRef(0);
   const nextFootstepAt = useRef(0);
+  const stuckAnchor = useRef<{ pos: [number, number]; since: number } | null>(null);
   const attackAnimUntil = useRef(0);
   // How long the current override lasts and which pose shape it follows — melee's swing
   // (windUp -> impact -> rest, see swingEase) and ranged's draw (rest -> windUp, holding
@@ -452,6 +460,27 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       }
       const targetFacing = Math.atan2(dx, dz);
       facing.current += shortestAngleDelta(facing.current, targetFacing) * Math.min(1, delta * 12);
+
+      // Stuck detection — see STUCK_THRESHOLD_MS above. Only runs while actively trying to
+      // move; releasing input leaves the anchor cleared but deliberately doesn't clear an
+      // already-set playerStuck.value, so the flag survives long enough for the player to let
+      // go of WASD and open the menu to use the escape button it gates.
+      if (!stuckAnchor.current) {
+        stuckAnchor.current = { pos: [playerPosition.x, playerPosition.z], since: now };
+      } else {
+        const moved = Math.hypot(
+          playerPosition.x - stuckAnchor.current.pos[0],
+          playerPosition.z - stuckAnchor.current.pos[1],
+        );
+        if (moved > STUCK_RESET_DISTANCE) {
+          stuckAnchor.current = { pos: [playerPosition.x, playerPosition.z], since: now };
+          if (playerStuck.value) playerStuck.value = false;
+        } else if (now - stuckAnchor.current.since > STUCK_THRESHOLD_MS) {
+          playerStuck.value = true;
+        }
+      }
+    } else {
+      stuckAnchor.current = null;
     }
 
     if (!usingKeyboard && !moveTarget.point && moveTarget.attackTargetId !== null) {
