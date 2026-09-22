@@ -500,6 +500,22 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       }
     } else {
       stuckAnchor.current = null;
+
+      // Standing still (arrived at range, or attacking from a standoff point) used to leave
+      // facing frozen at whatever direction the last bit of movement happened to point —
+      // fine if that was toward the monster, wrong the moment the fight moved around it.
+      // While stationary and locked onto a target, keep turning to face it, same easing as
+      // movement-direction facing above.
+      const targetId = useCombatStore.getState().targetId;
+      const target = targetId !== null ? useCombatStore.getState().monsters[targetId] : undefined;
+      if (target?.alive) {
+        const tdx = target.position[0] - playerPosition.x;
+        const tdz = target.position[2] - playerPosition.z;
+        if (Math.hypot(tdx, tdz) > 0.01) {
+          const targetFacing = Math.atan2(tdx, tdz);
+          facing.current += shortestAngleDelta(facing.current, targetFacing) * Math.min(1, delta * 12);
+        }
+      }
     }
 
     if (!usingKeyboard && !moveTarget.point && moveTarget.attackTargetId !== null) {
