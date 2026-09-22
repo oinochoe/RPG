@@ -41,8 +41,17 @@ const RIVER_COLLIDER_SPACING = RIVER_COLLIDER_RADIUS * 1.8;
 export const riverColliders: Collider[] = (() => {
   const colliders: Collider[] = [];
   const half = FIELD_EXTENT / 2;
-  for (let z = -half; z <= half; z += RIVER_COLLIDER_SPACING) {
-    if (Math.abs(z - BRIDGE_Z) < BRIDGE_GAP_HALF) continue;
+  // Walk outward from the bridge gap in both directions instead of stepping from -half with a
+  // fixed spacing and skipping whatever lands near BRIDGE_Z — that only left a real gap when
+  // half happened to be a multiple of the spacing. Once FIELD_EXTENT changed, no collider's
+  // center fell within BRIDGE_GAP_HALF of z=0 anymore, so nothing got skipped and the "gap"
+  // silently disappeared, sealing the whole river shut (bridge visible, uncrossable). Starting
+  // each side's first collider exactly flush with the gap's edge guarantees the gap is always
+  // real and always exactly BRIDGE_GAP_HALF wide, independent of FIELD_EXTENT.
+  for (let z = BRIDGE_Z + BRIDGE_GAP_HALF + RIVER_COLLIDER_RADIUS; z <= half; z += RIVER_COLLIDER_SPACING) {
+    colliders.push({ x: RIVER_X_CENTER, z, radius: RIVER_COLLIDER_RADIUS });
+  }
+  for (let z = BRIDGE_Z - BRIDGE_GAP_HALF - RIVER_COLLIDER_RADIUS; z >= -half; z -= RIVER_COLLIDER_SPACING) {
     colliders.push({ x: RIVER_X_CENTER, z, radius: RIVER_COLLIDER_RADIUS });
   }
   return colliders;

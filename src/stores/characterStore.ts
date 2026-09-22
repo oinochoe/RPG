@@ -137,6 +137,11 @@ interface CharacterState {
   sellItem: (inventoryId: number, price: number) => Promise<void>;
   setHotbarSlot: (slot: number, assignment: HotbarAssignment | null) => void;
   useHotbarSlot: (slot: number) => Promise<void>;
+  // Free (no item/cooldown) escape hatch for getting wedged in world geometry — same
+  // guaranteed-safe destination as the 마을 귀환 주문서 item's teleportTo('village'), just
+  // triggerable directly (see GamePage's KeyU binding and SystemMenu's button) instead of
+  // needing one in inventory.
+  unstuck: () => void;
 }
 
 export const useCharacterStore = create<CharacterState>((set, get) => ({
@@ -272,5 +277,10 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
         return { hotbarPending };
       });
     }
+  },
+
+  unstuck: () => {
+    teleportTo('village');
+    playSound('cast', 0.5);
   },
 }));

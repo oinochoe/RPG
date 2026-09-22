@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { useUIStore } from "../../stores/uiStore";
+import { useCharacterStore } from "../../stores/characterStore";
 import { useDraggablePanel } from "./useDraggablePanel";
 
 const PANEL_WIDTH = 280;
@@ -15,6 +16,7 @@ const KEYBINDS: [string, string][] = [
   ["캐릭터 / 장비", "C"],
   ["인벤토리", "I"],
   ["단축키 슬롯", "1 - 4"],
+  ["긴급 탈출 (마을로 이동)", "U"],
   ["메뉴", "F1 / ESC"],
 ];
 
@@ -130,6 +132,26 @@ export function SystemMenu() {
         }}
       >
         {loggingOut ? "로그아웃 중..." : "로그아웃"}
+      </button>
+      <button
+        onClick={() => {
+          useCharacterStore.getState().unstuck();
+          closeSystemMenu();
+        }}
+        title="지형에 끼었을 때 가까운 마을로 즉시 이동합니다 (단축키 U)"
+        style={{
+          width: "100%",
+          padding: "6px 0",
+          marginTop: 6,
+          borderRadius: 6,
+          border: "1px solid rgba(224, 83, 138, 0.4)",
+          background: "rgba(224, 83, 138, 0.12)",
+          color: "#e0538a",
+          fontSize: 12,
+          cursor: "pointer",
+        }}
+      >
+        긴급 탈출 (마을로 이동)
       </button>
 
       <button

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
@@ -13,9 +13,49 @@ import { CharacterMesh } from './CharacterMesh';
 import { MonsterMesh, GOBLIN_VARIANT, SKELETON_VARIANT } from './MonsterMesh';
 import { CameraRig } from './CameraRig';
 import { LightRig } from './LightRig';
+import { playerPosition } from './playerTransform';
 import { useCombatStore } from '../../stores/combatStore';
 import { useWorldStore } from '../../stores/worldStore';
-import type { CharacterProfile, EnterMapResponse } from '../../types/api';
+import type { CharacterProfile, EnterMapResponse, MonsterInstanceSummary } from '../../types/api';
+
+// Every field monster used to mount unconditionally — with FIELD_MONSTER_COUNT at 90 (and the
+// field itself much bigger), that meant 90 simultaneous skinned meshes + animation mixers +
+// up to 180 per-frame-repositioned Html name/health tags, all ticking regardless of whether
+// the player could even see them. Rendering only stops for monsters actually near the player;
+// combatStore's own tickMonsterMovement/monsterAttackTick still run for all of them either way
+// (that part was never the bottleneck — it's plain math over a plain object), so nothing about
+// combat correctness changes, only what gets mounted. Polled rather than checked every frame
+// since a monster's spawn point doesn't need pixel-perfect cull timing, and a little
+// hysteresis (wider radius to leave than to enter) stops it flickering in/out right at the edge.
+const FIELD_MONSTER_RENDER_RADIUS = 65;
+const FIELD_MONSTER_RENDER_HYSTERESIS = 10;
+const MONSTER_CULL_POLL_MS = 300;
+
+function useNearbyFieldMonsterIds(monsters: MonsterInstanceSummary[]): Set<number> {
+  const [nearbyIds, setNearbyIds] = useState<Set<number>>(() => new Set());
+  const prevRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    function poll() {
+      const next = new Set<number>();
+      for (const m of monsters) {
+        const dx = playerPosition.x - m.position_x;
+        const dz = playerPosition.z - m.position_z;
+        const threshold = prevRef.current.has(m.instance_id)
+          ? FIELD_MONSTER_RENDER_RADIUS + FIELD_MONSTER_RENDER_HYSTERESIS
+          : FIELD_MONSTER_RENDER_RADIUS;
+        if (dx * dx + dz * dz <= threshold * threshold) next.add(m.instance_id);
+      }
+      prevRef.current = next;
+      setNearbyIds(next);
+    }
+    poll();
+    const id = window.setInterval(poll, MONSTER_CULL_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [monsters]);
+
+  return nearbyIds;
+}
 
 function monsterScale(name: string): number {
   if (name.includes('군주')) return 1.7;
@@ -80,6 +120,7 @@ export function Scene({
   // dungeon's buildFloorMonsters. Stable for the session (computed once, not reshuffled on
   // every re-render).
   const fieldMonsters = useMemo(() => buildFieldMonsters(), []);
+  const nearbyFieldMonsterIds = useNearbyFieldMonsterIds(fieldMonsters);
 
   useEffect(() => {
     initCombat(character, fieldMonsters, false);
@@ -126,13 +167,15 @@ export function Scene({
       ) : (
         <>
           <Ground />
-          {fieldMonsters.map((monster) => (
-            <MonsterMesh
-              key={monster.instance_id}
-              monster={monster}
-              variant={monster.monster_template_id === 3 ? SKELETON_VARIANT : undefined}
-            />
-          ))}
+          {fieldMonsters
+            .filter((monster) => nearbyFieldMonsterIds.has(monster.instance_id))
+            .map((monster) => (
+              <MonsterMesh
+                key={monster.instance_id}
+                monster={monster}
+                variant={monster.monster_template_id === 3 ? SKELETON_VARIANT : undefined}
+              />
+            ))}
         </>
       )}
 
