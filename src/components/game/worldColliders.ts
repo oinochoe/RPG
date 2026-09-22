@@ -59,6 +59,7 @@ export interface VillageZone {
 export const VILLAGES: VillageZone[] = [
   { center: [-32, 0], size: 22 },
   { center: [0, -100], size: 26 },
+  { center: [-30, 110], size: 22 },
 ];
 
 // The villages sit inside this same field, not a separate scene — this keeps rocks/tufts/

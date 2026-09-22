@@ -120,6 +120,24 @@ export const VILLAGE_CONFIGS: VillageConfig[] = [
       { model: `${KENNEY_TOWN}/windmill.glb`, offset: [13, 5], scale: 1.3, rotationY: Math.PI / 4 },
     ],
   },
+  {
+    // A third town up north — same building set again, told apart by its watchpost framing
+    // (lanterns flanking the entrance, no windmill/stalls) and its own flavor NPCs.
+    name: '북쪽 마을',
+    shopNpcs: [
+      { kind: 'merchant', name: '상인', offset: [7, -3] },
+      { kind: 'blacksmith', name: '대장장이', offset: [-7, -3] },
+    ],
+    flavorNpcs: [
+      { kind: 'villager', name: '파수꾼', offset: [0, -10], facingY: Math.PI },
+      { kind: 'villager', name: '노인', offset: [-4, 4] },
+    ],
+    props: [
+      { model: `${KENNEY_TOWN}/lantern.glb`, offset: [-3, -9.5], scale: 1.1 },
+      { model: `${KENNEY_TOWN}/lantern.glb`, offset: [3, -9.5], scale: 1.1 },
+      { model: `${KENNEY_TOWN}/stall.glb`, offset: [9, 6], scale: 1.1, rotationY: Math.PI / 2 },
+    ],
+  },
 ];
 
 export const villageColliders: Collider[] = VILLAGES.flatMap((zone) => [
