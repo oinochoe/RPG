@@ -2,27 +2,21 @@ import { Suspense, useEffect, useMemo } from 'react';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { useCobblestoneTexture } from './proceduralTextures';
-import type { Collider } from './worldColliders';
-import { NPC } from './NPC';
+import { VILLAGES, type Collider, type VillageZone } from './worldColliders';
+import { NPC, type NpcKind } from './NPC';
 
-// Kept in sync with the exclusion box in worldColliders.ts (VILLAGE_CLEAR_X/Z) so rocks
-// never spawn inside these buildings. Exported so WorldMap.tsx can highlight this same area.
-export const VILLAGE_CENTER: [number, number] = [-32, 0];
-export const VILLAGE_SIZE = 22;
-const PLAZA_SIZE = VILLAGE_SIZE;
+// Re-exported for callers that only care about "the first/main village" (WorldMap.tsx now
+// loops over every village instead, but PositionSync-style callers elsewhere may still want
+// a single default). Kept as a plain re-export rather than duplicating the literal.
+export const VILLAGE_CENTER = VILLAGES[0].center;
+export const VILLAGE_SIZE = VILLAGES[0].size;
 
 // Shop NPCs — exported so ShopProximity.tsx can check the player's distance to them
 // (and which one) without duplicating these coordinates. Each kind sells a different
 // item_type slice of the catalog (see characters.ts's /me/shop route): 대장장이 (blacksmith)
-// sells weapon/armor, 상인 (merchant) sells everything else (consumables etc., none seeded
-// yet, so their shop is genuinely empty for now rather than faked).
+// sells weapon/armor, 상인 (merchant) sells everything else. Both villages sell the same
+// catalog per kind — this is "another one of these NPCs is closer," not a second shop.
 export type ShopNpcKind = 'merchant' | 'blacksmith';
-
-export const SHOP_NPCS: { kind: ShopNpcKind; name: string; position: [number, number] }[] = [
-  { kind: 'merchant', name: '상인', position: [VILLAGE_CENTER[0] + 7, VILLAGE_CENTER[1] - 3] },
-  { kind: 'blacksmith', name: '대장장이', position: [VILLAGE_CENTER[0] - 7, VILLAGE_CENTER[1] - 3] },
-];
-export const SHOP_INTERACT_RADIUS = 2.5;
 
 // KayKit's Medieval Hexagon Pack models are modeled at roughly a 1-unit hex-tile scale;
 // this brings them up to match our character height (TARGET_HEIGHT 0.9 in CharacterMesh) —
@@ -38,7 +32,12 @@ interface BuildingDef {
   rotationY?: number;
 }
 
-const BUILDINGS: BuildingDef[] = [
+// The only 5 building models actually downloaded from the KayKit Medieval Hexagon pack (see
+// public/models/kaykit-medieval) — both villages reuse this same set rather than needing a
+// second building style, since sourcing more (the itch.io-only KayKit forest/town packs
+// aren't fetchable by URL the way Kenney.nl is) wasn't worth the risk for what's otherwise
+// just architectural variety. They're told apart by layout, NPCs, and props instead.
+const VILLAGE_BUILDINGS: BuildingDef[] = [
   {
     model: '/models/kaykit-medieval/Assets/gltf/buildings/blue/building_blacksmith_blue.gltf',
     footprint: [0.66, 0.63],
@@ -69,16 +68,81 @@ const BUILDINGS: BuildingDef[] = [
   },
 ];
 
-export const villageColliders: Collider[] = [
-  { x: VILLAGE_CENTER[0], z: VILLAGE_CENTER[1], radius: 1.4 }, // fountain
-  ...BUILDINGS.map((b) => ({
-    x: VILLAGE_CENTER[0] + b.offset[0],
-    z: VILLAGE_CENTER[1] + b.offset[1],
-    radius: Math.max(b.footprint[0], b.footprint[1]) * BUILDING_SCALE * 1.15,
-  })),
+interface FlavorNpcDef {
+  kind: NpcKind;
+  name: string;
+  offset: [number, number];
+  facingY?: number;
+}
+
+interface PropDef {
+  model: string;
+  offset: [number, number];
+  scale?: number;
+  rotationY?: number;
+}
+
+interface VillageConfig {
+  name: string;
+  shopNpcs: { kind: ShopNpcKind; name: string; offset: [number, number] }[];
+  flavorNpcs: FlavorNpcDef[];
+  props?: PropDef[];
+}
+
+const KENNEY_TOWN = '/models/kenney-town';
+
+export const VILLAGE_CONFIGS: VillageConfig[] = [
+  {
+    name: '마을',
+    shopNpcs: [
+      { kind: 'merchant', name: '상인', offset: [7, -3] },
+      { kind: 'blacksmith', name: '대장장이', offset: [-7, -3] },
+    ],
+    flavorNpcs: [{ kind: 'villager', name: '촌장', offset: [0, 4], facingY: Math.PI }],
+  },
+  {
+    // A second town further south — same building set, different NPCs/props (market stalls,
+    // a lantern, a windmill) so it doesn't just read as a copy-pasted village.
+    name: '남쪽 마을',
+    shopNpcs: [
+      { kind: 'merchant', name: '상인', offset: [7, -3] },
+      { kind: 'blacksmith', name: '대장장이', offset: [-7, -3] },
+    ],
+    flavorNpcs: [
+      { kind: 'villager', name: '농부', offset: [-4, 3] },
+      { kind: 'villager', name: '경비병', offset: [4, 3], facingY: Math.PI },
+    ],
+    props: [
+      { model: `${KENNEY_TOWN}/stall.glb`, offset: [3, 2], scale: 1.1 },
+      { model: `${KENNEY_TOWN}/stall-red.glb`, offset: [-3, 2], scale: 1.1, rotationY: Math.PI },
+      { model: `${KENNEY_TOWN}/lantern.glb`, offset: [-9, -9], scale: 1 },
+      { model: `${KENNEY_TOWN}/lantern.glb`, offset: [9, -9], scale: 1 },
+      { model: `${KENNEY_TOWN}/windmill.glb`, offset: [13, 5], scale: 1.3, rotationY: Math.PI / 4 },
+    ],
+  },
 ];
 
-function Building({ building }: { building: BuildingDef }) {
+export const villageColliders: Collider[] = VILLAGES.flatMap((zone) => [
+  { x: zone.center[0], z: zone.center[1], radius: 1.4 }, // fountain
+  ...VILLAGE_BUILDINGS.map((b) => ({
+    x: zone.center[0] + b.offset[0],
+    z: zone.center[1] + b.offset[1],
+    radius: Math.max(b.footprint[0], b.footprint[1]) * BUILDING_SCALE * 1.15,
+  })),
+]);
+
+export const SHOP_NPCS: { kind: ShopNpcKind; name: string; position: [number, number] }[] = VILLAGES.flatMap(
+  (zone, i) =>
+    VILLAGE_CONFIGS[i].shopNpcs.map((npc) => ({
+      kind: npc.kind,
+      name: npc.name,
+      position: [zone.center[0] + npc.offset[0], zone.center[1] + npc.offset[1]] as [number, number],
+    })),
+);
+
+export const SHOP_INTERACT_RADIUS = 2.5;
+
+function Building({ zone, building }: { zone: VillageZone; building: BuildingDef }) {
   const gltf = useGLTF(building.model);
   const scene = useMemo(() => gltf.scene.clone(), [gltf.scene]);
 
@@ -93,7 +157,7 @@ function Building({ building }: { building: BuildingDef }) {
 
   return (
     <group
-      position={[VILLAGE_CENTER[0] + building.offset[0], 0, VILLAGE_CENTER[1] + building.offset[1]]}
+      position={[zone.center[0] + building.offset[0], 0, zone.center[1] + building.offset[1]]}
       rotation={[0, building.rotationY ?? 0, 0]}
       scale={BUILDING_SCALE}
     >
@@ -102,9 +166,33 @@ function Building({ building }: { building: BuildingDef }) {
   );
 }
 
-function Fountain() {
+function Prop({ zone, prop }: { zone: VillageZone; prop: PropDef }) {
+  const gltf = useGLTF(prop.model);
+  const scene = useMemo(() => gltf.scene.clone(), [gltf.scene]);
+
+  useEffect(() => {
+    scene.traverse((obj) => {
+      if ((obj as THREE.Mesh).isMesh) {
+        obj.castShadow = true;
+        obj.receiveShadow = true;
+      }
+    });
+  }, [scene]);
+
   return (
-    <group position={[VILLAGE_CENTER[0], 0, VILLAGE_CENTER[1]]}>
+    <group
+      position={[zone.center[0] + prop.offset[0], 0, zone.center[1] + prop.offset[1]]}
+      rotation={[0, prop.rotationY ?? 0, 0]}
+      scale={prop.scale ?? 1}
+    >
+      <primitive object={scene} />
+    </group>
+  );
+}
+
+function Fountain({ zone }: { zone: VillageZone }) {
+  return (
+    <group position={[zone.center[0], 0, zone.center[1]]}>
       <mesh receiveShadow castShadow position={[0, 0.25, 0]}>
         <cylinderGeometry args={[1.3, 1.4, 0.5, 20]} />
         <meshStandardMaterial color="#9aa3ad" roughness={0.6} />
@@ -122,36 +210,58 @@ function Fountain() {
   );
 }
 
-/**
- * The village plaza — just decoration + colliders, rendered unconditionally alongside the
- * field as one continuous walkable world (no scene swap / teleport; you walk there).
- */
-export function Village() {
+function VillagePlaza({ zone, config }: { zone: VillageZone; config: VillageConfig }) {
   const cobbleTexture = useCobblestoneTexture();
 
   return (
     <group>
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[VILLAGE_CENTER[0], 0.005, VILLAGE_CENTER[1]]}
-        receiveShadow
-      >
-        <planeGeometry args={[PLAZA_SIZE, PLAZA_SIZE]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[zone.center[0], 0.005, zone.center[1]]} receiveShadow>
+        <planeGeometry args={[zone.size, zone.size]} />
         <meshStandardMaterial map={cobbleTexture} roughness={0.95} metalness={0} />
       </mesh>
 
-      <Fountain />
+      <Fountain zone={zone} />
 
       <Suspense fallback={null}>
-        {BUILDINGS.map((building, i) => (
-          <Building key={i} building={building} />
+        {VILLAGE_BUILDINGS.map((building, i) => (
+          <Building key={i} zone={zone} building={building} />
         ))}
-        {SHOP_NPCS.map((npc) => (
-          <NPC key={npc.kind} position={[npc.position[0], 0, npc.position[1]]} name={npc.name} kind={npc.kind} />
+        {config.shopNpcs.map((npc) => (
+          <NPC
+            key={npc.kind}
+            position={[zone.center[0] + npc.offset[0], 0, zone.center[1] + npc.offset[1]]}
+            name={npc.name}
+            kind={npc.kind}
+          />
         ))}
+        {config.flavorNpcs.map((npc, i) => (
+          <NPC
+            key={i}
+            position={[zone.center[0] + npc.offset[0], 0, zone.center[1] + npc.offset[1]]}
+            name={npc.name}
+            kind={npc.kind}
+            facingY={npc.facingY}
+          />
+        ))}
+        {config.props?.map((prop, i) => <Prop key={i} zone={zone} prop={prop} />)}
       </Suspense>
     </group>
   );
 }
 
-BUILDINGS.forEach((b) => useGLTF.preload(b.model));
+/**
+ * Every village plaza — just decoration + colliders, rendered unconditionally alongside the
+ * field as one continuous walkable world (no scene swap / teleport; you walk there).
+ */
+export function Village() {
+  return (
+    <group>
+      {VILLAGES.map((zone, i) => (
+        <VillagePlaza key={i} zone={zone} config={VILLAGE_CONFIGS[i]} />
+      ))}
+    </group>
+  );
+}
+
+VILLAGE_BUILDINGS.forEach((b) => useGLTF.preload(b.model));
+VILLAGE_CONFIGS.forEach((cfg) => cfg.props?.forEach((p) => useGLTF.preload(p.model)));

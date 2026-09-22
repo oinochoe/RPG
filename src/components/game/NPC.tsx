@@ -7,8 +7,11 @@ import { NameTag } from './NameTag';
 const NPC_MODEL = {
   merchant: '/models/kaykit/Characters/gltf/Ranger.glb',
   blacksmith: '/models/kaykit/Characters/gltf/Knight.glb',
+  // Flavor-only villagers (no shop interaction, just presence) reuse the Mage model for a
+  // third silhouette instead of duplicating merchant/blacksmith's look everywhere.
+  villager: '/models/kaykit/Characters/gltf/Mage.glb',
 } as const;
-type NpcKind = keyof typeof NPC_MODEL;
+export type NpcKind = keyof typeof NPC_MODEL;
 
 const RIG_GENERAL = '/models/kaykit/Animations/gltf/Rig_Medium/Rig_Medium_General.glb';
 const TARGET_HEIGHT = 0.9;

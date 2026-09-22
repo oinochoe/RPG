@@ -21,13 +21,28 @@ export function inDesertZone(x: number): boolean {
   return x > DESERT_X_START;
 }
 
-// The village sits inside this same field, not a separate scene — this box keeps rocks/tufts
-// from spawning on top of its buildings. Kept in sync with the layout in Village.tsx.
-const VILLAGE_CLEAR_X: [number, number] = [-42, -22];
-const VILLAGE_CLEAR_Z: [number, number] = [-10, 10];
+export interface VillageZone {
+  center: [number, number];
+  size: number;
+}
 
-function inVillageClearZone(x: number, z: number): boolean {
-  return x >= VILLAGE_CLEAR_X[0] && x <= VILLAGE_CLEAR_X[1] && z >= VILLAGE_CLEAR_Z[0] && z <= VILLAGE_CLEAR_Z[1];
+// Canonical village positions — the single source of truth Village.tsx renders from and
+// FieldMonsters.ts excludes spawns from, instead of each file hand-copying its own clear-zone
+// box around numbers that used to live only in Village.tsx (which is how the old single-
+// village version of this worked, and exactly the kind of duplication that goes stale the
+// next time a village moves).
+export const VILLAGES: VillageZone[] = [
+  { center: [-32, 0], size: 22 },
+  { center: [0, -100], size: 26 },
+];
+
+// The villages sit inside this same field, not a separate scene — this keeps rocks/tufts/
+// trees/monsters from spawning on top of their buildings.
+export function inVillageClearZone(x: number, z: number): boolean {
+  return VILLAGES.some(({ center, size }) => {
+    const half = size / 2 + 3;
+    return Math.abs(x - center[0]) <= half && Math.abs(z - center[1]) <= half;
+  });
 }
 
 // The dungeon cave mouth in the field — walk within FIELD_ENTRANCE_RADIUS of this point to

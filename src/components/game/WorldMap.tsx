@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { playerPosition } from './playerTransform';
-import { rockColliders, FIELD_ENTRANCE_POINT, RIVER_X_CENTER, RIVER_HALF_WIDTH, DESERT_X_START } from './worldColliders';
-import { VILLAGE_CENTER, VILLAGE_SIZE } from './Village';
+import { rockColliders, FIELD_ENTRANCE_POINT, RIVER_X_CENTER, RIVER_HALF_WIDTH, DESERT_X_START, VILLAGES } from './worldColliders';
+import { VILLAGE_CONFIGS } from './Village';
 import { DUNGEON_MAX_FLOOR, DUNGEON_EXIT_TRIGGER, DUNGEON_DESCEND_TRIGGER } from './Dungeon';
 import { useCombatStore } from '../../stores/combatStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -96,27 +96,31 @@ function FieldMap({ player }: { player: { x: number; z: number } }) {
         <circle key={i} cx={rock.x} cy={rock.z} r={0.6} fill="#5a5148" />
       ))}
 
-      <rect
-        x={VILLAGE_CENTER[0] - VILLAGE_SIZE / 2}
-        y={VILLAGE_CENTER[1] - VILLAGE_SIZE / 2}
-        width={VILLAGE_SIZE}
-        height={VILLAGE_SIZE}
-        rx={2}
-        fill="#8a7f72"
-        stroke="#e8c97a"
-        strokeWidth={0.4}
-      />
-      <MapIcon path={ICON_PATH.house} x={VILLAGE_CENTER[0]} y={VILLAGE_CENTER[1]} size={7} color="#e8c97a" />
-      <text
-        x={VILLAGE_CENTER[0]}
-        y={VILLAGE_CENTER[1] - VILLAGE_SIZE / 2 - 1.5}
-        fill="#e8c97a"
-        fontSize={3.2}
-        textAnchor="middle"
-        fontWeight={700}
-      >
-        마을
-      </text>
+      {VILLAGES.map((zone, i) => (
+        <g key={i}>
+          <rect
+            x={zone.center[0] - zone.size / 2}
+            y={zone.center[1] - zone.size / 2}
+            width={zone.size}
+            height={zone.size}
+            rx={2}
+            fill="#8a7f72"
+            stroke="#e8c97a"
+            strokeWidth={0.4}
+          />
+          <MapIcon path={ICON_PATH.house} x={zone.center[0]} y={zone.center[1]} size={7} color="#e8c97a" />
+          <text
+            x={zone.center[0]}
+            y={zone.center[1] - zone.size / 2 - 1.5}
+            fill="#e8c97a"
+            fontSize={3.2}
+            textAnchor="middle"
+            fontWeight={700}
+          >
+            {VILLAGE_CONFIGS[i].name}
+          </text>
+        </g>
+      ))}
 
       <MapIcon path={ICON_PATH.cave} x={FIELD_ENTRANCE_POINT[0]} y={FIELD_ENTRANCE_POINT[1]} size={6} color="#c084fc" />
       <text

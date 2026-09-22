@@ -182,7 +182,7 @@ export function SystemMenu() {
         <br />
         효과음: Kenney.nl (CC0)
         <br />
-        자연물(나무/사막/다리): Kenney.nl (CC0)
+        자연물/마을 소품(나무/사막/다리/노점/풍차): Kenney.nl (CC0)
       </p>
     </div>
   );

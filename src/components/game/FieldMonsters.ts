@@ -1,5 +1,5 @@
 import { mulberry32 } from './proceduralTextures';
-import { FIELD_ENTRANCE_POINT, inRiverZone, inDesertZone } from './worldColliders';
+import { FIELD_ENTRANCE_POINT, inRiverZone, inDesertZone, inVillageClearZone } from './worldColliders';
 import type { MonsterInstanceSummary } from '../../types/api';
 
 // The server's POST /exploration/enter-map always returns monsters: [] (no real monster-
@@ -10,13 +10,7 @@ const SEED = 7;
 const FIELD_MONSTER_COUNT = 50;
 const SCATTER_EXTENT = 130;
 const SPAWN_CLEAR_RADIUS = 8;
-const VILLAGE_CLEAR_X: [number, number] = [-42, -22];
-const VILLAGE_CLEAR_Z: [number, number] = [-10, 10];
 const CAVE_CLEAR_RADIUS = 6;
-
-function inVillageClearZone(x: number, z: number): boolean {
-  return x >= VILLAGE_CLEAR_X[0] && x <= VILLAGE_CLEAR_X[1] && z >= VILLAGE_CLEAR_Z[0] && z <= VILLAGE_CLEAR_Z[1];
-}
 
 function inCaveClearZone(x: number, z: number): boolean {
   const dx = x - FIELD_ENTRANCE_POINT[0];
