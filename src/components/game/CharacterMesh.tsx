@@ -70,6 +70,11 @@ const FOOTSTEP_INTERVAL_MS = 320;
 // keeps the open axis free), so this only trips for genuinely boxed-in positions.
 const STUCK_THRESHOLD_MS = 2500;
 const STUCK_RESET_DISTANCE = 0.6;
+// Holding a direction key against the world's own outer radius clamp (MAX_RADIUS below)
+// produces the exact same signature as being wedged in geometry — intent to move, near-zero
+// net displacement — but it isn't a bug, it's the map boundary working as designed. Excluded
+// explicitly so walking to the edge of the field never arms the escape button.
+const STUCK_BOUNDARY_MARGIN = 1.5;
 // Overall playable boundary (field + village combined) — LightRig follows the player, so
 // this no longer needs to fit inside a fixed shadow frustum, just the decorated ground itself.
 // Matches worldColliders.ts's FIELD_EXTENT/2 (400/2=200) and scatterDesertProps' own radius
@@ -465,7 +470,10 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       // move; releasing input leaves the anchor cleared but deliberately doesn't clear an
       // already-set playerStuck.value, so the flag survives long enough for the player to let
       // go of WASD and open the menu to use the escape button it gates.
-      if (!stuckAnchor.current) {
+      const atWorldBoundary = radius >= MAX_RADIUS - STUCK_BOUNDARY_MARGIN;
+      if (atWorldBoundary) {
+        stuckAnchor.current = null;
+      } else if (!stuckAnchor.current) {
         stuckAnchor.current = { pos: [playerPosition.x, playerPosition.z], since: now };
       } else {
         const moved = Math.hypot(

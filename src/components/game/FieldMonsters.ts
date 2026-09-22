@@ -27,10 +27,10 @@ function inCaveClearZone(x: number, z: number): boolean {
 // than a random mix.
 const SKELETON_MIN_TIER = 2;
 
-// Desert-only fauna — reuses the skeleton rig/model (template_id 3) rather than a new asset,
-// distinguished by name and a sandy tint (see Scene.tsx's monsterTint), same reskin-via-tint
-// technique already used for dungeon captains/lords. A distinct enemy for the desert instead
-// of it being empty of monsters entirely.
+// Desert-only fauna — 가시선인장 (Cactoro, a Quaternius CC0 cactus creature; see MonsterMesh's
+// CACTORO_VARIANT/CACTORO_CONFIG) as monster_template_id 4, a real dedicated model rather than
+// reskinning the dungeon's skeleton with a tint. A distinct enemy for the desert instead of it
+// being empty of monsters entirely.
 const DESERT_MONSTER_COUNT = 35;
 const DESERT_SCATTER_SEED = 21;
 const DESERT_X_END = FIELD_EXTENT / 2;
@@ -49,8 +49,8 @@ function buildDesertMonsters(idBaseStart: number): MonsterInstanceSummary[] {
     if (Math.hypot(x, z) > DESERT_X_END) continue;
     monsters.push({
       instance_id: idBase++,
-      monster_template_id: 3,
-      name: '미라',
+      monster_template_id: 4,
+      name: '가시선인장',
       level: DESERT_MONSTER_LEVEL,
       current_hp: DESERT_MONSTER_HP,
       max_hp: DESERT_MONSTER_HP,

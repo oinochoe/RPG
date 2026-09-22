@@ -1,0 +1,12 @@
+	Cactoro (rigged, animated: Idle/Walk/Run/Jump/Punch/HitReact/Death)
+
+	Created/distributed by Quaternius (quaternius.com)
+	Source: https://poly.pizza/m/IGn9lhdama
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	This content is free to use in personal, educational and commercial
+	projects, with no attribution required.

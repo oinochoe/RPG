@@ -18,7 +18,7 @@ interface DamagePopup {
 
 export interface MonsterVariant {
   nameAccent: string;
-  model: 'slime' | 'goblin' | 'skeleton';
+  model: 'slime' | 'goblin' | 'skeleton' | 'cactoro';
   labelHeight: number;
 }
 
@@ -38,6 +38,12 @@ export const SKELETON_VARIANT: MonsterVariant = {
   nameAccent: '#c9d6e3',
   model: 'skeleton',
   labelHeight: 1.0,
+};
+
+export const CACTORO_VARIANT: MonsterVariant = {
+  nameAccent: '#8fbf4a',
+  model: 'cactoro',
+  labelHeight: 0.7,
 };
 
 // How long the body keeps rendering (playing its Death clip) after currentHp hits 0, before
@@ -98,9 +104,30 @@ const SLIME_CONFIG: RiggedMonsterConfig = {
   facingOffset: 0,
 };
 
-const MONSTER_CONFIG: Record<'goblin' | 'slime', RiggedMonsterConfig> = {
+// Cactoro (Quaternius, CC0 — https://poly.pizza/m/IGn9lhdama) — a cactus creature, a real
+// desert-fitting monster instead of reskinning the dungeon skeleton with a tint. Its GLB was
+// sourced from poly.pizza (the direct-URL host Quaternius's own poly.pizza-listed assets
+// resolve to, unlike itch.io) using the same "individual verified file" approach as the
+// goblin/slime — see public/models/quaternius-cactoro/License.txt.
+const CACTORO_CONFIG: RiggedMonsterConfig = {
+  modelUrl: '/models/quaternius-cactoro/Cactoro.glb',
+  targetHeight: 0.65,
+  clips: {
+    idle: 'CharacterArmature|Idle',
+    walk: 'CharacterArmature|Walk',
+    attack: 'CharacterArmature|Punch',
+    hit: 'CharacterArmature|HitReact',
+    death: 'CharacterArmature|Death',
+  },
+  attackAnimMs: 450,
+  hitAnimMs: 300,
+  facingOffset: 0,
+};
+
+const MONSTER_CONFIG: Record<'goblin' | 'slime' | 'cactoro', RiggedMonsterConfig> = {
   goblin: GOBLIN_CONFIG,
   slime: SLIME_CONFIG,
+  cactoro: CACTORO_CONFIG,
 };
 
 // Skeleton characters (KayKit - Character Pack: Skeletons) share the same rig/bone-naming

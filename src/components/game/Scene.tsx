@@ -10,7 +10,7 @@ import { PlayerCombatEffects } from './PlayerCombatEffects';
 import { PositionSync } from './PositionSync';
 import { ShopProximity } from './ShopProximity';
 import { CharacterMesh } from './CharacterMesh';
-import { MonsterMesh, GOBLIN_VARIANT, SKELETON_VARIANT } from './MonsterMesh';
+import { MonsterMesh, GOBLIN_VARIANT, SKELETON_VARIANT, CACTORO_VARIANT } from './MonsterMesh';
 import { CameraRig } from './CameraRig';
 import { LightRig } from './LightRig';
 import { playerPosition } from './playerTransform';
@@ -57,6 +57,14 @@ function useNearbyFieldMonsterIds(monsters: MonsterInstanceSummary[]): Set<numbe
   return nearbyIds;
 }
 
+// Field monster_template_id convention (see FieldMonsters.ts): 1 = slime (the default variant
+// MonsterMesh itself falls back to), 3 = skeleton, 4 = 가시선인장 (desert-only).
+function fieldMonsterVariant(templateId: number) {
+  if (templateId === 3) return SKELETON_VARIANT;
+  if (templateId === 4) return CACTORO_VARIANT;
+  return undefined;
+}
+
 function monsterScale(name: string): number {
   if (name.includes('군주')) return 1.7;
   if (name.includes('대장')) return 1.3;
@@ -65,13 +73,10 @@ function monsterScale(name: string): number {
 
 // Elites get a color tint (multiplied onto the base material) instead of a separate model —
 // darker/redder the higher-ranked the monster, so a 군주 reads as visually tougher than a
-// 대장 at a glance even before its bigger scale/health bar register. 미라 (desert mummy) reuses
-// the same skeleton rig/model but with a sandy tint instead of a new asset — same reskin
-// technique, just for telling a desert enemy apart from a dungeon one rather than for rank.
+// 대장 at a glance even before its bigger scale/health bar register.
 function monsterTint(name: string): THREE.ColorRepresentation | undefined {
   if (name.includes('군주')) return '#8a1f2b';
   if (name.includes('대장')) return '#c4553a';
-  if (name.includes('미라')) return '#c9a05c';
   return undefined;
 }
 
@@ -176,7 +181,7 @@ export function Scene({
               <MonsterMesh
                 key={monster.instance_id}
                 monster={monster}
-                variant={monster.monster_template_id === 3 ? SKELETON_VARIANT : undefined}
+                variant={fieldMonsterVariant(monster.monster_template_id)}
                 tint={monsterTint(monster.name)}
               />
             ))}
