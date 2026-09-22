@@ -1,5 +1,6 @@
 import { useCombatStore } from '../../stores/combatStore';
 import { useQuestStore, findQuestByGiver } from '../../stores/questStore';
+import { useLootStore } from '../../stores/lootStore';
 import { useUIStore } from '../../stores/uiStore';
 import { Hotbar } from './Hotbar';
 
@@ -49,7 +50,10 @@ export function HUD() {
   const nearShopKind = useUIStore((s) => s.nearShopKind);
   const nearQuestNpcName = useUIStore((s) => s.nearQuestNpcName);
   const quests = useQuestStore((s) => s.quests);
+  const nearDropId = useUIStore((s) => s.nearDropId);
+  const drops = useLootStore((s) => s.drops);
   const toggleSystemMenu = useUIStore((s) => s.toggleSystemMenu);
+  const nearDrop = nearDropId !== null ? drops.find((d) => d.id === nearDropId) : undefined;
 
   // Only relevant while standing near a quest NPC — null otherwise, so the JSX below can
   // stay a single `nearQuestNpcName &&` guard without re-deriving this every render.
@@ -101,6 +105,23 @@ export function HUD() {
           }}
         >
           {nearQuestPrompt}
+        </div>
+      )}
+
+      {!nearShopKind && !nearQuestPrompt && nearDrop && (
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            bottom: 96,
+            transform: 'translateX(-50%)',
+            color: '#e8c97a',
+            fontWeight: 700,
+            fontSize: 13,
+            textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+          }}
+        >
+          {nearDrop.itemName} 줍기: F4
         </div>
       )}
 

@@ -12,8 +12,10 @@ import { moveTarget, clearMoveTarget } from './moveTarget';
 import { resolveMovement, PLAYER_COLLISION_RADIUS } from './worldColliders';
 import { OFFSET as CAMERA_OFFSET } from './CameraRig';
 import { playSound, playFootstep } from '../../lib/sound';
+import * as charactersApi from '../../api/characters';
 import { useCombatStore, findSkillDef } from '../../stores/combatStore';
 import { useQuestStore } from '../../stores/questStore';
+import { useLootStore } from '../../stores/lootStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { CharacterProfile } from '../../types/api';
@@ -378,11 +380,12 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       spawnSkillEffect('flash', [playerPosition.x, baseY + PROJECTILE_ORIGIN_HEIGHT, playerPosition.z], fxColor);
     }
     if (result.killed && result.goldDropped) playSound('coin', 0.4);
-    if (result.killed && result.monsterTemplateId !== undefined) {
-      useQuestStore.getState().reportKill(result.monsterTemplateId);
-    }
     const variant = PROJECTILE_VARIANT[character.character_class];
     const monster = result.instanceId != null ? useCombatStore.getState().monsters[result.instanceId] : undefined;
+    if (result.killed && result.monsterTemplateId !== undefined) {
+      useQuestStore.getState().reportKill(result.monsterTemplateId);
+      if (monster) useLootStore.getState().rollDrop(result.monsterTemplateId, monster.position);
+    }
     if (!variant) {
       beginSwing();
       playSound(isSkill ? 'hitHeavy' : 'hit', 0.5);
@@ -459,6 +462,28 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
         // game with a quickbar, casting itself happens by pressing the assigned slot (see
         // the castRequestId watcher below), not by this key directly anymore.
         useUIStore.getState().openSkillTab();
+        return;
+      }
+      if (e.code === 'F4') {
+        e.preventDefault();
+        const dropId = ui.nearDropId;
+        if (dropId === null) return;
+        const drop = useLootStore.getState().drops.find((d) => d.id === dropId);
+        if (!drop) return;
+        charactersApi
+          .lootItem(drop.itemTemplateId)
+          .then(({ items }) => {
+            // Only removed from the world (and only played the sound) once the server
+            // actually confirmed the grant — a failed request leaves the drop in place so
+            // the player can just press F4 again instead of silently losing the item.
+            useLootStore.getState().removeDrop(dropId);
+            useCharacterStore.getState().receiveInventory(items);
+            playSound('pickup', 0.5);
+          })
+          .catch(() => {
+            // Best-effort, matches this project's other client-authoritative economy calls
+            // (see the server route's own comment) — no dedicated error UI for a pickup miss.
+          });
         return;
       }
       if (MOVE_KEYS[e.code]) {

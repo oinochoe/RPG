@@ -5,6 +5,7 @@ import { activeColliders, rockColliders, FIELD_ENTRANCE_POINT } from '../compone
 import { villageColliders } from '../components/game/Village';
 import { getDungeonColliders, buildFloorMonsters, getEntrySpawn, getExitSpawn } from '../components/game/Dungeon';
 import { useCombatStore } from './combatStore';
+import { useLootStore } from './lootStore';
 import type { MonsterInstanceSummary } from '../types/api';
 
 export type AreaId = 'field' | 'dungeon';
@@ -32,6 +33,9 @@ function enterFloor(floor: number, spawnSide: 'south' | 'north') {
   clearMoveTarget();
   activeColliders.list = getDungeonColliders(floor);
   useCombatStore.getState().loadMonsters(buildFloorMonsters(floor), isDungeonEscortAggressive);
+  // A drop left behind on the field (or a different floor) has nothing to do with this
+  // floor's own space — same "swap, don't carry over" reasoning as loadMonsters above.
+  useLootStore.getState().clear();
   const spawn = spawnSide === 'south' ? getEntrySpawn(floor) : getExitSpawn(floor);
   playerPosition.set(spawn[0], 0, spawn[1]);
 }
@@ -73,6 +77,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     clearMoveTarget();
     activeColliders.list = [...rockColliders, ...villageColliders];
     useCombatStore.getState().loadMonsters(fieldMonsters, false);
+    useLootStore.getState().clear();
     playerPosition.set(FIELD_RETURN_POINT[0], 0, FIELD_RETURN_POINT[1]);
     set({ currentArea: 'field', dungeonFloor: 1 });
   },

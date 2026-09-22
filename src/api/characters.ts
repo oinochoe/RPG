@@ -131,3 +131,10 @@ export interface ClaimQuestResponse {
 export function claimQuest(questTemplateId: number): Promise<ClaimQuestResponse> {
   return apiRequest(`/characters/me/quests/${questTemplateId}/claim`, { method: 'POST' });
 }
+
+export function lootItem(itemTemplateId: number): Promise<InventoryListResponse> {
+  return apiRequest('/characters/me/inventory/loot', {
+    method: 'POST',
+    body: { item_template_id: itemTemplateId },
+  });
+}

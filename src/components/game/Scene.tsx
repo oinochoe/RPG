@@ -10,6 +10,8 @@ import { PlayerCombatEffects } from './PlayerCombatEffects';
 import { PositionSync } from './PositionSync';
 import { ShopProximity } from './ShopProximity';
 import { QuestProximity } from './QuestProximity';
+import { LootProximity } from './LootProximity';
+import { ItemDropMesh } from './ItemDropMesh';
 import { CharacterMesh } from './CharacterMesh';
 import { MonsterMesh, GOBLIN_VARIANT, SKELETON_VARIANT, CACTORO_VARIANT, GIANT_VARIANT } from './MonsterMesh';
 import { CameraRig } from './CameraRig';
@@ -17,6 +19,7 @@ import { LightRig } from './LightRig';
 import { playerPosition } from './playerTransform';
 import { useCombatStore } from '../../stores/combatStore';
 import { useQuestStore } from '../../stores/questStore';
+import { useLootStore } from '../../stores/lootStore';
 import { useWorldStore } from '../../stores/worldStore';
 import type { CharacterProfile, EnterMapResponse, MonsterInstanceSummary } from '../../types/api';
 
@@ -134,6 +137,7 @@ export function Scene({
 }) {
   const initCombat = useCombatStore((s) => s.init);
   const initQuests = useQuestStore((s) => s.init);
+  const drops = useLootStore((s) => s.drops);
   const currentArea = useWorldStore((s) => s.currentArea);
   const dungeonFloor = useWorldStore((s) => s.dungeonFloor);
 
@@ -203,6 +207,10 @@ export function Scene({
         </>
       )}
 
+      {drops.map((drop) => (
+        <ItemDropMesh key={drop.id} drop={drop} />
+      ))}
+
       <Suspense fallback={null}>
         <CharacterMesh character={character} />
       </Suspense>
@@ -213,6 +221,7 @@ export function Scene({
       <PositionSync mapId={map.map_id} />
       <ShopProximity />
       <QuestProximity />
+      <LootProximity />
 
       <EffectComposer multisampling={0}>
         <Bloom luminanceThreshold={0.85} luminanceSmoothing={0.6} intensity={0.15} mipmapBlur />

@@ -27,6 +27,11 @@ interface UIState {
   // Mirrors nearShopKind but for quest-giving flavor NPCs — set every frame by
   // QuestProximity.tsx, read by CharacterMesh's Space handler.
   nearQuestNpcName: string | null;
+  // The nearest lootStore world drop's id within pickup range (null if none) — set every
+  // frame by LootProximity.tsx, read by CharacterMesh's F4 handler. A plain id rather than a
+  // kind/name like the other two, since a drop is a specific instance, not a fixed NPC.
+  nearDropId: number | null;
+  setNearDropId: (dropId: number | null) => void;
   // Currently-open panels in the order they were opened, most-recent last — lets Escape
   // close just the panel the player opened last (e.g. 캐창+인창 both open -> Escape closes
   // whichever was opened second, not both at once) instead of a single "close everything".
@@ -107,6 +112,7 @@ export const useUIStore = create<UIState>((set) => ({
   isQuestOpen: false,
   questNpcName: null,
   nearQuestNpcName: null,
+  nearDropId: null,
   openPanelStack: [],
   skillTabRequestId: 0,
 
@@ -176,6 +182,7 @@ export const useUIStore = create<UIState>((set) => ({
 
   setNearShopKind: (kind) => set({ nearShopKind: kind }),
   setNearQuestNpcName: (npcName) => set({ nearQuestNpcName: npcName }),
+  setNearDropId: (dropId) => set({ nearDropId: dropId }),
 
   closeTopPanel: () =>
     set((s) => {

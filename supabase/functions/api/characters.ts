@@ -692,6 +692,27 @@ charactersRoutes.post("/me/quests/:id/claim", async (c) => {
   });
 });
 
+// Free item pickup from a world monster drop (see the client's lootStore.ts DROP_TABLE) — no
+// gold cost, unlike /me/inventory/buy. Like the rest of this project's combat/economy routes
+// (see the buy route's own comment), this trusts the client's claim that a drop with this
+// item_template_id legitimately existed in the world; monster drops were never made
+// server-authoritative any more than monster instances themselves were.
+charactersRoutes.post("/me/inventory/loot", async (c) => {
+  const appUser = c.get("appUser");
+  const { item_template_id } = await readJsonBody(c);
+  if (typeof item_template_id !== "number" || !Number.isInteger(item_template_id)) {
+    throw new ApiError(400, "validation_failed", "invalid_request", "item_template_id는 정수여야 합니다.", "item_template_id");
+  }
+
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  await grantInventoryItem(admin, characterId, item_template_id, 1);
+
+  const inventory = await fetchInventory(admin, characterId);
+  return c.json({ items: inventory }, 201);
+});
+
 charactersRoutes.get("/me", async (c) => {
   const appUser = c.get("appUser");
   const admin = getAdminClient();

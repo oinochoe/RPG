@@ -1,7 +1,7 @@
-// Lightweight sound-effect layer — swing/hit/cast/potion/coin/footstep cues (Kenney.nl RPG
-// Audio + Impact Sounds packs, CC0, credited in SystemMenu). No background music and no
-// per-UI-button clicks in this pass; this covers the core combat/movement/economy loop,
-// which is where a "light" sound pass pays off most.
+// Lightweight sound-effect layer — swing/hit/cast/potion/coin/footstep/pickup cues (Kenney.nl
+// RPG Audio + Impact Sounds + UI Audio packs, all CC0, credited in SystemMenu). No background
+// music and no per-UI-button clicks in this pass; this covers the core combat/movement/
+// economy/pickup loop, which is where a "light" sound pass pays off most.
 const SOUND_FILES = {
   swing: '/audio/swing.ogg',
   hit: '/audio/hit.ogg',
@@ -9,6 +9,10 @@ const SOUND_FILES = {
   cast: '/audio/cast.ogg',
   potion: '/audio/potion.ogg',
   coin: '/audio/coin.ogg',
+  // A mechanical click/latch cue for picking up a world item drop (F4) — Kenney's UI Audio
+  // pack (same CC0 author as the rest of this file's sounds, just a different one of their
+  // packs), not the RPG/Impact packs the others come from.
+  pickup: '/audio/pickup.ogg',
   footstep0: '/audio/footstep0.ogg',
   footstep1: '/audio/footstep1.ogg',
   footstep2: '/audio/footstep2.ogg',
