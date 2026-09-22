@@ -1,4 +1,7 @@
 import { create } from 'zustand';
+import * as charactersApi from '../api/characters';
+import { useCharacterStore } from './characterStore';
+import { playSound } from '../lib/sound';
 
 export type DropItemType = 'weapon' | 'armor' | 'consumable' | 'scroll';
 
@@ -119,3 +122,27 @@ export const useLootStore = create<LootState>((set, get) => ({
 
   clear: () => set({ drops: [] }),
 }));
+
+// How close the player has to be to pick up a drop directly (F5, or clicking one already in
+// range) — shared with LootProximity.tsx's own scan and ItemDropMesh's click handler so both
+// agree on the same range.
+export const PICKUP_RADIUS = 1.8;
+
+// Shared by CharacterMesh's F5 handler and ItemDropMesh's click handler (via the walk-then-
+// pickup path) so there's exactly one place that does the actual grant — server call, then
+// only remove-from-world/update-inventory/play-sound once that's confirmed, so a failed
+// request leaves the drop in place instead of silently losing the item (same trust boundary
+// as this project's other client-authoritative economy calls; see the server route comment).
+export async function pickupDrop(dropId: number): Promise<boolean> {
+  const drop = useLootStore.getState().drops.find((d) => d.id === dropId);
+  if (!drop) return false;
+  try {
+    const { items } = await charactersApi.lootItem(drop.itemTemplateId);
+    useLootStore.getState().removeDrop(dropId);
+    useCharacterStore.getState().receiveInventory(items);
+    playSound('pickup', 0.5);
+    return true;
+  } catch {
+    return false;
+  }
+}

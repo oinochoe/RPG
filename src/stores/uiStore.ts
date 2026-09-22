@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 export type ShopNpcKind = 'merchant' | 'blacksmith';
-type PanelId = 'map' | 'character' | 'inventory' | 'shop' | 'systemMenu' | 'quest';
+type PanelId = 'map' | 'character' | 'inventory' | 'shop' | 'systemMenu' | 'quest' | 'questLog';
 
 // The panels that close everything else when opened (they cover most of the screen and
 // have no docked position of their own to share space with another panel).
@@ -32,6 +32,11 @@ interface UIState {
   // kind/name like the other two, since a drop is a specific instance, not a fixed NPC.
   nearDropId: number | null;
   setNearDropId: (dropId: number | null) => void;
+  // The Q-key quest log — a standalone tracker/summary (available/in-progress/completed,
+  // with progress counts) distinct from isQuestOpen's per-NPC accept/claim dialogue above.
+  // Docked side-by-side with character/inventory rather than exclusive, same reasoning as
+  // those two.
+  isQuestLogOpen: boolean;
   // Currently-open panels in the order they were opened, most-recent last — lets Escape
   // close just the panel the player opened last (e.g. 캐창+인창 both open -> Escape closes
   // whichever was opened second, not both at once) instead of a single "close everything".
@@ -46,6 +51,8 @@ interface UIState {
   closeShop: () => void;
   openQuest: (npcName: string) => void;
   closeQuest: () => void;
+  toggleQuestLog: () => void;
+  closeQuestLog: () => void;
   toggleSystemMenu: () => void;
   closeSystemMenu: () => void;
   setNearShopKind: (kind: ShopNpcKind | null) => void;
@@ -70,6 +77,7 @@ function allPanelsClosedPatch() {
     isShopOpen: false,
     isSystemMenuOpen: false,
     isQuestOpen: false,
+    isQuestLogOpen: false,
     openPanelStack: [] as PanelId[],
   };
 }
@@ -98,6 +106,8 @@ function closePanelPatch(id: PanelId): Partial<UIState> {
       return { isSystemMenuOpen: false };
     case 'quest':
       return { isQuestOpen: false };
+    case 'questLog':
+      return { isQuestLogOpen: false };
   }
 }
 
@@ -113,6 +123,7 @@ export const useUIStore = create<UIState>((set) => ({
   questNpcName: null,
   nearQuestNpcName: null,
   nearDropId: null,
+  isQuestLogOpen: false,
   openPanelStack: [],
   skillTabRequestId: 0,
 
@@ -169,6 +180,24 @@ export const useUIStore = create<UIState>((set) => ({
   openQuest: (npcName) =>
     set({ ...allPanelsClosedPatch(), isQuestOpen: true, questNpcName: npcName, openPanelStack: ['quest'] }),
   closeQuest: () => set((s) => ({ isQuestOpen: false, openPanelStack: popPanel(s.openPanelStack, 'quest') })),
+
+  toggleQuestLog: () =>
+    set((s) => {
+      if (s.isQuestLogOpen) {
+        return { isQuestLogOpen: false, openPanelStack: popPanel(s.openPanelStack, 'questLog') };
+      }
+      return {
+        isMapOpen: false,
+        isShopOpen: false,
+        isSystemMenuOpen: false,
+        isQuestLogOpen: true,
+        openPanelStack: pushPanel(
+          s.openPanelStack.filter((p) => !EXCLUSIVE_PANELS.includes(p)),
+          'questLog',
+        ),
+      };
+    }),
+  closeQuestLog: () => set((s) => ({ isQuestLogOpen: false, openPanelStack: popPanel(s.openPanelStack, 'questLog') })),
 
   toggleSystemMenu: () =>
     set((s) => {

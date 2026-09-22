@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { NameTag } from './NameTag';
-import { useLootStore, DROP_TTL_MS, type WorldDrop } from '../../stores/lootStore';
+import { playerPosition, triggerPickupAnim } from './playerTransform';
+import { setLootMoveTarget } from './moveTarget';
+import { useLootStore, pickupDrop, PICKUP_RADIUS, DROP_TTL_MS, type WorldDrop } from '../../stores/lootStore';
 
 const KAYKIT_ROOT = '/models/kaykit/Assets/gltf';
 const KAYKIT_WEAPONS = '/models/kaykit-weapons/Assets/gltf';
@@ -109,10 +111,31 @@ export function ItemDropMesh({ drop }: { drop: WorldDrop }) {
     }
   });
 
+  // Clicking a drop already within pickup range grabs it immediately — same "click acts
+  // instantly if already in range" shape as MonsterMesh's own click handler — otherwise it's
+  // a walk-then-pick-up like any other click-to-move-then-act target (see moveTarget.ts's
+  // lootTargetId, consumed by CharacterMesh's own useFrame block on arrival).
+  function handleClick(event: ThreeEvent<MouseEvent>) {
+    event.stopPropagation();
+    const dx = playerPosition.x - drop.position[0];
+    const dz = playerPosition.z - drop.position[2];
+    if (Math.hypot(dx, dz) <= PICKUP_RADIUS) {
+      pickupDrop(drop.id).then((ok) => {
+        if (ok) triggerPickupAnim();
+      });
+    } else {
+      setLootMoveTarget(drop.position[0], drop.position[2], drop.id);
+    }
+  }
+
   if (!config) return null;
 
   return (
     <group position={drop.position}>
+      <mesh visible={false} onClick={handleClick}>
+        <cylinderGeometry args={[0.4, 0.4, 0.6, 8]} />
+        <meshBasicMaterial />
+      </mesh>
       <mesh ref={glowRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
         <ringGeometry args={[0.15, 0.32, 24]} />
         <meshBasicMaterial

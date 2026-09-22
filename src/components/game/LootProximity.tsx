@@ -1,9 +1,7 @@
 import { useFrame } from '@react-three/fiber';
 import { playerPosition } from './playerTransform';
-import { useLootStore } from '../../stores/lootStore';
+import { useLootStore, PICKUP_RADIUS } from '../../stores/lootStore';
 import { useUIStore } from '../../stores/uiStore';
-
-const PICKUP_RADIUS = 1.8;
 
 /** Tracks the nearest world item drop within pickup range (if any) — same per-frame-scan
  * shape as ShopProximity/QuestProximity, just against lootStore's dynamic drop list instead

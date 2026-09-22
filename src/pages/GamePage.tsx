@@ -14,6 +14,7 @@ import { CharacterPanel } from '../components/game/CharacterPanel';
 import { InventoryPanel } from '../components/game/InventoryPanel';
 import { ShopPanel } from '../components/game/ShopPanel';
 import { QuestPanel } from '../components/game/QuestPanel';
+import { QuestLogPanel } from '../components/game/QuestLogPanel';
 import { SystemMenu } from '../components/game/SystemMenu';
 import { LoadingScreen } from '../components/ui/spinner';
 import { translateApiError } from './errorMessages';
@@ -59,6 +60,9 @@ export function GamePage() {
       } else if (e.code === 'KeyI') {
         e.preventDefault();
         useUIStore.getState().toggleInventory();
+      } else if (e.code === 'KeyQ') {
+        e.preventDefault();
+        useUIStore.getState().toggleQuestLog();
       } else if (e.code === 'F1') {
         e.preventDefault();
         useUIStore.getState().toggleSystemMenu();
@@ -80,7 +84,16 @@ export function GamePage() {
         }
       } else if (e.code in HOTBAR_KEYS) {
         const ui = useUIStore.getState();
-        if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isInventoryOpen || ui.isShopOpen || ui.isSystemMenuOpen || ui.isQuestOpen) return;
+        if (
+          ui.isMapOpen ||
+          ui.isCharacterPanelOpen ||
+          ui.isInventoryOpen ||
+          ui.isShopOpen ||
+          ui.isSystemMenuOpen ||
+          ui.isQuestOpen ||
+          ui.isQuestLogOpen
+        )
+          return;
         e.preventDefault();
         const slot = HOTBAR_KEYS[e.code];
         const assignment = useCharacterStore.getState().hotbar[slot];
@@ -116,6 +129,7 @@ export function GamePage() {
       <InventoryPanel character={activeCharacter} />
       <ShopPanel character={activeCharacter} />
       <QuestPanel />
+      <QuestLogPanel />
       <SystemMenu />
     </>
   );

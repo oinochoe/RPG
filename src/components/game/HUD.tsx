@@ -121,7 +121,7 @@ export function HUD() {
             textShadow: '0 1px 3px rgba(0,0,0,0.8)',
           }}
         >
-          {nearDrop.itemName} 줍기: F4
+          {nearDrop.itemName} 줍기: F4 (클릭도 가능)
         </div>
       )}
 

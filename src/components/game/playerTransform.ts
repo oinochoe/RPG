@@ -15,3 +15,17 @@ export const playerFacing = { radians: 0 };
  * emergency-teleport button so it can't be used as a free village-return outside that case
  * (there's already an item — 마을 귀환 주문서 — for that). */
 export const playerStuck = { value: false };
+
+const PICKUP_ANIM_DURATION_MS = 700;
+
+/** A timestamp read every frame by CharacterMesh to hold its idle/walk animation selection on
+ * the rig's 'PickUp' clip — a shared mutable rather than component-local ref/state so
+ * ItemDropMesh's onClick (an in-range pickup, no walk-then-arrive step) can trigger the same
+ * visual without needing CharacterMesh's own closures, the same reasoning as playerStuck. */
+export const pickupAnimUntil = { value: 0 };
+
+/** Called right after a confirmed pickup (F5, an in-range click, or arriving at a clicked
+ * drop) — see pickupAnimUntil's own comment. */
+export function triggerPickupAnim(): void {
+  pickupAnimUntil.value = performance.now() + PICKUP_ANIM_DURATION_MS;
+}

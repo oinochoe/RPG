@@ -59,6 +59,15 @@ const BRIDGE_MODEL = `${KENNEY_NATURE}/bridge_wood.glb`;
 // actually joining both banks. Tiled across the crossing instead, like the dungeon's floor
 // tiles.
 const BRIDGE_SCALE = 3.2;
+// bridge_wood.glb's mesh Y range is [0, 0.4] (its node also carries its own -0.05
+// translation) — scaling that uniformly by BRIDGE_SCALE the way x/z needs to be for the
+// footprint to tile across the river turned a 0.4-unit-tall deck into a 1.28-unit-tall one,
+// nearly 1.5x the player's own ~0.9-unit model height (see CharacterMesh's TARGET_HEIGHT) —
+// exactly the "the bridge is floating, doesn't feel like walking on it" look, since the
+// player's own Y never rises to meet it (movement is flat, no per-tile elevation). Scaling
+// height on its own, much less aggressively, keeps the footprint fix without the deck
+// towering over the character it's supposed to be walked on by.
+const BRIDGE_Y_SCALE = 0.25;
 const BRIDGE_SEGMENT_SPAN = 1.04 * BRIDGE_SCALE;
 // Reaches a bit past the waterline onto solid ground on each side so the deck visibly meets
 // the bank instead of ending right at the water's edge.
@@ -130,7 +139,10 @@ function NatureProp({
   url: string;
   position: [number, number, number];
   rotationY?: number;
-  scale?: number;
+  // A tuple lets a caller stretch footprint (x/z) without also stretching height (y) — see
+  // the bridge's own call site, where a uniform scale used to blow its deck height up to
+  // well above the player's own model height (see BRIDGE_Y_SCALE's comment).
+  scale?: number | [number, number, number];
 }) {
   const gltf = useGLTF(url);
   const scene = useMemo(() => gltf.scene.clone(), [gltf.scene]);
@@ -293,7 +305,12 @@ export function Ground() {
           />
         ))}
         {BRIDGE_SEGMENT_OFFSETS.map((offset, i) => (
-          <NatureProp key={`bridge-${i}`} url={BRIDGE_MODEL} position={[RIVER_X_CENTER + offset, 0.05, 0]} scale={BRIDGE_SCALE} />
+          <NatureProp
+            key={`bridge-${i}`}
+            url={BRIDGE_MODEL}
+            position={[RIVER_X_CENTER + offset, 0.05, 0]}
+            scale={[BRIDGE_SCALE, BRIDGE_Y_SCALE, BRIDGE_SCALE]}
+          />
         ))}
       </Suspense>
 

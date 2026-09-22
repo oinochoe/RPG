@@ -7,15 +7,14 @@ import { NameTag } from './NameTag';
 import { HealthBar } from './HealthBar';
 import { Projectile } from './Projectile';
 import { FxSprite, SkillRing } from './FxSprite';
-import { playerPosition, playerFacing, playerStuck } from './playerTransform';
+import { playerPosition, playerFacing, playerStuck, pickupAnimUntil, triggerPickupAnim } from './playerTransform';
 import { moveTarget, clearMoveTarget } from './moveTarget';
 import { resolveMovement, PLAYER_COLLISION_RADIUS } from './worldColliders';
 import { OFFSET as CAMERA_OFFSET } from './CameraRig';
 import { playSound, playFootstep } from '../../lib/sound';
-import * as charactersApi from '../../api/characters';
 import { useCombatStore, findSkillDef } from '../../stores/combatStore';
 import { useQuestStore } from '../../stores/questStore';
-import { useLootStore } from '../../stores/lootStore';
+import { useLootStore, pickupDrop } from '../../stores/lootStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { CharacterProfile } from '../../types/api';
@@ -365,6 +364,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       .multiply(new THREE.Quaternion().setFromAxisAngle(SWING_AXIS, RANGED_DRAW_ANGLE));
   }
 
+
   // Shared by both attack entry points (Space key and click-to-move-then-attack below) so a
   // hit always resolves into the right class's basic-attack visual: warrior keeps the melee
   // swing, archer/mage play a short draw/cast pose and the projectile itself is queued to
@@ -468,22 +468,9 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
         e.preventDefault();
         const dropId = ui.nearDropId;
         if (dropId === null) return;
-        const drop = useLootStore.getState().drops.find((d) => d.id === dropId);
-        if (!drop) return;
-        charactersApi
-          .lootItem(drop.itemTemplateId)
-          .then(({ items }) => {
-            // Only removed from the world (and only played the sound) once the server
-            // actually confirmed the grant — a failed request leaves the drop in place so
-            // the player can just press F4 again instead of silently losing the item.
-            useLootStore.getState().removeDrop(dropId);
-            useCharacterStore.getState().receiveInventory(items);
-            playSound('pickup', 0.5);
-          })
-          .catch(() => {
-            // Best-effort, matches this project's other client-authoritative economy calls
-            // (see the server route's own comment) — no dedicated error UI for a pickup miss.
-          });
+        pickupDrop(dropId).then((ok) => {
+          if (ok) triggerPickupAnim();
+        });
         return;
       }
       if (MOVE_KEYS[e.code]) {
@@ -607,13 +594,27 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       handleAttackResult(result, true, skillId);
     }
 
+    // Arrived at a clicked world item drop (see ItemDropMesh's onClick / setLootMoveTarget) —
+    // pick it up exactly once, same one-shot-on-arrival shape as the skill block above.
+    if (!usingKeyboard && !moveTarget.point && moveTarget.lootTargetId !== null) {
+      const dropId = moveTarget.lootTargetId;
+      moveTarget.lootTargetId = null;
+      pickupDrop(dropId).then((ok) => {
+        if (ok) triggerPickupAnim();
+      });
+    }
+
     groupRef.current.position.x = playerPosition.x;
     groupRef.current.position.z = playerPosition.z;
     groupRef.current.position.y = baseY;
     groupRef.current.rotation.y = facing.current;
     playerFacing.radians = facing.current;
 
-    isMoving ? playAction('Walking_A') : playAction('Idle_A');
+    if (performance.now() < pickupAnimUntil.value) {
+      playAction('PickUp');
+    } else {
+      isMoving ? playAction('Walking_A') : playAction('Idle_A');
+    }
 
     const attackRemaining = attackAnimUntil.current - performance.now();
 
