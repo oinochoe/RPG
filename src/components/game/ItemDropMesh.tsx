@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
@@ -52,33 +52,41 @@ const SPIN_SPEED = 1.1;
 
 function DropModel({ config }: { config: DropModelConfig }) {
   const gltf = useGLTF(config.url);
-  const scene = useMemo(() => gltf.scene.clone(), [gltf.scene]);
-  const groupRef = useRef<THREE.Group>(null);
 
-  useEffect(() => {
-    if (!groupRef.current) return;
-    const box = new THREE.Box3().setFromObject(scene);
+  // Computed once, synchronously, on a still-unparented clone — Box3.setFromObject reads
+  // world matrices, and measuring AFTER this clone was already mounted under drop.position's
+  // group (e.g. via a useEffect) picked up that offset as if it were the model's own local
+  // bounds, then re-applied it as a further LOCAL position on top of the same offset. That
+  // silently shoved the actual mesh away from its own glow ring/nametag (which don't get this
+  // treatment) — usually just far enough to read as "nothing rendered here but the label."
+  // Measuring here, before any parent transform exists, keeps world space == local space.
+  const { scene, scale, offset } = useMemo(() => {
+    const cloned = gltf.scene.clone();
+    cloned.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(cloned);
     const size = new THREE.Vector3();
     box.getSize(size);
     const largest = Math.max(size.x, size.y, size.z);
-    const scale = largest > 0 ? config.targetSize / largest : 1;
-    groupRef.current.scale.setScalar(scale);
-    // Re-centers so the model's own pivot (often not at its visual center, e.g. a weapon
-    // rigged around a hand-grip point) doesn't put it half underground or floating.
+    const modelScale = largest > 0 ? config.targetSize / largest : 1;
     const center = new THREE.Vector3();
     box.getCenter(center);
-    scene.position.set(-center.x, -box.min.y, -center.z);
-  }, [scene, config.targetSize]);
-
-  useEffect(() => {
-    scene.traverse((obj) => {
+    cloned.traverse((obj) => {
       if ((obj as THREE.Mesh).isMesh) obj.castShadow = true;
     });
-  }, [scene]);
+    return {
+      scene: cloned,
+      scale: modelScale,
+      // Re-centers so the model's own pivot (often not at its visual center, e.g. a weapon
+      // rigged around a hand-grip point) doesn't put it half underground or floating — in
+      // the model's own unscaled units, since this is applied to a <primitive> nested inside
+      // the scaled group below (the parent's scale then applies to this offset too).
+      offset: [-center.x, -box.min.y, -center.z] as [number, number, number],
+    };
+  }, [gltf.scene, config.targetSize]);
 
   return (
-    <group ref={groupRef}>
-      <primitive object={scene} />
+    <group scale={scale}>
+      <primitive object={scene} position={offset} />
     </group>
   );
 }
@@ -92,6 +100,7 @@ export function ItemDropMesh({ drop }: { drop: WorldDrop }) {
   const bobRef = useRef<THREE.Group>(null);
   const glowRef = useRef<THREE.Mesh>(null);
   const expiredRef = useRef(false);
+  const [hovered, setHovered] = useState(false);
 
   useFrame(({ clock }) => {
     if (expiredRef.current) return;
@@ -132,16 +141,24 @@ export function ItemDropMesh({ drop }: { drop: WorldDrop }) {
 
   return (
     <group position={drop.position}>
-      <mesh visible={false} onClick={handleClick}>
+      <mesh
+        visible={false}
+        onClick={handleClick}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          setHovered(true);
+        }}
+        onPointerOut={() => setHovered(false)}
+      >
         <cylinderGeometry args={[0.4, 0.4, 0.6, 8]} />
         <meshBasicMaterial />
       </mesh>
       <mesh ref={glowRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
-        <ringGeometry args={[0.15, 0.32, 24]} />
+        <ringGeometry args={[0.18, 0.38, 24]} />
         <meshBasicMaterial
           color={config.glowColor}
           transparent
-          opacity={0.6}
+          opacity={0.75}
           side={THREE.DoubleSide}
           depthWrite={false}
           toneMapped={false}
@@ -150,7 +167,10 @@ export function ItemDropMesh({ drop }: { drop: WorldDrop }) {
       <group ref={bobRef}>
         <DropModel config={config} />
       </group>
-      <NameTag position={[0, 0.55, 0]} label={drop.itemName} accent={config.glowColor} />
+      {/* Always-visible name tag would clutter the ground once several drops are out at
+          once (up to lootStore's MAX_DROPS) — shown only on hover, same "the model itself
+          is the primary visual" reasoning as not rendering one for every prop in the scene. */}
+      {hovered && <NameTag position={[0, 0.55, 0]} label={drop.itemName} accent={config.glowColor} />}
     </group>
   );
 }

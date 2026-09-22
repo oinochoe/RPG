@@ -32,7 +32,7 @@ export function QuestPanel() {
 
   if (!isOpen || !npcName) return null;
 
-  const quest = findQuestByGiver(npcName);
+  const quest = findQuestByGiver(npcName, quests);
   const state = quest ? quests[quest.id] : undefined;
   const levelLocked = quest ? playerLevel < quest.requiredLevel : false;
   const ready = !!state && state.status === 'in_progress' && quest !== undefined && state.progress_count >= quest.targetCount;
@@ -131,7 +131,14 @@ export function QuestPanel() {
       ) : state.status === 'completed' ? (
         <>
           <p style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{quest.title}</p>
-          <p style={{ color: '#c9c4b3', fontSize: 12, lineHeight: 1.6, fontStyle: 'italic' }}>"{quest.completionText}"</p>
+          <p style={{ color: '#c9c4b3', fontSize: 12, lineHeight: 1.6, marginBottom: quest.repeatable ? 10 : 0, fontStyle: 'italic' }}>
+            "{quest.completionText}"
+          </p>
+          {quest.repeatable && (
+            <button onClick={handleAccept} disabled={pending} style={acceptButtonStyle(pending)}>
+              다시 부탁받기
+            </button>
+          )}
         </>
       ) : ready ? (
         <>

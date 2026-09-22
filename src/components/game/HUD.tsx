@@ -57,7 +57,7 @@ export function HUD() {
 
   // Only relevant while standing near a quest NPC — null otherwise, so the JSX below can
   // stay a single `nearQuestNpcName &&` guard without re-deriving this every render.
-  const nearQuest = nearQuestNpcName ? findQuestByGiver(nearQuestNpcName) : undefined;
+  const nearQuest = nearQuestNpcName ? findQuestByGiver(nearQuestNpcName, quests) : undefined;
   const nearQuestState = nearQuest ? quests[nearQuest.id] : undefined;
   const nearQuestPrompt = nearQuestNpcName
     ? nearQuestState?.status === 'in_progress' && nearQuestState.progress_count >= (nearQuest?.targetCount ?? Infinity)

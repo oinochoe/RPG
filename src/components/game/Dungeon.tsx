@@ -1,7 +1,7 @@
-import { Suspense, useEffect, useMemo } from 'react';
+import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
-import type { ThreeEvent } from '@react-three/fiber';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { setMoveTarget } from './moveTarget';
 import { useCombatStore } from '../../stores/combatStore';
 import type { Collider } from './worldColliders';
@@ -426,14 +426,43 @@ function Torch({ position }: { position: [number, number] }) {
   );
 }
 
+// A flat, dim, opacity-0.35 ground disc with a weak (intensity 0.5) point light used to read
+// as "very hard to notice" in the dungeon's own dark ambient/fog (see Scene.tsx's isDungeon
+// branch — ambientLight 0.12, fog starting at 14 units) — this is the actual transition
+// trigger's only visual, so missing it meant walking past a floor change with zero warning.
+// Rebuilt as a much louder "portal" language instead: a bright double ring plus a translucent
+// light beam rising straight up, unmistakable through fog from well outside DUNGEON_EXIT_
+// RADIUS/DUNGEON_DESCEND_RADIUS (1.8), backed by a much stronger point light.
 function FloorMarker({ position, color }: { position: [number, number]; color: string }) {
+  const innerRingRef = useRef<THREE.Mesh>(null);
+  const beamRef = useRef<THREE.Mesh>(null);
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    if (innerRingRef.current) {
+      innerRingRef.current.rotation.z = t * 0.6;
+      innerRingRef.current.scale.setScalar(1 + Math.sin(t * 1.8) * 0.08);
+    }
+    if (beamRef.current) {
+      (beamRef.current.material as THREE.MeshBasicMaterial).opacity = 0.35 + Math.sin(t * 2.2) * 0.1;
+    }
+  });
+
   return (
-    <group position={[position[0], 0.02, position[1]]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[1.4, 24]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.6} transparent opacity={0.35} />
+    <group position={[position[0], 0, position[1]]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+        <ringGeometry args={[1.0, 1.5, 32]} />
+        <meshBasicMaterial color={color} transparent opacity={0.75} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} />
       </mesh>
-      <pointLight position={[0, 1, 0]} color={color} intensity={0.5} distance={4} />
+      <mesh ref={innerRingRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+        <ringGeometry args={[0.5, 0.65, 6]} />
+        <meshBasicMaterial color={color} transparent opacity={0.8} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} />
+      </mesh>
+      <mesh ref={beamRef} position={[0, 2, 0]}>
+        <cylinderGeometry args={[0.12, 0.4, 4, 12, 1, true]} />
+        <meshBasicMaterial color={color} transparent opacity={0.35} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} />
+      </mesh>
+      <pointLight position={[0, 1.2, 0]} color={color} intensity={1.8} distance={8} />
     </group>
   );
 }

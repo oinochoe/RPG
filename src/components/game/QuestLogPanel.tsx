@@ -96,8 +96,16 @@ export function QuestLogPanel() {
   const completed: QuestDef[] = [];
   for (const quest of QUEST_DEFS) {
     const state = quests[quest.id];
-    if (!state) available.push(quest);
-    else if (state.status === 'completed') completed.push(quest);
+    if (!state) {
+      // A repeatable follow-up isn't actually offered by its NPC until their story quest is
+      // done (see questStore's findQuestByGiver) — skip listing it as "available" before
+      // that, so the log doesn't imply it can be picked up already.
+      if (quest.repeatable) {
+        const story = QUEST_DEFS.find((q) => q.giverNpcName === quest.giverNpcName && !q.repeatable);
+        if (story && quests[story.id]?.status !== 'completed') continue;
+      }
+      available.push(quest);
+    } else if (state.status === 'completed') completed.push(quest);
     else inProgress.push(quest);
   }
 
