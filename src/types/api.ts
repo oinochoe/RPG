@@ -100,6 +100,14 @@ export interface CharacterSkill {
   skill_level: number;
 }
 
+export type QuestStatus = 'in_progress' | 'completed' | 'abandoned';
+
+export interface ActiveQuest {
+  quest_template_id: number;
+  status: QuestStatus;
+  progress_count: number;
+}
+
 export interface CharacterProfile {
   id: number;
   user_id: number;
@@ -122,6 +130,7 @@ export interface CharacterProfile {
   stat_int: number;
   stat_wis: number;
   skills: CharacterSkill[];
+  active_quests: ActiveQuest[];
   current_map_id: number;
   position_x: number;
   position_y: number;

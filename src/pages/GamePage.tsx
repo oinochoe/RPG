@@ -13,6 +13,7 @@ import { MiniMap } from '../components/game/MiniMap';
 import { CharacterPanel } from '../components/game/CharacterPanel';
 import { InventoryPanel } from '../components/game/InventoryPanel';
 import { ShopPanel } from '../components/game/ShopPanel';
+import { QuestPanel } from '../components/game/QuestPanel';
 import { SystemMenu } from '../components/game/SystemMenu';
 import { LoadingScreen } from '../components/ui/spinner';
 import { translateApiError } from './errorMessages';
@@ -79,7 +80,7 @@ export function GamePage() {
         }
       } else if (e.code in HOTBAR_KEYS) {
         const ui = useUIStore.getState();
-        if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isInventoryOpen || ui.isShopOpen || ui.isSystemMenuOpen) return;
+        if (ui.isMapOpen || ui.isCharacterPanelOpen || ui.isInventoryOpen || ui.isShopOpen || ui.isSystemMenuOpen || ui.isQuestOpen) return;
         e.preventDefault();
         const slot = HOTBAR_KEYS[e.code];
         const assignment = useCharacterStore.getState().hotbar[slot];
@@ -114,6 +115,7 @@ export function GamePage() {
       <CharacterPanel character={activeCharacter} />
       <InventoryPanel character={activeCharacter} />
       <ShopPanel character={activeCharacter} />
+      <QuestPanel />
       <SystemMenu />
     </>
   );

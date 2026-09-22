@@ -1,5 +1,6 @@
 import { apiRequest } from './client';
 import type {
+  ActiveQuest,
   CharacterClass,
   CharacterProfile,
   CharacterSummary,
@@ -107,4 +108,26 @@ export function upgradeSkill(skillTemplateId: number): Promise<{ skill_level: nu
     method: 'POST',
     body: { skill_template_id: skillTemplateId },
   });
+}
+
+export function acceptQuest(questTemplateId: number): Promise<ActiveQuest> {
+  return apiRequest(`/characters/me/quests/${questTemplateId}/accept`, { method: 'POST' });
+}
+
+export function reportQuestKill(monsterTemplateId: number): Promise<{ updated: ActiveQuest[] }> {
+  return apiRequest('/characters/me/quests/progress', {
+    method: 'POST',
+    body: { monster_template_id: monsterTemplateId },
+  });
+}
+
+export interface ClaimQuestResponse {
+  reward_xp: number;
+  reward_gold: number;
+  reward_item_id: number | null;
+  inventory: InventoryListResponse['items'];
+}
+
+export function claimQuest(questTemplateId: number): Promise<ClaimQuestResponse> {
+  return apiRequest(`/characters/me/quests/${questTemplateId}/claim`, { method: 'POST' });
 }

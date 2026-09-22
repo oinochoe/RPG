@@ -44,6 +44,11 @@ function monsterAttackPower(level: number): number {
 
 export interface MonsterCombatState {
   instanceId: number;
+  // Carried straight from MonsterInstanceSummary — lets a kill site (see attackNearest/
+  // castSkill's AttackResult) tell CharacterMesh which kind of monster died, for quest
+  // progress reporting (see questStore's reportKill), without CharacterMesh needing its own
+  // separate copy of the monster roster.
+  monsterTemplateId: number;
   name: string;
   level: number;
   maxHp: number;
@@ -183,6 +188,9 @@ interface AttackResult {
   instanceId?: number;
   damage?: number;
   killed?: boolean;
+  // Only the primary/locked target's kind, even for an AOE cast that kills more than one
+  // monster — set whenever `killed` is true, for CharacterMesh to report to questStore.
+  monsterTemplateId?: number;
   leveledUp?: boolean;
   goldDropped?: number;
 }
@@ -267,6 +275,13 @@ interface CombatState {
   heal: (amount: number) => void;
   /** Restores `amount` MP, clamped to maxMp — used when a mana potion is consumed. */
   restoreMp: (amount: number) => void;
+  /**
+   * Applies a quest's reward_xp/reward_gold — same level-up loop a monster kill runs
+   * (see applyExperienceGain), called by the quest dialogue UI right after questStore's
+   * claim() succeeds. Any reward_item_id is handled separately (the claim response's
+   * inventory list, applied via characterStore) since items aren't combatStore's concern.
+   */
+  grantQuestReward: (xp: number, gold: number) => void;
 }
 
 function expToNextForLevel(level: number): number {
@@ -291,6 +306,7 @@ function toMonsterCombatState(
   for (const monster of monsters) {
     monsterState[monster.instance_id] = {
       instanceId: monster.instance_id,
+      monsterTemplateId: monster.monster_template_id,
       name: monster.name,
       level: monster.level,
       maxHp: monster.max_hp,
@@ -310,14 +326,13 @@ function toMonsterCombatState(
   return monsterState;
 }
 
-// Shared by attackNearest and castSkill so a kill always applies identical exp/level-
-// up/gold/skill-point logic regardless of which attack type landed the final hit.
-function applyKill(
+// Shared by applyKill and the quest-reward grant action (grantQuestReward) so any source of
+// exp/gold applies identical level-up thresholds and per-level gains.
+function applyExperienceGain(
   player: PlayerCombatState,
-  nearest: MonsterCombatState,
-): { nextPlayer: PlayerCombatState; leveledUp: boolean; goldDropped: number } {
-  const goldDropped = nearest.level * (4 + Math.floor(Math.random() * 8));
-  const gainedExp = nearest.level * 20;
+  gainedExp: number,
+  goldGained: number,
+): { nextPlayer: PlayerCombatState; leveledUp: boolean } {
   let experience = player.experience + gainedExp;
   let level = player.level;
   let maxHp = player.maxHp;
@@ -348,11 +363,23 @@ function applyKill(
     currentHp,
     maxHp,
     attackPower,
-    gold: player.gold + goldDropped,
+    gold: player.gold + goldGained,
     skillPoints,
     skillUpgradePoints,
   };
 
+  return { nextPlayer, leveledUp };
+}
+
+// Shared by attackNearest and castSkill so a kill always applies identical exp/level-
+// up/gold/skill-point logic regardless of which attack type landed the final hit.
+function applyKill(
+  player: PlayerCombatState,
+  nearest: MonsterCombatState,
+): { nextPlayer: PlayerCombatState; leveledUp: boolean; goldDropped: number } {
+  const goldDropped = nearest.level * (4 + Math.floor(Math.random() * 8));
+  const gainedExp = nearest.level * 20;
+  const { nextPlayer, leveledUp } = applyExperienceGain(player, gainedExp, goldDropped);
   return { nextPlayer, leveledUp, goldDropped };
 }
 
@@ -524,7 +551,15 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
     if (leveledUp) get().syncProgress();
 
-    return { hit: true, instanceId: target.instanceId, damage, killed, leveledUp, goldDropped };
+    return {
+      hit: true,
+      instanceId: target.instanceId,
+      damage,
+      killed,
+      monsterTemplateId: killed ? target.monsterTemplateId : undefined,
+      leveledUp,
+      goldDropped,
+    };
   },
 
   castSkill: (skillId, playerX, playerZ) => {
@@ -609,7 +644,15 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
     if (leveledUp) get().syncProgress();
 
-    return { hit: true, instanceId: target.instanceId, damage, killed, leveledUp, goldDropped };
+    return {
+      hit: true,
+      instanceId: target.instanceId,
+      damage,
+      killed,
+      monsterTemplateId: killed ? target.monsterTemplateId : undefined,
+      leveledUp,
+      goldDropped,
+    };
   },
 
   monsterAttackTick: (playerX, playerZ) => {
@@ -839,6 +882,13 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     if (amount === 0) return;
     const { player } = get();
     set({ player: { ...player, currentMp: Math.min(player.maxMp, player.currentMp + amount) } });
+  },
+
+  grantQuestReward: (xp, gold) => {
+    const { player } = get();
+    const { nextPlayer, leveledUp } = applyExperienceGain(player, xp, gold);
+    set({ player: nextPlayer });
+    if (leveledUp) get().syncProgress();
   },
 
   tickRespawns: () => {

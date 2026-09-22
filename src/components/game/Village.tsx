@@ -112,7 +112,7 @@ export const VILLAGE_CONFIGS: VillageConfig[] = [
     ],
     flavorNpcs: [
       { kind: 'villager', name: '농부', offset: [-4, 3] },
-      { kind: 'villager', name: '경비병', offset: [4, 3], facingY: Math.PI },
+      { kind: 'townsman', name: '경비병', offset: [4, 3], facingY: Math.PI },
     ],
     props: [
       { model: `${KENNEY_TOWN}/stall.glb`, offset: [3, 2], scale: 1.1 },
@@ -132,8 +132,8 @@ export const VILLAGE_CONFIGS: VillageConfig[] = [
       { kind: 'blacksmith', name: '대장장이', offset: [-7, -3] },
     ],
     flavorNpcs: [
-      { kind: 'villager', name: '파수꾼', offset: [0, -10], facingY: Math.PI },
-      { kind: 'villager', name: '노인', offset: [-4, 4] },
+      { kind: 'elder', name: '파수꾼', offset: [0, -10], facingY: Math.PI },
+      { kind: 'townsman', name: '노인', offset: [-4, 4] },
     ],
     props: [
       { model: `${KENNEY_TOWN}/lantern.glb`, offset: [-3, -9.5], scale: 1.1 },
@@ -162,6 +162,18 @@ export const SHOP_NPCS: { kind: ShopNpcKind; name: string; position: [number, nu
 );
 
 export const SHOP_INTERACT_RADIUS = 2.5;
+
+// Flavor NPCs that double as quest givers (see questStore's findQuestByGiver, matched by
+// name) — same flat-list shape as SHOP_NPCS, for QuestProximity.tsx to scan without knowing
+// about VILLAGE_CONFIGS' per-village structure.
+export const QUEST_NPCS: { name: string; position: [number, number] }[] = VILLAGES.flatMap((zone, i) =>
+  VILLAGE_CONFIGS[i].flavorNpcs.map((npc) => ({
+    name: npc.name,
+    position: [zone.center[0] + npc.offset[0], zone.center[1] + npc.offset[1]] as [number, number],
+  })),
+);
+
+export const QUEST_INTERACT_RADIUS = 2.5;
 
 function Building({ zone, building }: { zone: VillageZone; building: BuildingDef }) {
   const gltf = useGLTF(building.model);

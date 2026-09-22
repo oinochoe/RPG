@@ -9,12 +9,14 @@ import { AreaTransitions } from './AreaTransitions';
 import { PlayerCombatEffects } from './PlayerCombatEffects';
 import { PositionSync } from './PositionSync';
 import { ShopProximity } from './ShopProximity';
+import { QuestProximity } from './QuestProximity';
 import { CharacterMesh } from './CharacterMesh';
 import { MonsterMesh, GOBLIN_VARIANT, SKELETON_VARIANT, CACTORO_VARIANT, GIANT_VARIANT } from './MonsterMesh';
 import { CameraRig } from './CameraRig';
 import { LightRig } from './LightRig';
 import { playerPosition } from './playerTransform';
 import { useCombatStore } from '../../stores/combatStore';
+import { useQuestStore } from '../../stores/questStore';
 import { useWorldStore } from '../../stores/worldStore';
 import type { CharacterProfile, EnterMapResponse, MonsterInstanceSummary } from '../../types/api';
 
@@ -131,6 +133,7 @@ export function Scene({
   map: EnterMapResponse;
 }) {
   const initCombat = useCombatStore((s) => s.init);
+  const initQuests = useQuestStore((s) => s.init);
   const currentArea = useWorldStore((s) => s.currentArea);
   const dungeonFloor = useWorldStore((s) => s.dungeonFloor);
 
@@ -143,6 +146,7 @@ export function Scene({
 
   useEffect(() => {
     initCombat(character, fieldMonsters, false);
+    initQuests(character.active_quests);
     // Combat state is local-only for now (no backend combat API yet) and should only be
     // (re)seeded when a genuinely new map/character session starts, not on every re-render
     // or area transition (entering/leaving the dungeon swaps monsters via loadMonsters
@@ -208,6 +212,7 @@ export function Scene({
       <MpRegenTicker />
       <PositionSync mapId={map.map_id} />
       <ShopProximity />
+      <QuestProximity />
 
       <EffectComposer multisampling={0}>
         <Bloom luminanceThreshold={0.85} luminanceSmoothing={0.6} intensity={0.15} mipmapBlur />

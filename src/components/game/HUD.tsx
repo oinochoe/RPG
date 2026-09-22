@@ -1,4 +1,5 @@
 import { useCombatStore } from '../../stores/combatStore';
+import { useQuestStore, findQuestByGiver } from '../../stores/questStore';
 import { useUIStore } from '../../stores/uiStore';
 import { Hotbar } from './Hotbar';
 
@@ -46,7 +47,19 @@ function Bar({ ratio, color, label, height = 14 }: { ratio: number; color: strin
 export function HUD() {
   const player = useCombatStore((s) => s.player);
   const nearShopKind = useUIStore((s) => s.nearShopKind);
+  const nearQuestNpcName = useUIStore((s) => s.nearQuestNpcName);
+  const quests = useQuestStore((s) => s.quests);
   const toggleSystemMenu = useUIStore((s) => s.toggleSystemMenu);
+
+  // Only relevant while standing near a quest NPC — null otherwise, so the JSX below can
+  // stay a single `nearQuestNpcName &&` guard without re-deriving this every render.
+  const nearQuest = nearQuestNpcName ? findQuestByGiver(nearQuestNpcName) : undefined;
+  const nearQuestState = nearQuest ? quests[nearQuest.id] : undefined;
+  const nearQuestPrompt = nearQuestNpcName
+    ? nearQuestState?.status === 'in_progress' && nearQuestState.progress_count >= (nearQuest?.targetCount ?? Infinity)
+      ? `${nearQuestNpcName}에게 보상 받기: Space`
+      : `${nearQuestNpcName}에게 말 걸기: Space`
+    : null;
 
   return (
     <div
@@ -71,6 +84,23 @@ export function HUD() {
           }}
         >
           {SHOP_NPC_LABEL[nearShopKind]}에게 말 걸기: Space
+        </div>
+      )}
+
+      {!nearShopKind && nearQuestPrompt && (
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            bottom: 96,
+            transform: 'translateX(-50%)',
+            color: '#e8c97a',
+            fontWeight: 700,
+            fontSize: 13,
+            textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+          }}
+        >
+          {nearQuestPrompt}
         </div>
       )}
 

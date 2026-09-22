@@ -116,7 +116,31 @@ async function fetchSkills(
   return data ?? [];
 }
 
-function toProfile(row: Record<string, unknown>, inventory: InventoryItemRow[], skills: CharacterSkillRow[]) {
+interface CharacterQuestRow {
+  quest_template_id: number;
+  status: string;
+  progress_count: number;
+}
+
+async function fetchQuests(
+  admin: ReturnType<typeof getAdminClient>,
+  characterId: number,
+): Promise<CharacterQuestRow[]> {
+  const { data, error } = await admin
+    .from("character_quests")
+    .select("quest_template_id, status, progress_count")
+    .eq("character_id", characterId);
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+function toProfile(
+  row: Record<string, unknown>,
+  inventory: InventoryItemRow[],
+  skills: CharacterSkillRow[],
+  quests: CharacterQuestRow[],
+) {
   return {
     id: row.id,
     user_id: row.user_id,
@@ -139,6 +163,7 @@ function toProfile(row: Record<string, unknown>, inventory: InventoryItemRow[], 
     stat_int: row.stat_int,
     stat_wis: row.stat_wis,
     skills,
+    active_quests: quests,
     current_map_id: row.current_map_id,
     position_x: row.position_x,
     position_y: row.position_y,
@@ -199,6 +224,104 @@ function mapSkillUpgradeRpcError(message: string | undefined): ApiError {
   }
   console.error("upgrade_character_skill RPC failed:", message);
   return new ApiError(500, "internal_error", "skill_upgrade_failed", "스킬 강화 중 오류가 발생했습니다.");
+}
+
+// Maps accept_quest/report_quest_kill/claim_quest_reward's RAISE EXCEPTION messages (see
+// supabase/migrations/20260922090000_add_quest_system.sql) to the API error envelope.
+function mapQuestRpcError(message: string | undefined): ApiError {
+  if (message?.includes("character_not_found")) {
+    return new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
+  }
+  if (message?.includes("quest_not_found")) {
+    return new ApiError(404, "not_found", "quest_not_found", "해당 퀘스트를 찾을 수 없습니다.", "id");
+  }
+  if (message?.includes("level_requirement_unmet")) {
+    return new ApiError(400, "level_requirement_unmet", "insufficient_level", "레벨이 부족합니다.");
+  }
+  if (message?.includes("already_accepted")) {
+    return new ApiError(409, "conflict", "already_accepted", "이미 수락한 퀘스트입니다.", "id");
+  }
+  if (message?.includes("quest_not_ready")) {
+    return new ApiError(400, "validation_failed", "quest_not_ready", "아직 목표를 달성하지 못했습니다.", "id");
+  }
+  if (message?.includes("quest_already_claimed")) {
+    return new ApiError(409, "conflict", "quest_already_claimed", "이미 보상을 받은 퀘스트입니다.", "id");
+  }
+  console.error("quest RPC failed:", message);
+  return new ApiError(500, "internal_error", "quest_action_failed", "퀘스트 처리 중 오류가 발생했습니다.");
+}
+
+// Grants `quantity` of an item into a character's inventory as a quest reward — same
+// stack-or-insert shape /me/inventory/buy uses (equip_slot === null stacks onto an existing
+// row, otherwise a fresh row), kept as its own copy rather than sharing buy's inline logic so
+// a change to one flow can never accidentally alter the other's behavior.
+async function grantInventoryItem(
+  admin: ReturnType<typeof getAdminClient>,
+  characterId: number,
+  itemTemplateId: number,
+  quantity: number,
+): Promise<void> {
+  const { data: item, error: itemError } = await admin
+    .from("item_templates")
+    .select("id, equip_slot")
+    .eq("id", itemTemplateId)
+    .maybeSingle();
+  if (itemError || !item) {
+    console.error("quest reward item lookup failed:", itemError?.message ?? "item not found");
+    throw new ApiError(500, "internal_error", "quest_reward_grant_failed", "퀘스트 보상 지급 중 오류가 발생했습니다.");
+  }
+
+  if (item.equip_slot === null) {
+    const { data: stack, error: stackError } = await admin
+      .from("character_inventory")
+      .select("id, quantity")
+      .eq("character_id", characterId)
+      .eq("item_template_id", itemTemplateId)
+      .maybeSingle();
+    if (stackError) {
+      console.error("quest reward stack lookup failed:", stackError.message);
+      throw new ApiError(500, "internal_error", "quest_reward_grant_failed", "퀘스트 보상 지급 중 오류가 발생했습니다.");
+    }
+    if (stack) {
+      const { error: updateError } = await admin
+        .from("character_inventory")
+        .update({ quantity: stack.quantity + quantity })
+        .eq("id", stack.id);
+      if (updateError) {
+        console.error("quest reward stack update failed:", updateError.message);
+        throw new ApiError(500, "internal_error", "quest_reward_grant_failed", "퀘스트 보상 지급 중 오류가 발생했습니다.");
+      }
+      return;
+    }
+  }
+
+  const { data: existing, error: slotError } = await admin
+    .from("character_inventory")
+    .select("slot_index")
+    .eq("character_id", characterId)
+    .order("slot_index", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (slotError) {
+    console.error("quest reward slot lookup failed:", slotError.message);
+    throw new ApiError(500, "internal_error", "quest_reward_grant_failed", "퀘스트 보상 지급 중 오류가 발생했습니다.");
+  }
+  const nextSlot = existing ? existing.slot_index + 1 : 0;
+
+  const { error: insertError } = await admin.from("character_inventory").insert({
+    character_id: characterId,
+    item_template_id: itemTemplateId,
+    storage_type: "inventory",
+    slot_index: nextSlot,
+    quantity: item.equip_slot === null ? quantity : 1,
+    enchant_level: 0,
+    is_equipped: false,
+    equipped_slot: null,
+  });
+  if (insertError) {
+    console.error("quest reward insert failed:", insertError.message);
+    throw new ApiError(500, "internal_error", "quest_reward_grant_failed", "퀘스트 보상 지급 중 오류가 발생했습니다.");
+  }
 }
 
 charactersRoutes.post("/", async (c) => {
@@ -490,6 +613,85 @@ charactersRoutes.post("/me/skills/upgrade", async (c) => {
   return c.json({ skill_level: row.skill_level, skill_upgrade_points: row.skill_upgrade_points });
 });
 
+// :id here is a quest_templates id (a static, client-hardcoded catalog — see combatStore's
+// SKILLS_BY_CLASS precedent — not a character_quests row id), matching how the skill upgrade
+// route takes a skill_template_id.
+charactersRoutes.post("/me/quests/:id/accept", async (c) => {
+  const appUser = c.get("appUser");
+  const questTemplateId = Number(c.req.param("id"));
+  if (!Number.isInteger(questTemplateId)) {
+    throw new ApiError(404, "not_found", "quest_not_found", "해당 퀘스트를 찾을 수 없습니다.", "id");
+  }
+
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  const { data, error } = await admin.rpc("accept_quest", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+    p_quest_template_id: questTemplateId,
+  });
+  if (error) throw mapQuestRpcError(error.message);
+
+  const row = (data as { quest_template_id: number; status: string; progress_count: number }[])[0];
+  return c.json(row, 201);
+});
+
+// Called once per monster kill (see combatStore's applyKill) with that monster's
+// monster_template_id — bumps progress on every one of the caller's in_progress quests
+// targeting that monster kind, not just one, so `updated` can be an empty array (no active
+// quest cared about this kill) or contain more than one row.
+charactersRoutes.post("/me/quests/progress", async (c) => {
+  const appUser = c.get("appUser");
+  const { monster_template_id } = await readJsonBody(c);
+  if (typeof monster_template_id !== "number" || !Number.isInteger(monster_template_id)) {
+    throw new ApiError(400, "validation_failed", "invalid_request", "monster_template_id는 정수여야 합니다.", "monster_template_id");
+  }
+
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  const { data, error } = await admin.rpc("report_quest_kill", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+    p_monster_template_id: monster_template_id,
+  });
+  if (error) throw mapQuestRpcError(error.message);
+
+  return c.json({ updated: data ?? [] });
+});
+
+charactersRoutes.post("/me/quests/:id/claim", async (c) => {
+  const appUser = c.get("appUser");
+  const questTemplateId = Number(c.req.param("id"));
+  if (!Number.isInteger(questTemplateId)) {
+    throw new ApiError(404, "not_found", "quest_not_found", "해당 퀘스트를 찾을 수 없습니다.", "id");
+  }
+
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  const { data, error } = await admin.rpc("claim_quest_reward", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+    p_quest_template_id: questTemplateId,
+  });
+  if (error) throw mapQuestRpcError(error.message);
+
+  const row = (data as { reward_xp: number; reward_gold: number; reward_item_id: number | null }[])[0];
+  if (row.reward_item_id !== null) {
+    await grantInventoryItem(admin, characterId, row.reward_item_id, 1);
+  }
+
+  const inventory = await fetchInventory(admin, characterId);
+  return c.json({
+    reward_xp: row.reward_xp,
+    reward_gold: row.reward_gold,
+    reward_item_id: row.reward_item_id,
+    inventory,
+  });
+});
+
 charactersRoutes.get("/me", async (c) => {
   const appUser = c.get("appUser");
   const admin = getAdminClient();
@@ -517,15 +719,17 @@ charactersRoutes.get("/me", async (c) => {
 
   let inventory: InventoryItemRow[];
   let skills: CharacterSkillRow[];
+  let quests: CharacterQuestRow[];
   try {
     inventory = await fetchInventory(admin, data.id as number);
     skills = await fetchSkills(admin, data.id as number);
+    quests = await fetchQuests(admin, data.id as number);
   } catch (error) {
-    console.error("inventory/skills fetch failed:", (error as Error).message);
+    console.error("inventory/skills/quests fetch failed:", (error as Error).message);
     throw new ApiError(500, "internal_error", "inventory_fetch_failed", "인벤토리 조회 중 오류가 발생했습니다.");
   }
 
-  return c.json(toProfile(data as Record<string, unknown>, inventory, skills));
+  return c.json(toProfile(data as Record<string, unknown>, inventory, skills, quests));
 });
 
 async function getActiveCharacterId(

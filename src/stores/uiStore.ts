@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 
 export type ShopNpcKind = 'merchant' | 'blacksmith';
-type PanelId = 'map' | 'character' | 'inventory' | 'shop' | 'systemMenu';
+type PanelId = 'map' | 'character' | 'inventory' | 'shop' | 'systemMenu' | 'quest';
 
 // The panels that close everything else when opened (they cover most of the screen and
 // have no docked position of their own to share space with another panel).
-const EXCLUSIVE_PANELS: PanelId[] = ['map', 'shop', 'systemMenu'];
+const EXCLUSIVE_PANELS: PanelId[] = ['map', 'shop', 'systemMenu', 'quest'];
 
 interface UIState {
   isMapOpen: boolean;
@@ -19,6 +19,14 @@ interface UIState {
   // Which shop NPC the player is currently standing close enough to talk to (null if
   // none) — set every frame by ShopProximity.tsx, read by CharacterMesh's Space handler.
   nearShopKind: ShopNpcKind | null;
+  isQuestOpen: boolean;
+  // Which flavor NPC's quest dialogue is currently open (null while the panel is closed) —
+  // an NPC display name (see questStore's findQuestByGiver), same "no numeric NPC id exists
+  // anywhere" reasoning as quest_templates.giver_npc_name.
+  questNpcName: string | null;
+  // Mirrors nearShopKind but for quest-giving flavor NPCs — set every frame by
+  // QuestProximity.tsx, read by CharacterMesh's Space handler.
+  nearQuestNpcName: string | null;
   // Currently-open panels in the order they were opened, most-recent last — lets Escape
   // close just the panel the player opened last (e.g. 캐창+인창 both open -> Escape closes
   // whichever was opened second, not both at once) instead of a single "close everything".
@@ -31,9 +39,12 @@ interface UIState {
   closeInventory: () => void;
   openShop: (kind: ShopNpcKind) => void;
   closeShop: () => void;
+  openQuest: (npcName: string) => void;
+  closeQuest: () => void;
   toggleSystemMenu: () => void;
   closeSystemMenu: () => void;
   setNearShopKind: (kind: ShopNpcKind | null) => void;
+  setNearQuestNpcName: (npcName: string | null) => void;
   /** Closes the most-recently-opened panel (bound to Escape). No-op if nothing is open. */
   closeTopPanel: () => void;
   /** Closes every panel at once — used when leaving the game screen entirely, not by Escape. */
@@ -53,6 +64,7 @@ function allPanelsClosedPatch() {
     isInventoryOpen: false,
     isShopOpen: false,
     isSystemMenuOpen: false,
+    isQuestOpen: false,
     openPanelStack: [] as PanelId[],
   };
 }
@@ -79,6 +91,8 @@ function closePanelPatch(id: PanelId): Partial<UIState> {
       return { isShopOpen: false };
     case 'systemMenu':
       return { isSystemMenuOpen: false };
+    case 'quest':
+      return { isQuestOpen: false };
   }
 }
 
@@ -90,6 +104,9 @@ export const useUIStore = create<UIState>((set) => ({
   isSystemMenuOpen: false,
   shopKind: null,
   nearShopKind: null,
+  isQuestOpen: false,
+  questNpcName: null,
+  nearQuestNpcName: null,
   openPanelStack: [],
   skillTabRequestId: 0,
 
@@ -143,6 +160,10 @@ export const useUIStore = create<UIState>((set) => ({
   openShop: (kind) => set({ ...allPanelsClosedPatch(), isShopOpen: true, shopKind: kind, openPanelStack: ['shop'] }),
   closeShop: () => set((s) => ({ isShopOpen: false, openPanelStack: popPanel(s.openPanelStack, 'shop') })),
 
+  openQuest: (npcName) =>
+    set({ ...allPanelsClosedPatch(), isQuestOpen: true, questNpcName: npcName, openPanelStack: ['quest'] }),
+  closeQuest: () => set((s) => ({ isQuestOpen: false, openPanelStack: popPanel(s.openPanelStack, 'quest') })),
+
   toggleSystemMenu: () =>
     set((s) => {
       if (s.isSystemMenuOpen) {
@@ -154,6 +175,7 @@ export const useUIStore = create<UIState>((set) => ({
     set((s) => ({ isSystemMenuOpen: false, openPanelStack: popPanel(s.openPanelStack, 'systemMenu') })),
 
   setNearShopKind: (kind) => set({ nearShopKind: kind }),
+  setNearQuestNpcName: (npcName) => set({ nearQuestNpcName: npcName }),
 
   closeTopPanel: () =>
     set((s) => {

@@ -146,6 +146,11 @@ interface CharacterState {
   selectCharacter: (characterId: number) => Promise<void>;
   deleteCharacter: (characterId: number) => Promise<void>;
   fetchInventory: () => Promise<void>;
+  /** Adopts an inventory list a caller already fetched some other way (e.g. the quest
+   * dialogue panel, after questStore's claim() returns the reward's resulting inventory) —
+   * avoids a redundant GET /me/inventory round trip right after a call that already
+   * returned the up-to-date list. */
+  receiveInventory: (items: InventorySlot[]) => void;
   equipItem: (inventoryId: number) => Promise<void>;
   unequipItem: (inventoryId: number) => Promise<void>;
   fetchShop: (kind: 'merchant' | 'blacksmith') => Promise<void>;
@@ -200,6 +205,8 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     const { items } = await charactersApi.getInventory();
     set({ inventory: items });
   },
+
+  receiveInventory: (items) => set({ inventory: items }),
 
   equipItem: async (inventoryId) => {
     const before = sumEquippedBonus(get().inventory);

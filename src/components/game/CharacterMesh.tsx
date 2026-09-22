@@ -13,6 +13,7 @@ import { resolveMovement, PLAYER_COLLISION_RADIUS } from './worldColliders';
 import { OFFSET as CAMERA_OFFSET } from './CameraRig';
 import { playSound, playFootstep } from '../../lib/sound';
 import { useCombatStore, findSkillDef } from '../../stores/combatStore';
+import { useQuestStore } from '../../stores/questStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { CharacterProfile } from '../../types/api';
@@ -377,6 +378,9 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       spawnSkillEffect('flash', [playerPosition.x, baseY + PROJECTILE_ORIGIN_HEIGHT, playerPosition.z], fxColor);
     }
     if (result.killed && result.goldDropped) playSound('coin', 0.4);
+    if (result.killed && result.monsterTemplateId !== undefined) {
+      useQuestStore.getState().reportKill(result.monsterTemplateId);
+    }
     const variant = PROJECTILE_VARIANT[character.character_class];
     const monster = result.instanceId != null ? useCombatStore.getState().monsters[result.instanceId] : undefined;
     if (!variant) {
@@ -444,6 +448,8 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
         // nearest.
         if (ui.nearShopKind) {
           useUIStore.getState().openShop(ui.nearShopKind);
+        } else if (ui.nearQuestNpcName) {
+          useUIStore.getState().openQuest(ui.nearQuestNpcName);
         }
         return;
       }

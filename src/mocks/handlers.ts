@@ -100,6 +100,7 @@ function toProfile(summary: CharacterSummary): CharacterProfile {
     stat_int: 5,
     stat_wis: 5,
     skills: [],
+    active_quests: [],
     current_map_id: savedPosition?.mapId ?? summary.current_map_id,
     position_x: savedPosition?.x ?? 0,
     position_y: savedPosition?.y ?? 0,
