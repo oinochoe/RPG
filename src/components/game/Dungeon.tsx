@@ -324,8 +324,12 @@ export function buildFloorMonsters(floor: number): MonsterInstanceSummary[] {
   const lastRoom = rooms[rooms.length - 1];
   monsters.push({
     instance_id: idBase + 99,
-    monster_template_id: 2,
-    name: isLastFloor ? '고블린 군주' : '고블린 대장',
+    // The final floor's boss is a real Giant model (monster_template_id 5, see Scene.tsx's
+    // dungeonMonsterVariant) rather than a scaled/tinted goblin — every other floor's captain
+    // stays a goblin/skeleton reskin, but the one fight meant to actually feel like "the
+    // strong one shows up eventually" gets its own silhouette.
+    monster_template_id: isLastFloor ? 5 : 2,
+    name: isLastFloor ? '거인 군주' : '고블린 대장',
     level: level + (isLastFloor ? 5 : 2),
     current_hp: captainHp,
     max_hp: captainHp,

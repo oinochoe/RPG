@@ -10,7 +10,7 @@ import { PlayerCombatEffects } from './PlayerCombatEffects';
 import { PositionSync } from './PositionSync';
 import { ShopProximity } from './ShopProximity';
 import { CharacterMesh } from './CharacterMesh';
-import { MonsterMesh, GOBLIN_VARIANT, SKELETON_VARIANT, CACTORO_VARIANT } from './MonsterMesh';
+import { MonsterMesh, GOBLIN_VARIANT, SKELETON_VARIANT, CACTORO_VARIANT, GIANT_VARIANT } from './MonsterMesh';
 import { CameraRig } from './CameraRig';
 import { LightRig } from './LightRig';
 import { playerPosition } from './playerTransform';
@@ -65,7 +65,18 @@ function fieldMonsterVariant(templateId: number) {
   return undefined;
 }
 
+// Dungeon monster_template_id convention (see Dungeon.tsx's buildFloorMonsters): 2 = goblin
+// (the default), 3 = skeleton, 5 = the final-floor Giant boss.
+function dungeonMonsterVariant(templateId: number) {
+  if (templateId === 3) return SKELETON_VARIANT;
+  if (templateId === 5) return GIANT_VARIANT;
+  return GOBLIN_VARIANT;
+}
+
 function monsterScale(name: string): number {
+  // The Giant boss's size already comes from its own (much bigger) model — the extra
+  // scale-up below is a goblin-reskin trick for "대장/군주" that doesn't need to stack here.
+  if (name.includes('거인')) return 1.0;
   if (name.includes('군주')) return 1.7;
   if (name.includes('대장')) return 1.3;
   return 1;
@@ -166,7 +177,7 @@ export function Scene({
             <MonsterMesh
               key={monster.instance_id}
               monster={monster}
-              variant={monster.monster_template_id === 3 ? SKELETON_VARIANT : GOBLIN_VARIANT}
+              variant={dungeonMonsterVariant(monster.monster_template_id)}
               scale={monsterScale(monster.name)}
               tint={monsterTint(monster.name)}
             />

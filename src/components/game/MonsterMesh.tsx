@@ -18,7 +18,7 @@ interface DamagePopup {
 
 export interface MonsterVariant {
   nameAccent: string;
-  model: 'slime' | 'goblin' | 'skeleton' | 'cactoro';
+  model: 'slime' | 'goblin' | 'skeleton' | 'cactoro' | 'giant';
   labelHeight: number;
 }
 
@@ -44,6 +44,12 @@ export const CACTORO_VARIANT: MonsterVariant = {
   nameAccent: '#8fbf4a',
   model: 'cactoro',
   labelHeight: 0.7,
+};
+
+export const GIANT_VARIANT: MonsterVariant = {
+  nameAccent: '#e0538a',
+  model: 'giant',
+  labelHeight: 1.6,
 };
 
 // How long the body keeps rendering (playing its Death clip) after currentHp hits 0, before
@@ -124,10 +130,30 @@ const CACTORO_CONFIG: RiggedMonsterConfig = {
   facingOffset: 0,
 };
 
-const MONSTER_CONFIG: Record<'goblin' | 'slime' | 'cactoro', RiggedMonsterConfig> = {
+// Giant (Quaternius, CC0 — https://poly.pizza/m/BldaiPtyJa) — shares the goblin's own
+// EnemyArmature clip naming exactly (same Quaternius rig convention), just a much bigger,
+// tougher-looking model instead of a scaled/tinted goblin, for a real "this one is dangerous"
+// silhouette on late floors. See public/models/quaternius-giant/License.txt.
+const GIANT_CONFIG: RiggedMonsterConfig = {
+  modelUrl: '/models/quaternius-giant/Giant.glb',
+  targetHeight: 1.5,
+  clips: {
+    idle: 'EnemyArmature|EnemyArmature|EnemyArmature|Idle',
+    walk: 'EnemyArmature|EnemyArmature|EnemyArmature|Walk',
+    attack: 'EnemyArmature|EnemyArmature|EnemyArmature|Attack',
+    hit: 'EnemyArmature|EnemyArmature|EnemyArmature|HitRecieve',
+    death: 'EnemyArmature|EnemyArmature|EnemyArmature|Death',
+  },
+  attackAnimMs: 550,
+  hitAnimMs: 280,
+  facingOffset: 0,
+};
+
+const MONSTER_CONFIG: Record<'goblin' | 'slime' | 'cactoro' | 'giant', RiggedMonsterConfig> = {
   goblin: GOBLIN_CONFIG,
   slime: SLIME_CONFIG,
   cactoro: CACTORO_CONFIG,
+  giant: GIANT_CONFIG,
 };
 
 // Skeleton characters (KayKit - Character Pack: Skeletons) share the same rig/bone-naming
