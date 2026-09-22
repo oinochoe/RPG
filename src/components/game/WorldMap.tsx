@@ -11,8 +11,7 @@ import {
 } from './worldColliders';
 import { VILLAGE_CONFIGS } from './Village';
 import { DUNGEON_MAX_FLOOR, getEntryTrigger, getExitTrigger, ROOM_HALF_X, ROOM_HALF_Z, getFloorRects } from './Dungeon';
-import { ICON_PATH, MapIcon, SkullMarker, PlayerArrow } from './mapIcons';
-import { useCombatStore } from '../../stores/combatStore';
+import { ICON_PATH, MapIcon, PlayerArrow } from './mapIcons';
 import { useUIStore } from '../../stores/uiStore';
 import { useWorldStore } from '../../stores/worldStore';
 
@@ -30,8 +29,6 @@ const POLL_MS = 100;
 const RIVER_PATH = riverPathD(-VIEW_HALF, VIEW_HALF);
 
 function FieldMap({ player, facing }: { player: { x: number; z: number }; facing: number }) {
-  const monsters = useCombatStore((s) => s.monsters);
-
   return (
     <svg
       width={720}
@@ -89,12 +86,6 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
         던전
       </text>
 
-      {Object.values(monsters)
-        .filter((m) => m.alive)
-        .map((m) => (
-          <SkullMarker key={m.instanceId} x={m.position[0]} y={m.position[2]} size={2.6} color="#d3487a" />
-        ))}
-
       <PlayerArrow x={player.x} y={player.z} facingRad={facing} size={11} />
 
       <text x={0} y={-VIEW_HALF + 4} fill="#cfe8d0" fontSize={3} textAnchor="middle">N</text>
@@ -114,7 +105,6 @@ function DungeonMap({
   facing: number;
   floor: number;
 }) {
-  const monsters = useCombatStore((s) => s.monsters);
   const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
   const rects = useMemo(() => getFloorRects(floor), [floor]);
   const entryTrigger = useMemo(() => getEntryTrigger(floor), [floor]);
@@ -155,12 +145,6 @@ function DungeonMap({
           </text>
         </>
       )}
-
-      {Object.values(monsters)
-        .filter((m) => m.alive)
-        .map((m) => (
-          <SkullMarker key={m.instanceId} x={m.position[0]} y={m.position[2]} size={2.2} color="#e0538a" />
-        ))}
 
       <PlayerArrow x={player.x} y={player.z} facingRad={facing} size={2.6} />
     </svg>

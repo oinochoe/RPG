@@ -73,18 +73,15 @@ const FOOTSTEP_INTERVAL_MS = 320;
 // as "stuck on a black map," since nothing is rendered out there). Clamping delta caps how far
 // a single frame can ever move the player, regardless of how long the tab was away.
 const MAX_FRAME_DELTA_SEC = 0.1;
-// "Stuck" heuristic: the player has been actively trying to move (keys held or a moveTarget
-// set) for this long while net displacement from where that attempt started stays under
-// STUCK_RESET_DISTANCE. At MOVE_SPEED=6, unobstructed movement covers ~15 units in that time —
-// sliding normally along a single wall still nets real displacement (axis-separated collision
-// keeps the open axis free), so this only trips for genuinely boxed-in positions.
+// "Stuck" heuristic — genuinely boxed in, not just leaning on one obstacle. Pushing straight
+// into a single rock/wall (no lateral component to the input) can leave net displacement near
+// zero too, even though stepping back or sideways is completely free — that's normal
+// obstruction, not a bug, and doesn't deserve a teleport-out button. isBoxedIn() below instead
+// probes movement in every direction from the current spot each frame; only when literally
+// none of them go anywhere does the timer start.
 const STUCK_THRESHOLD_MS = 2500;
-const STUCK_RESET_DISTANCE = 0.6;
-// Holding a direction key against the world's own outer radius clamp (MAX_RADIUS below)
-// produces the exact same signature as being wedged in geometry — intent to move, near-zero
-// net displacement — but it isn't a bug, it's the map boundary working as designed. Excluded
-// explicitly so walking to the edge of the field never arms the escape button.
-const STUCK_BOUNDARY_MARGIN = 1.5;
+const STUCK_PROBE_COUNT = 8;
+const STUCK_PROBE_DIST = 1.2;
 // Overall playable boundary (field + village combined) — LightRig follows the player, so
 // this no longer needs to fit inside a fixed shadow frustum, just the decorated ground itself.
 // Matches worldColliders.ts's FIELD_EXTENT/2 (400/2=200) and scatterDesertProps' own radius
@@ -104,6 +101,23 @@ const CAMERA_FORWARD_Z = -CAMERA_OFFSET.z;
 const CAMERA_FORWARD_LEN = Math.hypot(CAMERA_FORWARD_X, CAMERA_FORWARD_Z) || 1;
 const FORWARD: [number, number] = [CAMERA_FORWARD_X / CAMERA_FORWARD_LEN, CAMERA_FORWARD_Z / CAMERA_FORWARD_LEN];
 const RIGHT: [number, number] = [-FORWARD[1], FORWARD[0]];
+
+/** True only if every one of STUCK_PROBE_COUNT evenly-spaced directions from (x, z) is
+ * blocked — i.e. there is no direction at all the player could step to make progress. Doesn't
+ * know about MAX_RADIUS (that clamp lives outside resolveMovement/worldColliders entirely), but
+ * that's fine: at the world's outer edge, only the outward-pointing probe is actually a dead
+ * end, and the others (sideways, back toward center) are genuinely open, so this still
+ * correctly reports "not boxed in" there without needing to special-case the boundary. */
+function isBoxedIn(x: number, z: number): boolean {
+  for (let i = 0; i < STUCK_PROBE_COUNT; i++) {
+    const angle = (i / STUCK_PROBE_COUNT) * Math.PI * 2;
+    const dx = Math.sin(angle) * STUCK_PROBE_DIST;
+    const dz = Math.cos(angle) * STUCK_PROBE_DIST;
+    const resolved = resolveMovement(x, z, dx, dz, PLAYER_COLLISION_RADIUS);
+    if (Math.hypot(resolved.x - x, resolved.z - z) > STUCK_PROBE_DIST * 0.5) return false;
+  }
+  return true;
+}
 
 const MOVE_KEYS: Record<string, [number, number]> = {
   KeyW: FORWARD,
@@ -278,7 +292,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   const keysDown = useRef<Set<string>>(new Set());
   const facing = useRef(0);
   const nextFootstepAt = useRef(0);
-  const stuckAnchor = useRef<{ pos: [number, number]; since: number } | null>(null);
+  const stuckSince = useRef<number | null>(null);
   const attackAnimUntil = useRef(0);
   // How long the current override lasts and which pose shape it follows — melee's swing
   // (windUp -> impact -> rest, see swingEase) and ranged's draw (rest -> windUp, holding
@@ -427,6 +441,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   useFrame((_, rawDelta) => {
     if (!groupRef.current) return;
     const delta = Math.min(rawDelta, MAX_FRAME_DELTA_SEC);
+    const now = performance.now();
 
     let dx = 0;
     let dz = 0;
@@ -453,7 +468,6 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     const moveLen = Math.hypot(dx, dz);
     const isMoving = moveLen > 0.0001;
     if (isMoving) {
-      const now = performance.now();
       if (now >= nextFootstepAt.current) {
         nextFootstepAt.current = now + FOOTSTEP_INTERVAL_MS;
         playFootstep();
@@ -476,31 +490,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       }
       const targetFacing = Math.atan2(dx, dz);
       facing.current += shortestAngleDelta(facing.current, targetFacing) * Math.min(1, delta * 12);
-
-      // Stuck detection — see STUCK_THRESHOLD_MS above. Only runs while actively trying to
-      // move; releasing input leaves the anchor cleared but deliberately doesn't clear an
-      // already-set playerStuck.value, so the flag survives long enough for the player to let
-      // go of WASD and open the menu to use the escape button it gates.
-      const atWorldBoundary = radius >= MAX_RADIUS - STUCK_BOUNDARY_MARGIN;
-      if (atWorldBoundary) {
-        stuckAnchor.current = null;
-      } else if (!stuckAnchor.current) {
-        stuckAnchor.current = { pos: [playerPosition.x, playerPosition.z], since: now };
-      } else {
-        const moved = Math.hypot(
-          playerPosition.x - stuckAnchor.current.pos[0],
-          playerPosition.z - stuckAnchor.current.pos[1],
-        );
-        if (moved > STUCK_RESET_DISTANCE) {
-          stuckAnchor.current = { pos: [playerPosition.x, playerPosition.z], since: now };
-          if (playerStuck.value) playerStuck.value = false;
-        } else if (now - stuckAnchor.current.since > STUCK_THRESHOLD_MS) {
-          playerStuck.value = true;
-        }
-      }
     } else {
-      stuckAnchor.current = null;
-
       // Standing still (arrived at range, or attacking from a standoff point) used to leave
       // facing frozen at whatever direction the last bit of movement happened to point —
       // fine if that was toward the monster, wrong the moment the fight moved around it.
@@ -516,6 +506,18 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
           facing.current += shortestAngleDelta(facing.current, targetFacing) * Math.min(1, delta * 12);
         }
       }
+    }
+
+    // Stuck detection — see STUCK_THRESHOLD_MS/isBoxedIn above. Runs every frame regardless
+    // of movement input (being wedged is a fact about the position, not about whether a key
+    // happens to be held), and clears the moment any direction opens back up rather than
+    // waiting for the player to actually walk a distance away.
+    if (isBoxedIn(playerPosition.x, playerPosition.z)) {
+      if (!stuckSince.current) stuckSince.current = now;
+      else if (now - stuckSince.current > STUCK_THRESHOLD_MS) playerStuck.value = true;
+    } else {
+      stuckSince.current = null;
+      if (playerStuck.value) playerStuck.value = false;
     }
 
     if (!usingKeyboard && !moveTarget.point && moveTarget.attackTargetId !== null) {

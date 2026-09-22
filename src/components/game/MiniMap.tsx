@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { playerPosition, playerFacing } from './playerTransform';
 import { RIVER_X_CENTER, RIVER_HALF_WIDTH, DESERT_X_START, VILLAGES, FIELD_ENTRANCE_POINT, riverPathD } from './worldColliders';
 import { DUNGEON_MAX_FLOOR, getEntryTrigger, getExitTrigger, getFloorRects } from './Dungeon';
-import { ICON_PATH, MapIcon, SkullMarker, PlayerArrow } from './mapIcons';
-import { useCombatStore } from '../../stores/combatStore';
+import { ICON_PATH, MapIcon, PlayerArrow } from './mapIcons';
 import { useUIStore } from '../../stores/uiStore';
 import { useWorldStore } from '../../stores/worldStore';
 
@@ -29,7 +28,6 @@ const DUNGEON_LOCAL_HALF = 40;
 const BACKDROP_HALF = 1000;
 
 function MiniFieldView({ player, facing }: { player: { x: number; z: number }; facing: number }) {
-  const monsters = useCombatStore((s) => s.monsters);
   const half = FIELD_LOCAL_HALF;
 
   return (
@@ -58,19 +56,12 @@ function MiniFieldView({ player, facing }: { player: { x: number; z: number }; f
       ))}
       <MapIcon path={ICON_PATH.cave} x={FIELD_ENTRANCE_POINT[0]} y={FIELD_ENTRANCE_POINT[1]} size={6} color="#c084fc" />
 
-      {Object.values(monsters)
-        .filter((m) => m.alive)
-        .map((m) => (
-          <SkullMarker key={m.instanceId} x={m.position[0]} y={m.position[2]} size={3} color="#d3487a" />
-        ))}
-
       <PlayerArrow x={player.x} y={player.z} facingRad={facing} size={5.5} />
     </svg>
   );
 }
 
 function MiniDungeonView({ player, facing, floor }: { player: { x: number; z: number }; facing: number; floor: number }) {
-  const monsters = useCombatStore((s) => s.monsters);
   const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
   const rects = useMemo(() => getFloorRects(floor), [floor]);
   const entryTrigger = useMemo(() => getEntryTrigger(floor), [floor]);
@@ -100,12 +91,6 @@ function MiniDungeonView({ player, facing, floor }: { player: { x: number; z: nu
       {hasNorthGap && exitTrigger && (
         <MapIcon path={ICON_PATH.ladder} x={exitTrigger[0]} y={exitTrigger[1]} size={3} color="#c084fc" />
       )}
-
-      {Object.values(monsters)
-        .filter((m) => m.alive)
-        .map((m) => (
-          <SkullMarker key={m.instanceId} x={m.position[0]} y={m.position[2]} size={2.6} color="#e0538a" />
-        ))}
 
       <PlayerArrow x={player.x} y={player.z} facingRad={facing} size={3.2} />
     </svg>
