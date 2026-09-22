@@ -63,6 +63,16 @@ const ATTACK_DURATION_MS = 300;
 const MOVE_FADE_SEC = 0.15;
 const MOVE_SPEED = 6;
 const FOOTSTEP_INTERVAL_MS = 320;
+// r3f's useFrame delta is real elapsed time since the last frame — when a browser tab loses
+// focus, requestAnimationFrame throttles or stops entirely, so the first frame after
+// refocusing (e.g. alt-tabbing back) can report a delta of several seconds. Movement below is
+// a single-step "did the final position collide" check, not swept/continuous collision, so an
+// unclamped multi-second delta could move the player MOVE_SPEED*delta units in one step — far
+// enough to land past a dungeon wall's collider entirely without ever registering as blocked,
+// stranding the player outside the room in the empty fog-colored void beyond it (which reads
+// as "stuck on a black map," since nothing is rendered out there). Clamping delta caps how far
+// a single frame can ever move the player, regardless of how long the tab was away.
+const MAX_FRAME_DELTA_SEC = 0.1;
 // "Stuck" heuristic: the player has been actively trying to move (keys held or a moveTarget
 // set) for this long while net displacement from where that attempt started stays under
 // STUCK_RESET_DISTANCE. At MOVE_SPEED=6, unobstructed movement covers ~15 units in that time —
@@ -414,8 +424,9 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useFrame((_, delta) => {
+  useFrame((_, rawDelta) => {
     if (!groupRef.current) return;
+    const delta = Math.min(rawDelta, MAX_FRAME_DELTA_SEC);
 
     let dx = 0;
     let dz = 0;
