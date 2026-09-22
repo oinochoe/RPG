@@ -458,7 +458,7 @@ export function Dungeon({ floor }: { floor: number }) {
   function handleFloorClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
     // See Ground.tsx's handleGroundClick for why this cancels instead of also moving.
-    if (useCombatStore.getState().isAimingSkill) {
+    if (useCombatStore.getState().armedSkillId !== null) {
       useCombatStore.getState().cancelAimSkill();
       return;
     }

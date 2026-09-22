@@ -102,6 +102,9 @@ export function useItem(inventoryId: number): Promise<InventoryListResponse> {
   return apiRequest(`/characters/me/inventory/${inventoryId}/use`, { method: 'POST' });
 }
 
-export function upgradeSkill(): Promise<{ skill_level: number; skill_upgrade_points: number }> {
-  return apiRequest('/characters/me/skills/upgrade', { method: 'POST' });
+export function upgradeSkill(skillTemplateId: number): Promise<{ skill_level: number; skill_upgrade_points: number }> {
+  return apiRequest('/characters/me/skills/upgrade', {
+    method: 'POST',
+    body: { skill_template_id: skillTemplateId },
+  });
 }

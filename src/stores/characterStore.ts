@@ -112,14 +112,18 @@ function sumEquippedBonus(items: InventorySlot[]): { attack: number; defense: nu
   return { attack, defense };
 }
 
-export const HOTBAR_SIZE = 6;
+// Bumped 6 -> 8 alongside skill diversification (each class went from 1 skill to 3) — 3
+// skills + up to 5 consumables (heal/mana potions x2 tiers, village/teleport scrolls) no
+// longer fit in 6.
+export const HOTBAR_SIZE = 8;
 
 // A slot holds either a consumable (resolved against inventory at use-time by
-// item_template_id, same as before) or the player's one class skill (no id needed — there's
-// only ever one). Kept as a tagged union rather than reusing `number | null` with a sentinel,
-// since a slot's behavior on press (consume an item vs. cast a skill) is genuinely different,
-// not just a different id space.
-export type HotbarAssignment = { kind: 'item'; itemTemplateId: number } | { kind: 'skill' };
+// item_template_id, same as before) or one of the player's class skills, identified by its
+// skill_template_id (a class has 3 now — see combatStore's SKILLS_BY_CLASS — so unlike the
+// single-skill era this needs an id to say which). Kept as a tagged union rather than reusing
+// `number | null` with a sentinel, since a slot's behavior on press (consume an item vs. cast
+// a skill) is genuinely different, not just a different id space.
+export type HotbarAssignment = { kind: 'item'; itemTemplateId: number } | { kind: 'skill'; skillTemplateId: number };
 
 interface CharacterState {
   characters: CharacterSummary[];
@@ -250,7 +254,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
           const existing = hotbar[i];
           if (!existing) continue;
           const sameItem = assignment.kind === 'item' && existing.kind === 'item' && existing.itemTemplateId === assignment.itemTemplateId;
-          const sameSkill = assignment.kind === 'skill' && existing.kind === 'skill';
+          const sameSkill = assignment.kind === 'skill' && existing.kind === 'skill' && existing.skillTemplateId === assignment.skillTemplateId;
           if (sameItem || sameSkill) hotbar[i] = null;
         }
       }

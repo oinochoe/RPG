@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
-import { useCombatStore, SKILL_BY_CLASS } from '../../stores/combatStore';
+import { useCombatStore, findSkillDef } from '../../stores/combatStore';
 
 // Custom mime type for the drag payload (an item_template_id) — namespaced so it never
 // collides with a browser default type or an unrelated drag source on the page. Set by a
 // consumable GridCell in InventoryPanel.tsx; read here to assign a slot.
 export const HOTBAR_DRAG_MIME = 'application/x-rpg-item-template-id';
 
-// A separate mime type (rather than reusing HOTBAR_DRAG_MIME with a sentinel payload) since
-// there's only ever one skill to drag — no id to carry, and checking `dataTransfer.types`
-// for this type's presence is all a drop handler needs. Set by the draggable skill card in
+// A separate mime type from HOTBAR_DRAG_MIME (rather than one shared "assignable thing"
+// type) so a drop handler can tell a skill drag from an item drag before even reading the
+// payload — the payload itself is the skill's skill_template_id (a class now has 3 skills,
+// see SKILLS_BY_CLASS, so there's an id to carry). Set by the draggable skill card in
 // CharacterPanel.tsx's SkillTab.
 export const HOTBAR_DRAG_SKILL_MIME = 'application/x-rpg-hotbar-skill';
 
@@ -34,9 +35,8 @@ export function Hotbar() {
   const setHotbarSlot = useCharacterStore((s) => s.setHotbarSlot);
   const player = useCombatStore((s) => s.player);
   const toggleAimSkill = useCombatStore((s) => s.toggleAimSkill);
-  const isAimingSkill = useCombatStore((s) => s.isAimingSkill);
+  const armedSkillId = useCombatStore((s) => s.armedSkillId);
   const [dragOverSlot, setDragOverSlot] = useState<number | null>(null);
-  const skill = SKILL_BY_CLASS[player.characterClass];
 
   return (
     <div
@@ -48,7 +48,7 @@ export function Hotbar() {
     >
       {Array.from({ length: HOTBAR_SIZE }).map((_, i) => {
         const assignment = hotbar[i];
-        const isSkill = assignment?.kind === 'skill';
+        const skill = assignment?.kind === 'skill' ? findSkillDef(player.characterClass, assignment.skillTemplateId) : undefined;
         const itemTemplateId = assignment?.kind === 'item' ? assignment.itemTemplateId : null;
         const row = itemTemplateId != null ? inventory.find((item) => item.item_template_id === itemTemplateId) : null;
         const quantity = row?.quantity ?? 0;
@@ -57,13 +57,14 @@ export function Hotbar() {
         // MpRegenTicker's once-a-second tick) — fine for a dimming indicator on a multi-
         // second cooldown, and it matches toggleAimSkill's own guard so the slot never shows
         // "ready" when arming would actually be refused.
-        const onCooldown = isSkill && performance.now() < player.skillCooldownUntil;
-        const usable = isSkill
-          ? player.skillLevel > 0 && player.currentMp >= skill.mpCost && !onCooldown
+        const skillLevel = skill ? player.skillLevels[skill.id] ?? 0 : 0;
+        const onCooldown = !!skill && performance.now() < (player.skillCooldowns[skill.id] ?? 0);
+        const usable = skill
+          ? skillLevel > 0 && player.currentMp >= skill.mpCost && !onCooldown
           : !!row && quantity > 0 && !hotbarPending[i];
         const isDragTarget = dragOverSlot === i;
-        const isArmed = isSkill && isAimingSkill;
-        const title = isSkill
+        const isArmed = !!skill && armedSkillId === skill.id;
+        const title = skill
           ? onCooldown
             ? `${skill.name} — 쿨다운 중`
             : isArmed
@@ -83,7 +84,7 @@ export function Hotbar() {
             onClick={() => {
               // toggleAimSkill has its own usability guard (and always allows turning aim
               // back off), so skill slots skip the local `usable` check entirely here.
-              if (isSkill) toggleAimSkill();
+              if (skill) toggleAimSkill(skill.id);
               else if (usable) useHotbarSlot(i);
             }}
             onContextMenu={(e) => {
@@ -99,8 +100,10 @@ export function Hotbar() {
             onDrop={(e) => {
               e.preventDefault();
               setDragOverSlot(null);
-              if (e.dataTransfer.types.includes(HOTBAR_DRAG_SKILL_MIME)) {
-                setHotbarSlot(i, { kind: 'skill' });
+              const skillRaw = e.dataTransfer.getData(HOTBAR_DRAG_SKILL_MIME);
+              const skillId = Number(skillRaw);
+              if (skillRaw && Number.isInteger(skillId)) {
+                setHotbarSlot(i, { kind: 'skill', skillTemplateId: skillId });
                 return;
               }
               const raw = e.dataTransfer.getData(HOTBAR_DRAG_MIME);
@@ -127,7 +130,7 @@ export function Hotbar() {
             }}
           >
             <span style={{ position: 'absolute', top: 2, left: 4, fontSize: 10, color: '#9aa08f' }}>{i + 1}</span>
-            {isSkill ? (
+            {skill ? (
               <>
                 <span style={{ fontSize: 10, lineHeight: 1.2, textAlign: 'center', padding: '0 2px' }}>
                   {skill.name}

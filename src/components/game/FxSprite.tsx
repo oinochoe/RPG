@@ -62,3 +62,55 @@ export function FxSprite({
     </mesh>
   );
 }
+
+/**
+ * A flat expanding-and-fading ring on the ground — the "this is an area attack" visual for
+ * AOE skills (see combatStore's SkillDef.type/aoeRadius), sized to the skill's actual
+ * aoeRadius so it communicates the real hit area rather than just another point burst. Lies
+ * flat (unlike FxSprite, deliberately not billboarded — a ground decal shouldn't face the
+ * camera) and needs no texture asset: a plain ring geometry reads clearly on its own.
+ */
+export function SkillRing({
+  position,
+  color,
+  radius,
+  duration = 450,
+  onDone,
+}: {
+  position: [number, number, number];
+  color: THREE.ColorRepresentation;
+  radius: number;
+  duration?: number;
+  onDone: () => void;
+}) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const materialRef = useRef<THREE.MeshBasicMaterial>(null);
+  const startedAt = useRef(performance.now());
+  const doneRef = useRef(false);
+
+  useFrame(() => {
+    if (doneRef.current || !meshRef.current || !materialRef.current) return;
+    const t = Math.min(1, (performance.now() - startedAt.current) / duration);
+    meshRef.current.scale.setScalar(0.15 + t * 0.85);
+    materialRef.current.opacity = (1 - t) * 0.85;
+    if (t >= 1) {
+      doneRef.current = true;
+      onDone();
+    }
+  });
+
+  return (
+    <mesh ref={meshRef} position={position} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[radius * 0.7, radius, 40]} />
+      <meshBasicMaterial
+        ref={materialRef}
+        color={color}
+        transparent
+        opacity={0.85}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+        toneMapped={false}
+      />
+    </mesh>
+  );
+}

@@ -88,8 +88,11 @@ interface PlayerCombatState {
   statCon: number;
   statInt: number;
   statWis: number;
-  skillLevel: number;
-  skillCooldownUntil: number;
+  // Keyed by skill_template_id — each class now has 3 skills (see SKILLS_BY_CLASS), not 1, so
+  // a single skillLevel/skillCooldownUntil pair no longer says which skill it's about.
+  // Missing entry (or 0) means "not learned yet."
+  skillLevels: Record<number, number>;
+  skillCooldowns: Record<number, number>;
 }
 
 // Stat points granted on each level-up, spent via allocateStat.
@@ -129,14 +132,45 @@ const PRIMARY_ATTACK_STAT: Record<CharacterProfile['character_class'], Allocatab
 export const SKILL_MAX_LEVEL = 10;
 const SKILL_UPGRADE_POINTS_PER_LEVEL = 1;
 
-export const SKILL_BY_CLASS: Record<
-  CharacterProfile['character_class'],
-  { name: string; mpCost: number; cooldownMs: number; baseDamageMultiplier: number }
-> = {
-  warrior: { name: '강타', mpCost: 15, cooldownMs: 4000, baseDamageMultiplier: 2.5 },
-  archer: { name: '관통사격', mpCost: 15, cooldownMs: 4000, baseDamageMultiplier: 2.0 },
-  mage: { name: '파이어볼', mpCost: 20, cooldownMs: 5000, baseDamageMultiplier: 2.2 },
+export interface SkillDef {
+  // Matches skill_templates.id (see supabase/migrations/20260922080000_add_more_class_skills.sql)
+  // — the server is the source of truth for level-cap/required-level enforcement via that
+  // table; this client-side copy (same duplication SKILL_BY_CLASS always had, just now 3 rows
+  // per class instead of 1) is what casting/UI actually read from in real time.
+  id: number;
+  name: string;
+  mpCost: number;
+  cooldownMs: number;
+  baseDamageMultiplier: number;
+  requiredLevel: number;
+  type: 'single' | 'aoe';
+  aoeRadius?: number;
+  // Per-skill tint for its cast/impact FX (see CharacterMesh's spawnSkillEffect) — used to
+  // stay distinct in fights rather than every skill in a class sharing one color.
+  fxColor: string;
+}
+
+export const SKILLS_BY_CLASS: Record<CharacterProfile['character_class'], SkillDef[]> = {
+  warrior: [
+    { id: 1, name: '강타', mpCost: 15, cooldownMs: 4000, baseDamageMultiplier: 2.5, requiredLevel: 1, type: 'single', fxColor: '#ffcf5c' },
+    { id: 4, name: '연속베기', mpCost: 8, cooldownMs: 2000, baseDamageMultiplier: 1.3, requiredLevel: 1, type: 'single', fxColor: '#ff9f4a' },
+    { id: 5, name: '대지진동', mpCost: 25, cooldownMs: 8000, baseDamageMultiplier: 1.6, requiredLevel: 5, type: 'aoe', aoeRadius: 3.5, fxColor: '#c26a2b' },
+  ],
+  archer: [
+    { id: 2, name: '관통사격', mpCost: 15, cooldownMs: 4000, baseDamageMultiplier: 2.0, requiredLevel: 1, type: 'single', fxColor: '#eaffb0' },
+    { id: 6, name: '속사', mpCost: 8, cooldownMs: 2000, baseDamageMultiplier: 1.2, requiredLevel: 1, type: 'single', fxColor: '#bfffd8' },
+    { id: 7, name: '산탄사격', mpCost: 22, cooldownMs: 7000, baseDamageMultiplier: 1.4, requiredLevel: 5, type: 'aoe', aoeRadius: 3, fxColor: '#7be08a' },
+  ],
+  mage: [
+    { id: 3, name: '파이어볼', mpCost: 20, cooldownMs: 5000, baseDamageMultiplier: 2.2, requiredLevel: 1, type: 'single', fxColor: '#ff6a2b' },
+    { id: 8, name: '매직미사일', mpCost: 10, cooldownMs: 2000, baseDamageMultiplier: 1.3, requiredLevel: 1, type: 'single', fxColor: '#c084fc' },
+    { id: 9, name: '블리자드', mpCost: 30, cooldownMs: 9000, baseDamageMultiplier: 1.7, requiredLevel: 5, type: 'aoe', aoeRadius: 3.5, fxColor: '#7ec8ff' },
+  ],
 };
+
+export function findSkillDef(characterClass: CharacterProfile['character_class'], skillId: number): SkillDef | undefined {
+  return SKILLS_BY_CLASS[characterClass].find((s) => s.id === skillId);
+}
 
 // Each skill level above 1 adds +10% to the template's base multiplier.
 function skillDamageMultiplier(baseDamageMultiplier: number, skillLevel: number): number {
@@ -165,18 +199,23 @@ interface CombatState {
   // MonsterMesh's handleClick) — CharacterMesh (the only place that has both the player's
   // live position and the swing/draw animation refs castSkill's visual needs) watches this
   // and casts on change. A counter rather than a boolean so firing twice in a row still
-  // fires twice even if CharacterMesh's effect hasn't re-run in between.
+  // fires twice even if CharacterMesh's effect hasn't re-run in between. pendingCastSkillId
+  // carries which of the class's 3 skills this particular request is for — castRequestId
+  // alone has no payload, so this is what the watcher reads once it fires.
   castRequestId: number;
-  requestCastSkill: () => void;
-  // Ragnarok-style ability targeting: pressing the skill's hotbar slot/key (or
+  pendingCastSkillId: number | null;
+  requestCastSkill: (skillId: number) => void;
+  // Ragnarok-style ability targeting: pressing a skill's hotbar slot/key (or
   // double-clicking it in the skill tab) doesn't cast anything by itself — it arms
-  // "aiming," which swaps the cursor to a targeting reticle (see GamePage) and makes the
-  // next monster click fire the skill at that monster on the spot (see MonsterMesh's
-  // handleClick) instead of the normal walk-over-and-lock-on click. Clicking empty ground,
-  // pressing Escape, or pressing the slot again all cancel it without casting.
-  isAimingSkill: boolean;
-  /** No-op if the skill isn't castable right now (unlearned/not enough MP); toggles off if already aiming. */
-  toggleAimSkill: () => void;
+  // "aiming" on that specific skill, which swaps the cursor to a targeting reticle (see
+  // GamePage) and makes the next monster click fire that skill at that monster on the spot
+  // (see MonsterMesh's handleClick) instead of the normal walk-over-and-lock-on click.
+  // Clicking empty ground, pressing Escape, or pressing the same slot again all cancel it
+  // without casting. null = not aiming; otherwise the armed skill's id.
+  armedSkillId: number | null;
+  /** No-op if that skill isn't castable right now (unlearned/not enough MP/on cooldown);
+   * toggles off if the same skill is already armed. */
+  toggleAimSkill: (skillId: number) => void;
   cancelAimSkill: () => void;
   // The explicitly locked combat target (set by clicking a monster — see MonsterMesh's
   // handleClick). When set, attackNearest/castSkill attack ONLY this monster — missing
@@ -195,7 +234,7 @@ interface CombatState {
    */
   loadMonsters: (monsters: MonsterInstanceSummary[], aggressive: AggressivePredicate) => void;
   attackNearest: (playerX: number, playerZ: number) => AttackResult;
-  castSkill: (playerX: number, playerZ: number) => AttackResult;
+  castSkill: (skillId: number, playerX: number, playerZ: number) => AttackResult;
   monsterAttackTick: (playerX: number, playerZ: number) => MonsterAttackResult;
   tickMonsterMovement: (playerX: number, playerZ: number, delta: number) => void;
   allocateStat: (stat: AllocatableStat) => void;
@@ -207,8 +246,9 @@ interface CombatState {
    * login, same as PositionSync.tsx's handling.
    */
   syncProgress: () => void;
-  /** Calls the server RPC and adopts its authoritative skill_level/skill_upgrade_points. */
-  upgradeSkill: () => Promise<void>;
+  /** Calls the server RPC and adopts its authoritative skill_level/skill_upgrade_points for
+   * that one skill. */
+  upgradeSkill: (skillId: number) => Promise<void>;
   respawnPlayer: () => void;
   tickRespawns: () => void;
   /** +1 MP, capped at maxMp — ticked once per elapsed second by MpRegenTicker. */
@@ -374,29 +414,29 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     statCon: 5,
     statInt: 5,
     statWis: 5,
-    skillLevel: 0,
-    skillCooldownUntil: 0,
+    skillLevels: {},
+    skillCooldowns: {},
   },
   lastAttackAt: 0,
   castRequestId: 0,
-  requestCastSkill: () => set((s) => ({ castRequestId: s.castRequestId + 1 })),
+  pendingCastSkillId: null,
+  requestCastSkill: (skillId) => set((s) => ({ castRequestId: s.castRequestId + 1, pendingCastSkillId: skillId })),
   targetId: null,
   setTarget: (id) => set({ targetId: id }),
-  isAimingSkill: false,
-  toggleAimSkill: () =>
+  armedSkillId: null,
+  toggleAimSkill: (skillId) =>
     set((s) => {
-      if (s.isAimingSkill) return { isAimingSkill: false };
-      const skill = SKILL_BY_CLASS[s.player.characterClass];
-      if (
-        s.player.skillLevel <= 0 ||
-        s.player.currentMp < skill.mpCost ||
-        performance.now() < s.player.skillCooldownUntil
-      ) {
+      if (s.armedSkillId === skillId) return { armedSkillId: null };
+      const skill = findSkillDef(s.player.characterClass, skillId);
+      if (!skill) return {};
+      const skillLevel = s.player.skillLevels[skillId] ?? 0;
+      const cooldownUntil = s.player.skillCooldowns[skillId] ?? 0;
+      if (skillLevel <= 0 || s.player.currentMp < skill.mpCost || performance.now() < cooldownUntil) {
         return {};
       }
-      return { isAimingSkill: true };
+      return { armedSkillId: skillId };
     }),
-  cancelAimSkill: () => set({ isAimingSkill: false }),
+  cancelAimSkill: () => set({ armedSkillId: null }),
 
   init: (character, monsters, aggressive) => {
     // character.attack_power/defense_power are the character's base stats (never touched
@@ -434,20 +474,20 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         statCon: character.stat_con,
         statInt: character.stat_int,
         statWis: character.stat_wis,
-        // character.skills contains exactly 0 or 1 rows for the caller's own character
-        // (one skill per class, and the array is scoped to this character already) — no
-        // need to match by skill_template_id, just take the one row if it exists.
-        skillLevel: character.skills[0]?.skill_level ?? 0,
-        skillCooldownUntil: 0,
+        // character.skills has one row per learned skill (0-3 for this character's class,
+        // see SKILLS_BY_CLASS) — build the skillId -> level map from all of them, not just
+        // the first.
+        skillLevels: Object.fromEntries(character.skills.map((s) => [s.skill_template_id, s.skill_level])),
+        skillCooldowns: {},
       },
       lastAttackAt: 0,
       targetId: null,
-      isAimingSkill: false,
+      armedSkillId: null,
     });
   },
 
   loadMonsters: (monsters, aggressive) => {
-    set({ monsters: toMonsterCombatState(monsters, aggressive), lastAttackAt: 0, targetId: null, isAimingSkill: false });
+    set({ monsters: toMonsterCombatState(monsters, aggressive), lastAttackAt: 0, targetId: null, armedSkillId: null });
   },
 
   attackNearest: (playerX, playerZ) => {
@@ -486,12 +526,14 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     return { hit: true, instanceId: target.instanceId, damage, killed, leveledUp, goldDropped };
   },
 
-  castSkill: (playerX, playerZ) => {
+  castSkill: (skillId, playerX, playerZ) => {
     const now = performance.now();
     const { monsters, player, targetId } = get();
-    if (player.skillLevel <= 0 || now < player.skillCooldownUntil) return { hit: false };
-
-    const skill = SKILL_BY_CLASS[player.characterClass];
+    const skill = findSkillDef(player.characterClass, skillId);
+    if (!skill) return { hit: false };
+    const skillLevel = player.skillLevels[skillId] ?? 0;
+    const cooldownUntil = player.skillCooldowns[skillId] ?? 0;
+    if (skillLevel <= 0 || now < cooldownUntil) return { hit: false };
     if (player.currentMp < skill.mpCost) return { hit: false };
 
     // Unlike attackNearest (which falls back to whatever's closest so plain movement-driven
@@ -503,34 +545,66 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     const target = resolveTarget(monsters, targetId, playerX, playerZ, player.attackRange);
     if (!target) return { hit: false };
 
-    const multiplier = skillDamageMultiplier(skill.baseDamageMultiplier, player.skillLevel);
-    const damage = Math.max(1, Math.round(player.attackPower * multiplier * (0.8 + Math.random() * 0.4)));
-    const nextHp = Math.max(0, target.currentHp - damage);
-    const killed = nextHp === 0;
+    const multiplier = skillDamageMultiplier(skill.baseDamageMultiplier, skillLevel);
+    // AOE skills hit every alive monster within aoeRadius of the locked target's position
+    // (not the player's) — "the skill lands on the target and hits everything near it,"
+    // the same area-of-effect shape for all 3 classes' AOE skill. A single-target skill is
+    // just this list with one entry.
+    const hitTargets =
+      skill.type === 'aoe' && skill.aoeRadius
+        ? Object.values(monsters).filter(
+            (m) =>
+              m.alive &&
+              Math.hypot(m.position[0] - target.position[0], m.position[2] - target.position[2]) <= skill.aoeRadius!,
+          )
+        : [target];
 
-    const updatedMonster: MonsterCombatState = {
-      ...target,
-      currentHp: nextHp,
-      alive: !killed,
-      respawnAt: killed ? now + RESPAWN_DELAY_MS : null,
-      lastHitAt: now,
-    };
+    const nextMonsters = { ...monsters };
+    let currentPlayer = player;
+    let anyLeveledUp = false;
+    let totalGold = 0;
+    let primaryDamage = 0;
+    let primaryKilled = false;
 
-    const { nextPlayer: afterKill, leveledUp, goldDropped } = killed
-      ? applyKill(player, target)
-      : { nextPlayer: player, leveledUp: false, goldDropped: undefined as number | undefined };
+    for (const t of hitTargets) {
+      const damage = Math.max(1, Math.round(currentPlayer.attackPower * multiplier * (0.8 + Math.random() * 0.4)));
+      const nextHp = Math.max(0, t.currentHp - damage);
+      const killed = nextHp === 0;
+      nextMonsters[t.instanceId] = {
+        ...t,
+        currentHp: nextHp,
+        alive: !killed,
+        respawnAt: killed ? now + RESPAWN_DELAY_MS : null,
+        lastHitAt: now,
+      };
+      if (t.instanceId === target.instanceId) {
+        primaryDamage = damage;
+        primaryKilled = killed;
+      }
+      if (killed) {
+        const { nextPlayer, leveledUp, goldDropped } = applyKill(currentPlayer, t);
+        currentPlayer = nextPlayer;
+        if (leveledUp) anyLeveledUp = true;
+        totalGold += goldDropped;
+      }
+    }
 
     const nextPlayer: PlayerCombatState = {
-      ...afterKill,
-      currentMp: afterKill.currentMp - skill.mpCost,
-      skillCooldownUntil: now + skill.cooldownMs,
+      ...currentPlayer,
+      currentMp: currentPlayer.currentMp - skill.mpCost,
+      skillCooldowns: { ...currentPlayer.skillCooldowns, [skillId]: now + skill.cooldownMs },
     };
 
     set({
-      monsters: { ...monsters, [target.instanceId]: updatedMonster },
+      monsters: nextMonsters,
       player: nextPlayer,
-      targetId: killed && targetId === target.instanceId ? null : targetId,
+      targetId: primaryKilled && targetId === target.instanceId ? null : targetId,
     });
+
+    const killed = primaryKilled;
+    const damage = primaryDamage;
+    const leveledUp = anyLeveledUp;
+    const goldDropped = totalGold > 0 ? totalGold : undefined;
 
     if (leveledUp) get().syncProgress();
 
@@ -717,10 +791,16 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       });
   },
 
-  upgradeSkill: async () => {
-    const { skill_level, skill_upgrade_points } = await charactersApi.upgradeSkill();
+  upgradeSkill: async (skillId) => {
+    const { skill_level, skill_upgrade_points } = await charactersApi.upgradeSkill(skillId);
     const { player } = get();
-    set({ player: { ...player, skillLevel: skill_level, skillUpgradePoints: skill_upgrade_points } });
+    set({
+      player: {
+        ...player,
+        skillLevels: { ...player.skillLevels, [skillId]: skill_level },
+        skillUpgradePoints: skill_upgrade_points,
+      },
+    });
   },
 
   respawnPlayer: () => {

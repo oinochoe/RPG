@@ -255,7 +255,7 @@ export function Ground() {
     // Clicking empty ground while a skill is armed isn't a valid target — cancel the aim
     // instead of also walking there, so backing out of targeting doesn't send the player
     // wandering off toward wherever they clicked to cancel.
-    if (useCombatStore.getState().isAimingSkill) {
+    if (useCombatStore.getState().armedSkillId !== null) {
       useCombatStore.getState().cancelAimSkill();
       return;
     }

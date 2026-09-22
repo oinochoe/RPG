@@ -24,10 +24,12 @@ const HOTBAR_KEYS: Record<string, number> = {
   Digit4: 3,
   Digit5: 4,
   Digit6: 5,
+  Digit7: 6,
+  Digit8: 7,
 };
 
 // Ragnarok-style targeting reticle — swapped in for the default cursor while a skill is
-// armed (see combatStore's isAimingSkill) so "click to fire" has an obvious visual cue.
+// armed (see combatStore's armedSkillId) so "click to fire" has an obvious visual cue.
 const AIM_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><circle cx="14" cy="14" r="9" fill="none" stroke="#e0538a" stroke-width="3"/></svg>',
 )}") 14 14, crosshair`;
@@ -36,7 +38,7 @@ export function GamePage() {
   const activeCharacter = useCharacterStore((s) => s.activeCharacter);
   const currentMap = useSessionStore((s) => s.currentMap);
   const enterMap = useSessionStore((s) => s.enterMap);
-  const isAimingSkill = useCombatStore((s) => s.isAimingSkill);
+  const armedSkillId = useCombatStore((s) => s.armedSkillId);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -63,7 +65,7 @@ export function GamePage() {
         // Cancels an armed skill aim first, if one's active, rather than also closing
         // whatever panel happens to be open underneath it — Escape backing out of aiming
         // should feel like its own single step.
-        if (useCombatStore.getState().isAimingSkill) {
+        if (useCombatStore.getState().armedSkillId !== null) {
           useCombatStore.getState().cancelAimSkill();
         } else {
           const ui = useUIStore.getState();
@@ -84,7 +86,7 @@ export function GamePage() {
         // Mirrors Hotbar.tsx's onClick branch — this is the number-key shortcut for the same
         // slots, so a skill assignment arms aiming (see toggleAimSkill) the same way, not
         // through useHotbarSlot (which only knows how to consume an item).
-        if (assignment?.kind === 'skill') useCombatStore.getState().toggleAimSkill();
+        if (assignment?.kind === 'skill') useCombatStore.getState().toggleAimSkill(assignment.skillTemplateId);
         else useCharacterStore.getState().useHotbarSlot(slot);
       }
     }
@@ -101,7 +103,7 @@ export function GamePage() {
         shadows="soft"
         dpr={[1, 2]}
         gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
-        style={{ width: '100vw', height: '100vh', display: 'block', cursor: isAimingSkill ? AIM_CURSOR : 'auto' }}
+        style={{ width: '100vw', height: '100vh', display: 'block', cursor: armedSkillId !== null ? AIM_CURSOR : 'auto' }}
       >
         <Scene character={activeCharacter} map={currentMap} />
       </Canvas>

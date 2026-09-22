@@ -239,38 +239,40 @@ describe('combatStore castSkill', () => {
   });
 
   it('does nothing when the skill is unlearned (skillLevel 0)', () => {
-    const result = useCombatStore.getState().castSkill(0, 0);
+    const result = useCombatStore.getState().castSkill(1, 0, 0);
     expect(result.hit).toBe(false);
   });
 
   it('does nothing when on cooldown', () => {
-    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, skillCooldownUntil: performance.now() + 10_000 } }));
-    const result = useCombatStore.getState().castSkill(0, 0);
+    useCombatStore.setState((s) => ({
+      player: { ...s.player, skillLevels: { 1: 1 }, skillCooldowns: { 1: performance.now() + 10_000 } },
+    }));
+    const result = useCombatStore.getState().castSkill(1, 0, 0);
     expect(result.hit).toBe(false);
   });
 
   it('does nothing when MP is below the cost', () => {
-    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 0 } }));
-    const result = useCombatStore.getState().castSkill(0, 0);
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevels: { 1: 1 }, currentMp: 0 } }));
+    const result = useCombatStore.getState().castSkill(1, 0, 0);
     expect(result.hit).toBe(false);
   });
 
   it('does nothing when no target is locked, even with the skill ready', () => {
-    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 20 } }));
-    const result = useCombatStore.getState().castSkill(0, 0);
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevels: { 1: 1 }, currentMp: 20 } }));
+    const result = useCombatStore.getState().castSkill(1, 0, 0);
     expect(result.hit).toBe(false);
   });
 
   it('hits the locked target, deducts MP, and sets a cooldown when ready', () => {
-    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 20 } }));
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevels: { 1: 1 }, currentMp: 20 } }));
     useCombatStore.getState().setTarget(1);
     const before = performance.now();
-    const result = useCombatStore.getState().castSkill(0, 0);
+    const result = useCombatStore.getState().castSkill(1, 0, 0);
     const { player } = useCombatStore.getState();
     expect(result.hit).toBe(true);
     expect(result.instanceId).toBe(1);
     expect(player.currentMp).toBe(5); // warrior's 강타 costs 15, started at 20
-    expect(player.skillCooldownUntil).toBeGreaterThan(before);
+    expect(player.skillCooldowns[1]).toBeGreaterThan(before);
   });
 
   it('applies the per-level damage bonus (level 3 hits harder than level 1)', () => {
@@ -278,15 +280,15 @@ describe('combatStore castSkill', () => {
     // per-level multiplier, not noise from the (0.8 + Math.random() * 0.4) band.
     const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.5);
     try {
-      useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 100 } }));
+      useCombatStore.setState((s) => ({ player: { ...s.player, skillLevels: { 1: 1 }, currentMp: 100 } }));
       useCombatStore.getState().setTarget(1);
-      useCombatStore.getState().castSkill(0, 0);
+      useCombatStore.getState().castSkill(1, 0, 0);
       const lowLevelDamage = useCombatStore.getState().monsters[1].maxHp - useCombatStore.getState().monsters[1].currentHp;
 
       useCombatStore.getState().init(baseCharacter, [monster], true);
-      useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 3, currentMp: 100 } }));
+      useCombatStore.setState((s) => ({ player: { ...s.player, skillLevels: { 1: 3 }, currentMp: 100 } }));
       useCombatStore.getState().setTarget(1);
-      useCombatStore.getState().castSkill(0, 0);
+      useCombatStore.getState().castSkill(1, 0, 0);
       const highLevelDamage = useCombatStore.getState().monsters[1].maxHp - useCombatStore.getState().monsters[1].currentHp;
 
       // Level 3 = base multiplier * 1.2 (per the +10%/level formula) vs level 1's bare
@@ -300,11 +302,11 @@ describe('combatStore castSkill', () => {
   it('a killing skill hit still runs the shared level-up/gold logic', () => {
     const weakMonster: MonsterInstanceSummary = { ...monster, current_hp: 1, max_hp: 1 };
     useCombatStore.getState().init({ ...baseCharacter, experience: 95 }, [weakMonster], true);
-    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 100 } }));
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevels: { 1: 1 }, currentMp: 100 } }));
     useCombatStore.getState().setTarget(1);
     vi.clearAllMocks();
 
-    const result = useCombatStore.getState().castSkill(0, 0);
+    const result = useCombatStore.getState().castSkill(1, 0, 0);
 
     expect(result.killed).toBe(true);
     expect(result.leveledUp).toBe(true);
@@ -319,42 +321,42 @@ describe('combatStore toggleAimSkill', () => {
   });
 
   it('does nothing when the skill is unlearned', () => {
-    useCombatStore.getState().toggleAimSkill();
-    expect(useCombatStore.getState().isAimingSkill).toBe(false);
+    useCombatStore.getState().toggleAimSkill(1);
+    expect(useCombatStore.getState().armedSkillId).toBeNull();
   });
 
   it('does nothing when MP is below the cost', () => {
-    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 0 } }));
-    useCombatStore.getState().toggleAimSkill();
-    expect(useCombatStore.getState().isAimingSkill).toBe(false);
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevels: { 1: 1 }, currentMp: 0 } }));
+    useCombatStore.getState().toggleAimSkill(1);
+    expect(useCombatStore.getState().armedSkillId).toBeNull();
   });
 
   it('arms aiming when the skill is castable', () => {
-    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 20 } }));
-    useCombatStore.getState().toggleAimSkill();
-    expect(useCombatStore.getState().isAimingSkill).toBe(true);
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevels: { 1: 1 }, currentMp: 20 } }));
+    useCombatStore.getState().toggleAimSkill(1);
+    expect(useCombatStore.getState().armedSkillId).toBe(1);
   });
 
   it('does nothing while the skill is on cooldown', () => {
     useCombatStore.setState((s) => ({
-      player: { ...s.player, skillLevel: 1, currentMp: 20, skillCooldownUntil: performance.now() + 10_000 },
+      player: { ...s.player, skillLevels: { 1: 1 }, currentMp: 20, skillCooldowns: { 1: performance.now() + 10_000 } },
     }));
-    useCombatStore.getState().toggleAimSkill();
-    expect(useCombatStore.getState().isAimingSkill).toBe(false);
+    useCombatStore.getState().toggleAimSkill(1);
+    expect(useCombatStore.getState().armedSkillId).toBeNull();
   });
 
   it('disarms aiming on a second press, without re-checking castability', () => {
-    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 20 } }));
-    useCombatStore.getState().toggleAimSkill();
-    useCombatStore.setState({ isAimingSkill: true, player: { ...useCombatStore.getState().player, currentMp: 0 } });
-    useCombatStore.getState().toggleAimSkill();
-    expect(useCombatStore.getState().isAimingSkill).toBe(false);
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevels: { 1: 1 }, currentMp: 20 } }));
+    useCombatStore.getState().toggleAimSkill(1);
+    useCombatStore.setState({ armedSkillId: 1, player: { ...useCombatStore.getState().player, currentMp: 0 } });
+    useCombatStore.getState().toggleAimSkill(1);
+    expect(useCombatStore.getState().armedSkillId).toBeNull();
   });
 
   it('cancelAimSkill always disarms', () => {
-    useCombatStore.setState({ isAimingSkill: true });
+    useCombatStore.setState({ armedSkillId: 1 });
     useCombatStore.getState().cancelAimSkill();
-    expect(useCombatStore.getState().isAimingSkill).toBe(false);
+    expect(useCombatStore.getState().armedSkillId).toBeNull();
   });
 });
 
@@ -433,10 +435,10 @@ describe('combatStore targeting', () => {
   });
 
   it('castSkill also honors the lock', () => {
-    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevel: 1, currentMp: 100 } }));
+    useCombatStore.setState((s) => ({ player: { ...s.player, skillLevels: { 1: 1 }, currentMp: 100 } }));
     useCombatStore.getState().setTarget(2);
 
-    const result = useCombatStore.getState().castSkill(0, 0);
+    const result = useCombatStore.getState().castSkill(1, 0, 0);
 
     expect(result.hit).toBe(true);
     expect(result.instanceId).toBe(2);

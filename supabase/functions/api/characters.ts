@@ -471,12 +471,18 @@ charactersRoutes.patch("/me/progress", async (c) => {
 
 charactersRoutes.post("/me/skills/upgrade", async (c) => {
   const appUser = c.get("appUser");
+  const { skill_template_id } = await readJsonBody(c);
+  if (typeof skill_template_id !== "number" || !Number.isInteger(skill_template_id)) {
+    throw new ApiError(400, "validation_failed", "invalid_request", "skill_template_id는 정수여야 합니다.", "skill_template_id");
+  }
+
   const admin = getAdminClient();
   const characterId = await getActiveCharacterId(admin, appUser.id);
 
   const { data, error } = await admin.rpc("upgrade_character_skill", {
     p_user_id: appUser.id,
     p_character_id: characterId,
+    p_skill_template_id: skill_template_id,
   });
   if (error) throw mapSkillUpgradeRpcError(error.message);
 

@@ -530,12 +530,13 @@ export function MonsterMesh({
     const standoff = attackRange * 0.85;
     const inRange = dist <= attackRange;
 
-    // Skill aiming armed (see combatStore's isAimingSkill/toggleAimSkill) — this click IS
+    // Skill aiming armed (see combatStore's armedSkillId/toggleAimSkill) — this click IS
     // the target designation Ragnarok-style ability targeting calls for. In range, fire on
     // the spot; out of range, walk to a standoff point first and fire once arrival lands
-    // (see CharacterMesh's pendingSkillCast watcher) — same walk-then-act shape as the
+    // (see CharacterMesh's pendingSkillCastId watcher) — same walk-then-act shape as the
     // basic-attack branch below, just a single cast instead of repeated auto-attacks.
-    if (useCombatStore.getState().isAimingSkill) {
+    const armedSkillId = useCombatStore.getState().armedSkillId;
+    if (armedSkillId !== null) {
       useCombatStore.getState().cancelAimSkill();
       if (inRange) {
         // Firing on the spot supersedes any walk-to-attack still in flight from an earlier
@@ -544,11 +545,11 @@ export function MonsterMesh({
         // character kept marching there and then missed forever (the lock had already
         // moved to B, and A's arrival block never got a hit to clear itself on).
         clearMoveTarget();
-        useCombatStore.getState().requestCastSkill();
+        useCombatStore.getState().requestCastSkill(armedSkillId);
       } else {
         const standX = basePosition[0] + (dx / dist) * standoff;
         const standZ = basePosition[2] + (dz / dist) * standoff;
-        setSkillMoveTarget(standX, standZ);
+        setSkillMoveTarget(standX, standZ, armedSkillId);
       }
       return;
     }

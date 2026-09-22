@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { useCombatStore, statPointCost, SKILL_BY_CLASS, SKILL_MAX_LEVEL, type AllocatableStat } from '../../stores/combatStore';
+import {
+  useCombatStore,
+  statPointCost,
+  SKILLS_BY_CLASS,
+  SKILL_MAX_LEVEL,
+  type AllocatableStat,
+  type SkillDef,
+} from '../../stores/combatStore';
 import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL } from './itemLabels';
@@ -189,24 +196,28 @@ function EquipmentTab() {
   );
 }
 
-function SkillTab({ character }: { character: CharacterProfile }) {
+function SkillCard({ skill, character }: { skill: SkillDef; character: CharacterProfile }) {
   const player = useCombatStore((s) => s.player);
   const upgradeSkill = useCombatStore((s) => s.upgradeSkill);
   const toggleAimSkill = useCombatStore((s) => s.toggleAimSkill);
-  const isAimingSkill = useCombatStore((s) => s.isAimingSkill);
+  const armedSkillId = useCombatStore((s) => s.armedSkillId);
   const hotbar = useCharacterStore((s) => s.hotbar);
   const setHotbarSlot = useCharacterStore((s) => s.setHotbarSlot);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const skill = SKILL_BY_CLASS[character.character_class];
-  const canUpgrade = !pending && player.skillUpgradePoints > 0 && player.skillLevel < SKILL_MAX_LEVEL;
-  const assignedSlot = hotbar.findIndex((a) => a?.kind === 'skill');
+
+  const skillLevel = player.skillLevels[skill.id] ?? 0;
+  const levelLocked = character.level < skill.requiredLevel;
+  const canUpgrade = !pending && !levelLocked && player.skillUpgradePoints > 0 && skillLevel < SKILL_MAX_LEVEL;
+  const learned = skillLevel > 0;
+  const isArmed = armedSkillId === skill.id;
+  const assignedSlot = hotbar.findIndex((a) => a?.kind === 'skill' && a.skillTemplateId === skill.id);
 
   async function handleUpgrade() {
     setError(null);
     setPending(true);
     try {
-      await upgradeSkill();
+      await upgradeSkill(skill.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : '스킬 강화 중 오류가 발생했습니다.');
     } finally {
@@ -215,42 +226,26 @@ function SkillTab({ character }: { character: CharacterProfile }) {
   }
 
   return (
-    <div>
+    <div style={{ marginBottom: 8 }}>
+      {error && <p style={{ color: '#e0538a', fontSize: 11, marginBottom: 4 }}>{error}</p>}
       <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '6px 10px',
-          borderRadius: 8,
-          background: player.skillUpgradePoints > 0 ? 'rgba(232, 201, 122, 0.15)' : 'rgba(255,255,255,0.04)',
-          marginBottom: 10,
-        }}
-      >
-        <span style={{ color: '#e8c97a', fontSize: 13, fontWeight: 700 }}>스킬 강화 포인트</span>
-        <span style={{ color: '#e8c97a', fontSize: 15, fontWeight: 700 }}>{player.skillUpgradePoints}</span>
-      </div>
-
-      {error && <p style={{ color: '#e0538a', fontSize: 12, marginBottom: 8 }}>{error}</p>}
-
-      <div
-        draggable={player.skillLevel > 0}
+        draggable={learned}
         onDragStart={(e) => {
-          if (player.skillLevel <= 0) return;
-          e.dataTransfer.setData(HOTBAR_DRAG_SKILL_MIME, 'skill');
+          if (!learned) return;
+          e.dataTransfer.setData(HOTBAR_DRAG_SKILL_MIME, String(skill.id));
           e.dataTransfer.effectAllowed = 'copy';
         }}
         // Double-click is the other way to arm aiming (besides the hotbar slot/number key) —
         // works even if the skill isn't registered to a slot yet, same as dragging works
         // without registering first.
         onDoubleClick={() => {
-          if (player.skillLevel <= 0) return;
-          toggleAimSkill();
+          if (!learned) return;
+          toggleAimSkill(skill.id);
           // Only closes the panel when it actually armed (checked after the fact, since
           // toggleAimSkill silently no-ops on cooldown/insufficient MP) — this panel sits
           // top-left with the highest z-index on the page and otherwise keeps eating clicks
           // meant for the monster the player is about to aim at.
-          if (useCombatStore.getState().isAimingSkill) useUIStore.getState().closeCharacterPanel();
+          if (useCombatStore.getState().armedSkillId === skill.id) useUIStore.getState().closeCharacterPanel();
         }}
         style={{
           display: 'flex',
@@ -258,17 +253,24 @@ function SkillTab({ character }: { character: CharacterProfile }) {
           justifyContent: 'space-between',
           padding: '10px',
           borderRadius: 8,
-          background: isAimingSkill ? 'rgba(224, 83, 138, 0.18)' : 'rgba(255,255,255,0.04)',
-          border: isAimingSkill ? '1px solid #e0538a' : '1px solid transparent',
-          cursor: player.skillLevel > 0 ? 'grab' : 'default',
+          background: isArmed ? 'rgba(224, 83, 138, 0.18)' : 'rgba(255,255,255,0.04)',
+          border: isArmed ? '1px solid #e0538a' : '1px solid transparent',
+          opacity: levelLocked ? 0.5 : 1,
+          cursor: learned ? 'grab' : 'default',
         }}
       >
         <div>
           <div style={{ color: '#f4f1e8', fontSize: 14, fontWeight: 700 }}>
-            {skill.name} — Lv.{player.skillLevel}/{SKILL_MAX_LEVEL}
+            {skill.name}
+            {skill.type === 'aoe' && (
+              <span style={{ color: '#c084fc', fontSize: 10, fontWeight: 700, marginLeft: 6 }}>범위</span>
+            )}
+            {' — '}Lv.{skillLevel}/{SKILL_MAX_LEVEL}
           </div>
           <div style={{ color: '#9aa08f', fontSize: 11, marginTop: 2 }}>
-            MP {skill.mpCost} · 쿨다운 {skill.cooldownMs / 1000}초 · 더블클릭 후 몬스터 클릭으로 시전
+            {levelLocked
+              ? `Lv.${skill.requiredLevel} 필요`
+              : `MP ${skill.mpCost} · 쿨다운 ${skill.cooldownMs / 1000}초${skill.type === 'aoe' ? ` · 범위 ${skill.aoeRadius}` : ''} · 더블클릭 후 몬스터 클릭으로 시전`}
           </div>
         </div>
         <button
@@ -290,30 +292,32 @@ function SkillTab({ character }: { character: CharacterProfile }) {
         </button>
       </div>
 
-      {player.skillLevel > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.5, marginBottom: 6 }}>
+      {learned && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ color: '#9aa08f', fontSize: 10, lineHeight: 1.4, marginBottom: 4 }}>
             {assignedSlot >= 0 ? (
               <>
                 단축키 <span style={{ color: '#e8c97a', fontWeight: 700 }}>{assignedSlot + 1}</span>번에 등록됨
               </>
             ) : (
-              '스킬을 드래그하거나, 아래 번호를 눌러 단축키에 등록하세요.'
+              '드래그하거나 아래 번호를 눌러 단축키에 등록하세요.'
             )}
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
             {Array.from({ length: HOTBAR_SIZE }).map((_, slot) => (
               <button
                 key={slot}
-                onClick={() => setHotbarSlot(slot, assignedSlot === slot ? null : { kind: 'skill' })}
+                onClick={() =>
+                  setHotbarSlot(slot, assignedSlot === slot ? null : { kind: 'skill', skillTemplateId: skill.id })
+                }
                 style={{
                   flex: 1,
-                  height: 24,
+                  height: 20,
                   borderRadius: 5,
                   border: '1px solid #e8c97a',
                   background: assignedSlot === slot ? 'rgba(232, 201, 122, 0.35)' : 'rgba(255,255,255,0.05)',
                   color: '#e8c97a',
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: 700,
                   cursor: 'pointer',
                 }}
@@ -324,6 +328,34 @@ function SkillTab({ character }: { character: CharacterProfile }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SkillTab({ character }: { character: CharacterProfile }) {
+  const player = useCombatStore((s) => s.player);
+  const skills = SKILLS_BY_CLASS[character.character_class];
+
+  return (
+    <div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 10px',
+          borderRadius: 8,
+          background: player.skillUpgradePoints > 0 ? 'rgba(232, 201, 122, 0.15)' : 'rgba(255,255,255,0.04)',
+          marginBottom: 10,
+        }}
+      >
+        <span style={{ color: '#e8c97a', fontSize: 13, fontWeight: 700 }}>스킬 강화 포인트</span>
+        <span style={{ color: '#e8c97a', fontSize: 15, fontWeight: 700 }}>{player.skillUpgradePoints}</span>
+      </div>
+
+      {skills.map((skill) => (
+        <SkillCard key={skill.id} skill={skill} character={character} />
+      ))}
     </div>
   );
 }
