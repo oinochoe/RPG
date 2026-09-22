@@ -125,15 +125,54 @@ export const HOTBAR_SIZE = 8;
 // a skill) is genuinely different, not just a different id space.
 export type HotbarAssignment = { kind: 'item'; itemTemplateId: number } | { kind: 'skill'; skillTemplateId: number };
 
+// Persisted to localStorage per-character (not server-side — this is purely a convenience,
+// not gameplay-critical state worth a migration/route) so it survives a page reload or
+// re-login instead of resetting to empty every time (see loadHotbar/saveHotbar below). Keyed
+// by character id so switching characters on the same browser never cross-contaminates.
+const HOTBAR_STORAGE_PREFIX = 'rpg-hotbar-';
+
+function hotbarStorageKey(characterId: number): string {
+  return `${HOTBAR_STORAGE_PREFIX}${characterId}`;
+}
+
+export function loadHotbar(characterId: number): (HotbarAssignment | null)[] {
+  const empty = Array(HOTBAR_SIZE).fill(null);
+  try {
+    const raw = localStorage.getItem(hotbarStorageKey(characterId));
+    if (!raw) return empty;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return empty;
+    // Pad/truncate to the current HOTBAR_SIZE — a save from before a slot-count bump (see the
+    // 6->8 change above) shouldn't crash anything, just keep whatever still fits.
+    const next: (HotbarAssignment | null)[] = Array(HOTBAR_SIZE).fill(null);
+    for (let i = 0; i < Math.min(HOTBAR_SIZE, parsed.length); i++) {
+      next[i] = parsed[i] ?? null;
+    }
+    return next;
+  } catch {
+    return empty;
+  }
+}
+
+function saveHotbar(characterId: number, hotbar: (HotbarAssignment | null)[]): void {
+  try {
+    localStorage.setItem(hotbarStorageKey(characterId), JSON.stringify(hotbar));
+  } catch {
+    // Best-effort — a full/blocked localStorage (private browsing, quota) just means the
+    // hotbar won't survive a reload this session, not a hard failure.
+  }
+}
+
 interface CharacterState {
   characters: CharacterSummary[];
   activeCharacter: CharacterProfile | null;
   inventory: InventorySlot[];
   shop: ShopItem[];
-  // Session-local only (not server-persisted, per design decision) — item_template_id per
-  // slot, resolved against the current inventory at use-time so a slot survives a potion
-  // stack running out and being rebought (a fresh inventory row gets a new row id, but the
-  // same item_template_id).
+  // item_template_id/skill_template_id per slot, resolved against the current inventory/
+  // skills at use-time so a slot survives a potion stack running out and being rebought (a
+  // fresh inventory row gets a new row id, but the same item_template_id). Persisted to
+  // localStorage (see loadHotbar/saveHotbar) — not server-side, but no longer wiped on every
+  // reload either.
   hotbar: (HotbarAssignment | null)[];
   // Slots currently mid-request — guards against a double-click (or any two overlapping
   // useHotbarSlot calls for the same slot) both reading the same pre-request inventory
@@ -189,7 +228,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   selectCharacter: async (characterId) => {
     await charactersApi.selectCharacter(characterId);
     const profile = await charactersApi.getActiveCharacterProfile();
-    set({ activeCharacter: profile, inventory: profile.inventory, hotbar: Array(HOTBAR_SIZE).fill(null) });
+    set({ activeCharacter: profile, inventory: profile.inventory, hotbar: loadHotbar(profile.id) });
     // Whatever panel (F1 menu, inventory, ...) was left open from a previous character's
     // session — or from clicking "캐릭터 선택" while one was open — shouldn't carry over into
     // the new one, since uiStore isn't reset by the route change itself.
@@ -266,6 +305,7 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
         }
       }
       hotbar[slot] = assignment;
+      if (s.activeCharacter) saveHotbar(s.activeCharacter.id, hotbar);
       return { hotbar };
     });
   },
