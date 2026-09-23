@@ -2,7 +2,15 @@ import { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useGrassTexture, useSandTexture, useWaterTexture } from './proceduralTextures';
+import {
+  useGrassTexture,
+  useSandTexture,
+  useWaterTexture,
+  useForestFloorTexture,
+  useOrcDirtTexture,
+  useBoneFieldTexture,
+  useGhoulFieldTexture,
+} from './proceduralTextures';
 import { setMoveTarget } from './moveTarget';
 import { useCombatStore } from '../../stores/combatStore';
 import {
@@ -18,7 +26,11 @@ import {
   RIVER_HALF_WIDTH,
   DESERT_X_START,
   DESERT_X_END,
+  OUTER_ZONE_BOUND,
   riverXAt,
+  fairyForestEdgeAt,
+  orcVillageEdgeAt,
+  boneFieldEdgeAt,
   type Decoration,
   type TreeKind,
   type DesertPropKind,
@@ -180,6 +192,129 @@ function DesertPatch() {
   );
 }
 
+// How far past OUTER_ZONE_BOUND each curved zone patch's geometry reaches — comfortably past
+// GROUND_SIZE's own visible extent so the patch's far edge never falls short of the grass
+// plane's own boundary (would show a bare grass sliver past the patch).
+const ZONE_PATCH_FAR = GROUND_SIZE / 2 + 20;
+const ZONE_PATCH_SEGMENTS = 48;
+// The 4 outer zones' own x-range past which they stop counting as that zone (see
+// inFairyForestZone/inOrcVillageZone's own x <= DESERT_X_END cap) — walked a little past it
+// so the patch's edge overlaps (and therefore visually wins over, being drawn at a higher Y)
+// DesertPatch's own corner instead of leaving a grass sliver between the two.
+const NS_BAND_X_MIN = -GROUND_SIZE / 2 - 20;
+const NS_BAND_X_MAX = DESERT_X_END + 5;
+
+/** Builds a simple 2-column quad-strip ground patch bounded by a curved edge on one side and
+ * a flat far boundary on the other — same "build the ribbon by hand" approach RiverStrip's
+ * own buildRiverGeometry uses (a flat plane can't follow a meander), just 2 columns instead
+ * of 3 since there's no center line to carry here. `axis: 'x'` sweeps t along x with the
+ * edge/far values on z (north/south bands: fairy forest/orc village); `axis: 'z'` sweeps
+ * along z with edge/far on x (west/east bands: bone field). DoubleSide on the material (see
+ * each patch component below) means the two possible winding directions both render fine, so
+ * this doesn't need to special-case which one produces an upward-facing normal. */
+function buildEdgeBandGeometry(
+  edgeFn: (t: number) => number,
+  tMin: number,
+  tMax: number,
+  farValue: number,
+  axis: 'x' | 'z',
+): THREE.BufferGeometry {
+  const positions: number[] = [];
+  const uvs: number[] = [];
+  const indices: number[] = [];
+
+  for (let i = 0; i <= ZONE_PATCH_SEGMENTS; i++) {
+    const t = tMin + (i / ZONE_PATCH_SEGMENTS) * (tMax - tMin);
+    const edge = edgeFn(t);
+    if (axis === 'x') {
+      positions.push(t, 0, edge, t, 0, farValue);
+    } else {
+      positions.push(edge, 0, t, farValue, 0, t);
+    }
+    // Plain 0..1 UVs — the tiling density comes entirely from each texture's own
+    // repeat.set() (see proceduralTextures.ts), same convention RiverStrip/DesertPatch use,
+    // not from scaling the UVs here too (which would double-multiply the tile count).
+    const v = i / ZONE_PATCH_SEGMENTS;
+    uvs.push(0, v, 1, v);
+  }
+
+  for (let i = 0; i < ZONE_PATCH_SEGMENTS; i++) {
+    const a = i * 2;
+    const b = (i + 1) * 2;
+    indices.push(a, b, a + 1, b, b + 1, a + 1);
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+/** 요정의 숲 (Fairy Forest) — the curved north band (see worldColliders.ts's
+ * fairyForestEdgeAt/inFairyForestZone), drawn at a higher Y than DesertPatch so it visibly
+ * wins the shared NE corner (x <= DESERT_X_END is fairy-forest zone even inside the desert's
+ * own x-range) instead of that corner reading as sand. */
+function ForestFloorPatch() {
+  const texture = useForestFloorTexture();
+  const geometry = useMemo(
+    () => buildEdgeBandGeometry(fairyForestEdgeAt, NS_BAND_X_MIN, NS_BAND_X_MAX, ZONE_PATCH_FAR, 'x'),
+    [],
+  );
+  return (
+    <mesh position={[0, 0.012, 0]} geometry={geometry} receiveShadow>
+      <meshStandardMaterial map={texture} roughness={0.95} metalness={0} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
+/** 오크 마을 (Orc Village) — the curved south band, same NE/SW corner-winning idea as the
+ * forest patch above. */
+function OrcDirtPatch() {
+  const texture = useOrcDirtTexture();
+  const geometry = useMemo(
+    () => buildEdgeBandGeometry(orcVillageEdgeAt, NS_BAND_X_MIN, NS_BAND_X_MAX, -ZONE_PATCH_FAR, 'x'),
+    [],
+  );
+  return (
+    <mesh position={[0, 0.012, 0]} geometry={geometry} receiveShadow>
+      <meshStandardMaterial map={texture} roughness={1} metalness={0} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
+/** 해골 평원 (Bone Field) — the curved west band (see worldColliders.ts's boneFieldEdgeAt/
+ * inBoneFieldZone), bounded in z the same way the zone check itself is. */
+function BoneFieldPatch() {
+  const texture = useBoneFieldTexture();
+  const geometry = useMemo(
+    () => buildEdgeBandGeometry(boneFieldEdgeAt, -OUTER_ZONE_BOUND, OUTER_ZONE_BOUND, -ZONE_PATCH_FAR, 'z'),
+    [],
+  );
+  return (
+    <mesh position={[0, 0.012, 0]} geometry={geometry} receiveShadow>
+      <meshStandardMaterial map={texture} roughness={1} metalness={0} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
+/** 구울 평원 (Ghoul Field) — everything past the desert's own fixed edge (see
+ * worldColliders.ts's inGhoulFieldZone, which stays a flat x > DESERT_X_END rect rather than
+ * a curve — see that function's own comment), so this stays a plain rectangle like
+ * DesertPatch instead of a curved ribbon. No corner overlap with the desert patch (opposite
+ * side of DESERT_X_END), so it sits at the same Y. */
+function GhoulFieldPatch() {
+  const texture = useGhoulFieldTexture();
+  const width = GROUND_SIZE / 2 - DESERT_X_END;
+  return (
+    <mesh position={[DESERT_X_END + width / 2, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <planeGeometry args={[width, GROUND_SIZE]} />
+      <meshStandardMaterial map={texture} roughness={1} metalness={0} />
+    </mesh>
+  );
+}
+
 const RIVER_SEGMENTS = 90;
 // Bank-shadow gradient (vertex colors, multiplied onto the water texture) — brightest at the
 // centerline, darker toward each edge, so the strip doesn't read as one flat uniform slab.
@@ -284,6 +419,10 @@ export function Ground() {
         <meshStandardMaterial map={grassTexture} roughness={0.9} metalness={0} />
       </mesh>
       <DesertPatch />
+      <GhoulFieldPatch />
+      <ForestFloorPatch />
+      <OrcDirtPatch />
+      <BoneFieldPatch />
       <RiverStrip />
       <Rocks decorations={decorations} />
       <GrassTufts decorations={decorations} />

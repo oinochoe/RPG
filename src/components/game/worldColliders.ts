@@ -72,10 +72,22 @@ export const OUTER_ZONE_BOUND = 200;
 const ZONE_MEANDER_AMPLITUDE = 30;
 const ZONE_MEANDER_WAVELENGTH = 160;
 
+// A single sine term still reads as one perfectly regular, repeating wave once you actually
+// look at it on the map (real user feedback: "미니맵이 너무 곡선만 위주로 되어있다.. 완전
+// 일정한 곡선이 아니어야지"). Layering a second, faster/weaker wobble on top breaks up that
+// "obviously one clean curve" look while staying pure deterministic math (no noise library,
+// no per-frame cost beyond one extra sin() call) — real coastlines/tree lines are the sum of
+// irregularities at several scales, not one tidy period.
+function meanderOffset(t: number, wavelength: number, amplitude: number, phase: number): number {
+  const primary = Math.sin((t / wavelength) * Math.PI * 2 + phase);
+  const detail = Math.sin((t / (wavelength * 0.31)) * Math.PI * 2 + phase * 2.1) * 0.3;
+  return (amplitude * (primary + detail)) / 1.3;
+}
+
 // 요정의 숲 (Fairy Forest)'s southern edge — the curved boundary WorldMap.tsx/MiniMap.tsx
 // trace to actually draw this zone as a band instead of a flat rect.
 export function fairyForestEdgeAt(x: number): number {
-  return OUTER_ZONE_BOUND + ZONE_MEANDER_AMPLITUDE * Math.sin((x / ZONE_MEANDER_WAVELENGTH) * Math.PI * 2);
+  return OUTER_ZONE_BOUND + meanderOffset(x, ZONE_MEANDER_WAVELENGTH, ZONE_MEANDER_AMPLITUDE, 0);
 }
 
 // 요정의 숲 (Fairy Forest) — the north outer band, capped before DESERT_X_END so it doesn't
@@ -87,7 +99,7 @@ export function inFairyForestZone(x: number, z: number): boolean {
 // 오크 마을 (Orc Village)'s northern edge — its own phase offset so it doesn't mirror the
 // fairy forest's wobble exactly (would read as two parallel copies of the same wave).
 export function orcVillageEdgeAt(x: number): number {
-  return -OUTER_ZONE_BOUND - ZONE_MEANDER_AMPLITUDE * Math.sin((x / ZONE_MEANDER_WAVELENGTH) * Math.PI * 2 + Math.PI / 3);
+  return -OUTER_ZONE_BOUND - meanderOffset(x, ZONE_MEANDER_WAVELENGTH, ZONE_MEANDER_AMPLITUDE, Math.PI / 3);
 }
 
 // 오크 마을 (Orc Village) — the south outer band, same DESERT_X_END cap as the forest above.
@@ -98,7 +110,7 @@ export function inOrcVillageZone(x: number, z: number): boolean {
 // 해골 평원 (Bone Field)'s eastern edge — curved along z (its long axis) rather than x, since
 // this zone's frontier faces east/west, not north/south.
 export function boneFieldEdgeAt(z: number): number {
-  return -OUTER_ZONE_BOUND - ZONE_MEANDER_AMPLITUDE * Math.sin((z / ZONE_MEANDER_WAVELENGTH) * Math.PI * 2 + (2 * Math.PI) / 3);
+  return -OUTER_ZONE_BOUND - meanderOffset(z, ZONE_MEANDER_WAVELENGTH, ZONE_MEANDER_AMPLITUDE, (2 * Math.PI) / 3);
 }
 
 // 해골 평원 (Bone Field) — the west outer band, bounded in z so it doesn't creep into the

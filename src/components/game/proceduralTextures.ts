@@ -167,6 +167,227 @@ export function useWaterTexture(): THREE.Texture {
   }, []);
 }
 
+/** A tileable canvas-painted forest-floor texture — moss/leaf litter for 요정의 숲's ground
+ * patch, same base tone as MiniMap.tsx/WorldMap.tsx's own '#3f6b4a' band color so the actual
+ * 3D ground reads as the same zone the map already shows. */
+export function useForestFloorTexture(): THREE.Texture {
+  return useMemo(() => {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const rng = mulberry32(6100);
+
+    ctx.fillStyle = '#3f6b4a';
+    ctx.fillRect(0, 0, size, size);
+
+    for (let i = 0; i < 70; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const r = 30 + rng() * 70;
+      const color = rng() < 0.5 ? 'rgba(30, 54, 36, 0.5)' : 'rgba(80, 120, 70, 0.4)';
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.65, rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Fallen-leaf speckle — warmer/browner than the grass texture's own speckle, for a
+    // "forest floor litter" read rather than open lawn.
+    for (let i = 0; i < 900; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const r = 3 + rng() * 6;
+      const shade = rng();
+      const color =
+        shade < 0.4
+          ? `rgba(90, 66, 38, ${0.3 + rng() * 0.3})`
+          : shade < 0.75
+            ? `rgba(28, 48, 32, ${0.3 + rng() * 0.3})`
+            : `rgba(120, 92, 50, ${0.25 + rng() * 0.25})`;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.6, rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(18, 18);
+    texture.anisotropy = 8;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, []);
+}
+
+/** A tileable canvas-painted trampled-dirt texture for 오크 마을's ground patch, matching
+ * the map's own '#6b4a3a' band color. */
+export function useOrcDirtTexture(): THREE.Texture {
+  return useMemo(() => {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const rng = mulberry32(6200);
+
+    ctx.fillStyle = '#6b4a3a';
+    ctx.fillRect(0, 0, size, size);
+
+    for (let i = 0; i < 55; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const r = 35 + rng() * 85;
+      const color = rng() < 0.5 ? 'rgba(46, 30, 22, 0.5)' : 'rgba(96, 68, 50, 0.4)';
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.6, rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Coarse rock/mud speckle — bigger and rougher than a grass field's speckle, reads as
+    // packed, trampled earth rather than a tended lawn.
+    for (let i = 0; i < 500; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const r = 3 + rng() * 8;
+      const shade = rng();
+      const color =
+        shade < 0.5 ? `rgba(40, 26, 18, ${0.3 + rng() * 0.3})` : `rgba(110, 82, 60, ${0.25 + rng() * 0.3})`;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.65, rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(18, 18);
+    texture.anisotropy = 8;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, []);
+}
+
+/** A tileable canvas-painted pale bone/ash texture for 해골 평원's ground patch, matching the
+ * map's own '#9c9484' band color. */
+export function useBoneFieldTexture(): THREE.Texture {
+  return useMemo(() => {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const rng = mulberry32(6300);
+
+    ctx.fillStyle = '#9c9484';
+    ctx.fillRect(0, 0, size, size);
+
+    for (let i = 0; i < 60; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const r = 35 + rng() * 80;
+      const color = rng() < 0.5 ? 'rgba(120, 112, 96, 0.4)' : 'rgba(180, 172, 152, 0.35)';
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.6, rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Small bone-shard flecks (short pale strokes) scattered across the ash-grey base.
+    for (let i = 0; i < 220; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const len = 6 + rng() * 14;
+      const angle = rng() * Math.PI;
+      ctx.strokeStyle = `rgba(226, 218, 198, ${0.35 + rng() * 0.3})`;
+      ctx.lineWidth = 1.5 + rng() * 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x - Math.cos(angle) * len * 0.5, y - Math.sin(angle) * len * 0.5);
+      ctx.lineTo(x + Math.cos(angle) * len * 0.5, y + Math.sin(angle) * len * 0.5);
+      ctx.stroke();
+    }
+
+    // Dark crack/fissure hairlines for a dry, cracked-earth read.
+    for (let i = 0; i < 40; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      ctx.strokeStyle = `rgba(70, 64, 54, ${0.25 + rng() * 0.25})`;
+      ctx.lineWidth = 1 + rng();
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + (rng() - 0.5) * 40, y + (rng() - 0.5) * 40);
+      ctx.stroke();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(18, 18);
+    texture.anisotropy = 8;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, []);
+}
+
+/** A tileable canvas-painted sickly cursed-ground texture for 구울 평원's ground patch,
+ * matching the map's own '#3a4a3a' band color. */
+export function useGhoulFieldTexture(): THREE.Texture {
+  return useMemo(() => {
+    const size = 512;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    const rng = mulberry32(6400);
+
+    ctx.fillStyle = '#3a4a3a';
+    ctx.fillRect(0, 0, size, size);
+
+    for (let i = 0; i < 65; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const r = 30 + rng() * 75;
+      const color = rng() < 0.5 ? 'rgba(20, 28, 22, 0.5)' : 'rgba(62, 40, 62, 0.3)';
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.6, rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Sickly purple-green speckle — the same "mottled patches + fine speckle" build as the
+    // other biome textures, just shifted toward a diseased hue instead of healthy grass.
+    for (let i = 0; i < 800; i++) {
+      const x = rng() * size;
+      const y = rng() * size;
+      const r = 3 + rng() * 6;
+      const shade = rng();
+      const color =
+        shade < 0.45
+          ? `rgba(18, 24, 18, ${0.3 + rng() * 0.3})`
+          : shade < 0.8
+            ? `rgba(70, 90, 60, ${0.25 + rng() * 0.25})`
+            : `rgba(90, 60, 90, ${0.2 + rng() * 0.2})`;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.6, rng() * Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(18, 18);
+    texture.anisotropy = 8;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
+  }, []);
+}
+
 /** A tileable canvas-painted cobblestone texture for the village plaza. */
 export function useCobblestoneTexture(): THREE.Texture {
   return useMemo(() => {
