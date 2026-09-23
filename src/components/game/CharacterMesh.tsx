@@ -80,6 +80,17 @@ const SHIELD_MODEL_BY_NAME: Record<string, string> = {
 };
 const DEFAULT_SHIELD_MODEL = SHIELD_MODEL_BY_NAME['가죽 방패'];
 
+// Bucketed by required_level rather than a per-item-name map (like WEAPON_MODEL_BY_NAME/
+// SHIELD_MODEL_BY_NAME) so new body_armor tiers automatically pick up a tint with no client
+// change — every item catalog tier lines up on 1/10/20/30-35 already (see the item_templates
+// migrations). Starter gear (level 1) stays untinted.
+function armorTintForLevel(requiredLevel: number): THREE.ColorRepresentation | undefined {
+  if (requiredLevel >= 30) return '#e8c97a'; // boss-exclusive tier — gold
+  if (requiredLevel >= 20) return '#c9d6e3'; // silver
+  if (requiredLevel >= 10) return '#a67c52'; // bronze/leather
+  return undefined;
+}
+
 const RIG_GENERAL = '/models/kaykit/Animations/gltf/Rig_Medium/Rig_Medium_General.glb';
 const RIG_MOVEMENT = '/models/kaykit/Animations/gltf/Rig_Medium/Rig_Medium_MovementBasic.glb';
 
@@ -265,6 +276,13 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   // gets added to the bone.
   const equippedShieldName = liveInventory.find((item) => item.is_equipped && item.equip_slot === 'shield')?.item_name;
   const shieldModelUrl = (equippedShieldName && SHIELD_MODEL_BY_NAME[equippedShieldName]) || null;
+  // KayKit's Adventurers pack has no modular armor pieces to swap onto the rig (confirmed —
+  // it only ships handheld weapon/shield accessories), and every alternative pack found is a
+  // different skeleton entirely, which would mean re-rigging every animation and the weapon/
+  // shield attachment code above. Tinting the whole body by the equipped body_armor's tier
+  // instead — cheap, zero rig risk, and still gives equipping better gear a visible payoff.
+  const equippedBodyArmor = liveInventory.find((item) => item.is_equipped && item.equip_slot === 'body_armor');
+  const armorTint = equippedBodyArmor ? armorTintForLevel(equippedBodyArmor.required_level) : undefined;
 
   const characterGltf = useGLTF(CHARACTER_MODEL[character.character_class]);
   const weaponGltf = useGLTF(weaponModelUrl);
@@ -275,6 +293,18 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   const scene = useMemo(() => cloneSkeleton(characterGltf.scene), [characterGltf.scene]);
   const weaponScene = useMemo(() => cloneSkeleton(weaponGltf.scene), [weaponGltf.scene]);
   const shieldScene = useMemo(() => cloneSkeleton(shieldGltf.scene), [shieldGltf.scene]);
+  // Captured synchronously right after `scene` is built — at this point in render, the
+  // weapon/shield attachment effects below haven't run yet, so this only ever sees the
+  // character's own meshes, never the held equipment. armorTint re-applies from these
+  // originals every time (see the effect below) instead of multiplying onto whatever's
+  // already there, so re-equipping a different tier can't compound into the wrong color.
+  const originalMaterials = useMemo(() => {
+    const map = new Map<THREE.Mesh, THREE.Material | THREE.Material[]>();
+    scene.traverse((obj) => {
+      if ((obj as THREE.Mesh).isMesh) map.set(obj as THREE.Mesh, (obj as THREE.Mesh).material);
+    });
+    return map;
+  }, [scene]);
   const clips = useMemo(
     () => [...generalGltf.animations, ...movementGltf.animations],
     [generalGltf.animations, movementGltf.animations],
@@ -347,6 +377,23 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       }
     });
   }, [scene]);
+
+  useEffect(() => {
+    originalMaterials.forEach((original, mesh) => {
+      if (!armorTint) {
+        mesh.material = original;
+        return;
+      }
+      const wasArray = Array.isArray(original);
+      const cloned = (wasArray ? (original as THREE.Material[]) : [original as THREE.Material]).map(
+        (m) => (m as THREE.MeshStandardMaterial).clone(),
+      );
+      for (const m of cloned) {
+        (m as THREE.MeshStandardMaterial).color?.multiply(new THREE.Color(armorTint));
+      }
+      mesh.material = wasArray ? cloned : cloned[0];
+    });
+  }, [originalMaterials, armorTint]);
 
   const keysDown = useRef<Set<string>>(new Set());
   const facing = useRef(0);
