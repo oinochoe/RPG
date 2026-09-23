@@ -38,9 +38,21 @@ const MONSTER_WANDER_INTERVAL_MS: [number, number] = [2500, 5000];
 // player's own per-level growth (+20 maxHp/+2 atk per level, see applyKill below): at this
 // rate an on-level fight costs a meaningful chunk of HP, and a deep-floor captain/boss fight
 // can exceed the player's whole HP bar without healing.
-function monsterAttackPower(level: number): number {
-  return 6 + level * 3;
+// isBoss gets a further multiplier on top of the level scaling (user request: "보스 진짜
+// 어려워야함") — a level-matched boss should feel meaningfully harder to trade hits with than
+// a same-level captain, not just have a bigger HP bar.
+const BOSS_ATTACK_MULTIPLIER = 1.6;
+
+function monsterAttackPower(level: number, isBoss: boolean): number {
+  const base = 6 + level * 3;
+  return isBoss ? Math.round(base * BOSS_ATTACK_MULTIPLIER) : base;
 }
+
+// How often a tracked boss's normal attack is replaced by a much harder "skill" hit instead
+// (user request: "스킬도 막쓰고.. 평타만 치는게 아니라") — not a player-facing castable skill,
+// just periodic burst damage so a boss fight doesn't read as a flat stream of identical hits.
+const BOSS_SKILL_COOLDOWN_MS = 6000;
+const BOSS_SKILL_DAMAGE_MULTIPLIER = 2.2;
 
 export interface MonsterCombatState {
   instanceId: number;
@@ -60,6 +72,10 @@ export interface MonsterCombatState {
   lastHitAt: number | null;
   attackPower: number;
   lastAttackAt: number | null;
+  // Tracked bosses (see BOSS_KEY_BY_NAME) periodically land a much harder hit instead of a
+  // plain one — this is when they last did, so monsterAttackTick knows when the cooldown is
+  // back up. Stays null forever for a non-boss monster.
+  lastSkillAttackAt: number | null;
   // Aggressive monsters attack on sight (within MONSTER_DETECT_RANGE); passive ones only
   // fight back once the player has hit them first (see monsterAttackTick).
   aggressive: boolean;
@@ -336,8 +352,9 @@ function toMonsterCombatState(
       spawnPosition: [monster.position_x, monster.position_y, monster.position_z],
       respawnAt: null,
       lastHitAt: null,
-      attackPower: monsterAttackPower(monster.level),
+      attackPower: monsterAttackPower(monster.level, monster.name in BOSS_KEY_BY_NAME),
       lastAttackAt: null,
+      lastSkillAttackAt: null,
       aggressive: resolveAggressive(aggressive, monster),
       wanderTarget: null,
       nextWanderAt: null,
@@ -699,11 +716,18 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       if (Math.hypot(dx, dz) > MONSTER_ATTACK_REACH) continue;
       if (now - (monster.lastAttackAt ?? 0) < MONSTER_ATTACK_COOLDOWN_MS) continue;
 
-      const rawDamage = Math.round(monster.attackPower * (0.7 + Math.random() * 0.5));
+      const isBoss = monster.name in BOSS_KEY_BY_NAME;
+      const useSkill = isBoss && now - (monster.lastSkillAttackAt ?? -Infinity) >= BOSS_SKILL_COOLDOWN_MS;
+      const skillMultiplier = useSkill ? BOSS_SKILL_DAMAGE_MULTIPLIER : 1;
+      const rawDamage = Math.round(monster.attackPower * skillMultiplier * (0.7 + Math.random() * 0.5));
       const damage = Math.max(1, rawDamage - player.defensePower);
       currentHp = Math.max(0, currentHp - damage);
       if (!nextMonsters) nextMonsters = { ...monsters };
-      nextMonsters[monster.instanceId] = { ...monster, lastAttackAt: now };
+      nextMonsters[monster.instanceId] = {
+        ...monster,
+        lastAttackAt: now,
+        lastSkillAttackAt: useSkill ? now : monster.lastSkillAttackAt,
+      };
       if (currentHp <= 0) break;
     }
 
