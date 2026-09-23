@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 // Per-item icons for the inventory/equipment panels — previously these slots showed only
 // the item's name as text. The Shikashi icon packs already downloaded into public/image
 // don't work here (single uncropped sprite sheets, no per-icon coordinate data, unsliceable
@@ -5,8 +7,10 @@
 // icon UI redesign got reverted). A hand-drawn placeholder set was tried next but looked
 // rough, so these are real icon art instead: single-path silhouettes from game-icons.net
 // (CC BY 3.0 — https://creativecommons.org/licenses/by/3.0/), one file per icon with no
-// slicing needed, recolored per item via `fill`. Attribution: icons by Lorc, Delapouite,
-// sbed and Caro Asercion, available at https://game-icons.net (also credited in SystemMenu).
+// slicing needed, recolored per item and rendered with a light-to-dark gradient + stroke +
+// drop-shadow (see SilhouetteIcon below) rather than a flat fill, for some actual depth.
+// Attribution: icons by Lorc, Delapouite, sbed and Caro Asercion, available at
+// https://game-icons.net (also credited in SystemMenu).
 
 interface IconConfig {
   /** SVG path data, viewBox 0 0 512 512 — from game-icons.net (icons/<author>/<icon>.svg). */
@@ -213,11 +217,55 @@ export function ItemIcon({ itemName, size = 32 }: { itemName: string; size?: num
       </span>
     );
   }
+  return <SilhouetteIcon path={config.path} color={config.color} size={size} />;
+}
+
+// A flat single-color fill reads as a plain sticker — a light-to-base gradient (simulating a
+// top-down light source) plus a darker stroke for edge definition and a soft drop-shadow for
+// lift gives the same silhouette real depth, closer to how these look on game-icons.net's own
+// site (which renders them over a colored circle with shading) than a bare `fill={color}` did.
+function SilhouetteIcon({ path, color, size }: { path: string; color: string; size: number }) {
+  const gradientId = `item-icon-grad-${useId()}`;
   return (
-    <svg width={size} height={size} viewBox="0 0 512 512" style={{ display: 'block', flexShrink: 0 }}>
-      <path d={config.path} fill={config.color} />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 512 512"
+      style={{ display: 'block', flexShrink: 0, filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.55))' }}
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor={lighten(color, 0.45)} />
+          <stop offset="55%" stopColor={color} />
+          <stop offset="100%" stopColor={darken(color, 0.3)} />
+        </linearGradient>
+      </defs>
+      <path d={path} fill={`url(#${gradientId})`} stroke={darken(color, 0.55)} strokeWidth={6} strokeLinejoin="round" />
     </svg>
   );
+}
+
+function clamp255(n: number): number {
+  return Math.max(0, Math.min(255, Math.round(n)));
+}
+
+function lighten(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(clamp255(r + (255 - r) * amount), clamp255(g + (255 - g) * amount), clamp255(b + (255 - b) * amount));
+}
+
+function darken(hex: string, amount: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return rgbToHex(clamp255(r * (1 - amount)), clamp255(g * (1 - amount)), clamp255(b * (1 - amount)));
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
 export type ItemRarity = 'normal' | 'rare';

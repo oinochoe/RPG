@@ -13,8 +13,9 @@ import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL } from './itemLabels';
 import { HOTBAR_DRAG_SKILL_MIME } from './Hotbar';
 import { ItemIcon, itemRarity, RARITY_SLOT_FRAME } from './itemIcons';
+import { useTooltip } from './Tooltip';
 import { useDraggablePanel } from './useDraggablePanel';
-import type { CharacterProfile } from '../../types/api';
+import type { CharacterProfile, InventorySlot } from '../../types/api';
 
 const PANEL_WIDTH = 320;
 
@@ -109,6 +110,43 @@ const SLOT_LAYOUT: { slot: string; style: CSSProperties }[] = [
   { slot: 'boots', style: { top: 196, left: '50%', transform: 'translateX(-50%)' } },
 ];
 
+function EquipmentSlotBox({
+  slot,
+  style,
+  item,
+  pending,
+  onClick,
+}: {
+  slot: string;
+  style: CSSProperties;
+  item: InventorySlot | undefined;
+  pending: boolean;
+  onClick: () => void;
+}) {
+  const rarityFrame = item ? RARITY_SLOT_FRAME[itemRarity(item.required_level)] : null;
+  const { handlers: tooltipHandlers, tooltip } = useTooltip(item ? item.item_name : EQUIP_SLOT_LABEL[slot]);
+  return (
+    <div
+      style={{
+        ...SLOT_BOX,
+        ...style,
+        backgroundImage: rarityFrame ? `url(${rarityFrame})` : undefined,
+        backgroundSize: '100% 100%',
+        opacity: item && pending ? 0.5 : 1,
+      }}
+      onClick={onClick}
+      {...tooltipHandlers}
+    >
+      {item ? (
+        <ItemIcon itemName={item.item_name} size={34} />
+      ) : (
+        <span style={{ fontSize: 10, color: 'rgba(154, 160, 143, 0.6)' }}>{EQUIP_SLOT_LABEL[slot]}</span>
+      )}
+      {tooltip}
+    </div>
+  );
+}
+
 function EquipmentTab() {
   const inventory = useCharacterStore((s) => s.inventory);
   const fetchInventory = useCharacterStore((s) => s.fetchInventory);
@@ -165,30 +203,19 @@ function EquipmentTab() {
           }}
         />
 
-        {SLOT_LAYOUT.map(({ slot, style }) => {
-          const item = equippedBySlot.get(slot);
-          const rarityFrame = item ? RARITY_SLOT_FRAME[itemRarity(item.required_level)] : null;
-          return (
-            <div
-              key={slot}
-              style={{
-                ...SLOT_BOX,
-                ...style,
-                backgroundImage: rarityFrame ? `url(${rarityFrame})` : undefined,
-                backgroundSize: '100% 100%',
-                opacity: item && pendingId === item.id ? 0.5 : 1,
-              }}
-              onClick={() => item && handleUnequip(item.id)}
-              title={item ? item.item_name : EQUIP_SLOT_LABEL[slot]}
-            >
-              {item ? (
-                <ItemIcon itemName={item.item_name} size={34} />
-              ) : (
-                <span style={{ fontSize: 10, color: 'rgba(154, 160, 143, 0.6)' }}>{EQUIP_SLOT_LABEL[slot]}</span>
-              )}
-            </div>
-          );
-        })}
+        {SLOT_LAYOUT.map(({ slot, style }) => (
+          <EquipmentSlotBox
+            key={slot}
+            slot={slot}
+            style={style}
+            item={equippedBySlot.get(slot)}
+            pending={equippedBySlot.get(slot)?.id === pendingId}
+            onClick={() => {
+              const item = equippedBySlot.get(slot);
+              if (item) handleUnequip(item.id);
+            }}
+          />
+        ))}
       </div>
       <p style={{ color: '#9aa08f', fontSize: 11, textAlign: 'center' }}>
         장착된 칸을 클릭하면 해제됩니다. 장착은 인벤토리(I)에서.

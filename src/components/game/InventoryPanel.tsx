@@ -6,6 +6,7 @@ import { EQUIP_SLOT_LABEL, formatGold } from './itemLabels';
 import { HOTBAR_DRAG_MIME } from './Hotbar';
 import { useDraggablePanel } from './useDraggablePanel';
 import { ItemIcon, itemRarity, RARITY_SLOT_FRAME } from './itemIcons';
+import { useTooltip } from './Tooltip';
 import type { CharacterProfile, EnchantOutcome, InventorySlot } from '../../types/api';
 
 const GRID_COLUMNS = 6;
@@ -72,6 +73,7 @@ function GridCell({
   // double-click instead; scrolls are double-click-onto-a-target items, not hotbar items).
   const draggable = !!item && (item.heal_hp > 0 || item.restore_mp > 0 || !!item.teleport_target);
   const rarityFrame = item ? RARITY_SLOT_FRAME[itemRarity(item.required_level)] : null;
+  const { handlers: tooltipHandlers, tooltip } = useTooltip(item?.item_name);
 
   return (
     <button
@@ -79,7 +81,7 @@ function GridCell({
       onDoubleClick={onDoubleClick}
       disabled={!item}
       draggable={draggable}
-      title={item?.item_name}
+      {...tooltipHandlers}
       onDragStart={(e) => {
         if (!item) return;
         e.dataTransfer.setData(HOTBAR_DRAG_MIME, String(item.item_template_id));
@@ -120,6 +122,7 @@ function GridCell({
           )}
         </>
       )}
+      {tooltip}
     </button>
   );
 }

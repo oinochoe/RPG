@@ -4,6 +4,7 @@ import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useDraggablePanel } from './useDraggablePanel';
 import { formatGold } from './itemLabels';
+import { ItemIcon } from './itemIcons';
 import type { CharacterProfile } from '../../types/api';
 
 const PANEL_WIDTH = 340;
@@ -58,9 +59,26 @@ function ShopRow({
         gap: 8,
       }}
     >
-      <div style={{ minWidth: 0 }}>
-        <div style={{ color: '#f4f1e8', fontSize: 13, fontWeight: 600 }}>{name}</div>
-        <div style={{ color: '#9aa08f', fontSize: 11 }}>{meta}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+        <div
+          style={{
+            width: 34,
+            height: 34,
+            flexShrink: 0,
+            borderRadius: 6,
+            background: 'rgba(0, 0, 0, 0.35)',
+            border: '1px solid rgba(232, 201, 122, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <ItemIcon itemName={name} size={24} />
+        </div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ color: '#f4f1e8', fontSize: 13, fontWeight: 600 }}>{name}</div>
+          <div style={{ color: '#9aa08f', fontSize: 11 }}>{meta}</div>
+        </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
         {hasStepper && (
