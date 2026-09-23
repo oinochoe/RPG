@@ -71,7 +71,7 @@ function GridCell({
 }) {
   // Only consumables are hotbar-assignable (equip/use items go through the 장착 button or a
   // double-click instead; scrolls are double-click-onto-a-target items, not hotbar items).
-  const draggable = !!item && (item.heal_hp > 0 || item.restore_mp > 0 || !!item.teleport_target);
+  const draggable = !!item && (item.heal_hp > 0 || item.restore_mp > 0 || !!item.teleport_target || item.haste_duration_sec > 0);
   const { handlers: tooltipHandlers, tooltip } = useTooltip(item?.item_name);
 
   return (
@@ -175,7 +175,9 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
   // Derived above the isOpen early-return (hooks below need them) rather than after it, where
   // they used to live — same values, just reordered.
   const selected = inventory.find((item) => item.id === selectedId) ?? null;
-  const consumable = selected ? selected.heal_hp > 0 || selected.restore_mp > 0 || !!selected.teleport_target : false;
+  const consumable = selected
+    ? selected.heal_hp > 0 || selected.restore_mp > 0 || !!selected.teleport_target || selected.haste_duration_sec > 0
+    : false;
   const assignedSlot = selected
     ? hotbar.findIndex((a) => a?.kind === 'item' && a.itemTemplateId === selected.item_template_id)
     : -1;
@@ -411,6 +413,9 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                   {selected.restore_mp > 0 && <div>마나 +{selected.restore_mp}</div>}
                   {selected.teleport_target === 'village' && <div>사용 시 가까운 마을로 이동</div>}
                   {selected.teleport_target === 'blink' && <div>사용 시 현재 지역 내 랜덤한 곳으로 순간이동</div>}
+                  {selected.haste_duration_sec > 0 && (
+                    <div>사용 시 {selected.haste_duration_sec}초간 이동속도/공격속도 증가</div>
+                  )}
                   {selected.equip_slot && <div>부위: {EQUIP_SLOT_LABEL[selected.equip_slot] ?? selected.equip_slot}</div>}
                   {!levelOk && <div style={{ color: '#e0538a' }}>Lv.{selected.required_level} 필요</div>}
                   {!classOk && <div style={{ color: '#e0538a' }}>직업 제한</div>}

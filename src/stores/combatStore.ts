@@ -12,6 +12,13 @@ const ATTACK_RANGE_BY_CLASS: Record<CharacterProfile['character_class'], number>
 const ATTACK_COOLDOWN_MS = 550;
 const RESPAWN_DELAY_MS = 8000;
 
+// 초록 물약's buff (see item_templates.haste_duration_sec) — movement speed is read directly
+// off player.hasteUntil by CharacterMesh's own MOVE_SPEED calc; this file only owns the
+// attack-cooldown half of "속도 빨라지고 공속 좀 더 빨라지는" since that's where the attack
+// timing check already lives.
+export const HASTE_MOVE_SPEED_MULTIPLIER = 1.3;
+const HASTE_ATTACK_COOLDOWN_MULTIPLIER = 0.75;
+
 // Monsters notice the player (and, if already engaged, keep chasing) within this range, but
 // have to actually close to MONSTER_ATTACK_REACH before a hit can land — otherwise they'd
 // attack from a standstill without ever moving.
@@ -118,6 +125,9 @@ interface PlayerCombatState {
   // Missing entry (or 0) means "not learned yet."
   skillLevels: Record<number, number>;
   skillCooldowns: Record<number, number>;
+  // performance.now() timestamp the 초록 물약 haste buff expires at — 0 (the default) means
+  // no active buff. Purely a session-local visual/pacing effect, never synced to the server.
+  hasteUntil: number;
 }
 
 // Stat points granted on each level-up, spent via allocateStat.
@@ -320,6 +330,8 @@ interface CombatState {
   heal: (amount: number) => void;
   /** Restores `amount` MP, clamped to maxMp — used when a mana potion is consumed. */
   restoreMp: (amount: number) => void;
+  /** Starts (or refreshes) the 초록 물약 haste buff for `durationSec` — see hasteUntil. */
+  applyHaste: (durationSec: number) => void;
   /**
    * Applies a quest's reward_xp/reward_gold — same level-up loop a monster kill runs
    * (see applyExperienceGain), called by the quest dialogue UI right after questStore's
@@ -490,6 +502,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     statWis: 5,
     skillLevels: {},
     skillCooldowns: {},
+    hasteUntil: 0,
   },
   lastAttackAt: 0,
   castRequestId: 0,
@@ -553,6 +566,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         // the first.
         skillLevels: Object.fromEntries(character.skills.map((s) => [s.skill_template_id, s.skill_level])),
         skillCooldowns: {},
+        hasteUntil: 0,
       },
       lastAttackAt: 0,
       targetId: null,
@@ -567,7 +581,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   attackNearest: (playerX, playerZ) => {
     const now = performance.now();
     const { monsters, lastAttackAt, player, targetId } = get();
-    if (now - lastAttackAt < ATTACK_COOLDOWN_MS) return { hit: false };
+    const attackCooldownMs = now < player.hasteUntil ? ATTACK_COOLDOWN_MS * HASTE_ATTACK_COOLDOWN_MULTIPLIER : ATTACK_COOLDOWN_MS;
+    if (now - lastAttackAt < attackCooldownMs) return { hit: false };
 
     const target = resolveTarget(monsters, targetId, playerX, playerZ, player.attackRange);
     if (!target) return { hit: false };
@@ -946,6 +961,12 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     if (amount === 0) return;
     const { player } = get();
     set({ player: { ...player, currentMp: Math.min(player.maxMp, player.currentMp + amount) } });
+  },
+
+  applyHaste: (durationSec) => {
+    if (durationSec <= 0) return;
+    const { player } = get();
+    set({ player: { ...player, hasteUntil: performance.now() + durationSec * 1000 } });
   },
 
   grantQuestReward: (xp, gold) => {

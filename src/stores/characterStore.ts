@@ -352,6 +352,9 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
       set({ inventory: items });
       useCombatStore.getState().heal(row.heal_hp);
       useCombatStore.getState().restoreMp(row.restore_mp);
+      if (row.haste_duration_sec > 0) {
+        useCombatStore.getState().applyHaste(row.haste_duration_sec);
+      }
       if (row.teleport_target) {
         teleportTo(row.teleport_target);
         playSound('cast', 0.5);

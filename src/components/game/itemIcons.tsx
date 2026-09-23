@@ -199,6 +199,9 @@ ITEM_ICON['최상급 마나 물약'] = { path: POTION_MANA_PATH, color: '#d9b3ff
 ITEM_ICON['일반 강화 주문서'] = { path: SCROLL_PATH, color: '#c7cdb9' };
 ITEM_ICON['저주의 강화 주문서'] = { path: SCROLL_PATH, color: '#8a1f2b' };
 ITEM_ICON['축복의 강화 주문서'] = { path: SCROLL_PATH, color: '#ffe08a' };
+// 초록 물약 — same potion-bottle shape, literally green (Lineage Classic's own 속도향상
+// 물약 reference).
+ITEM_ICON['초록 물약'] = { path: POTION_HEAL_PATH, color: '#5fae4a' };
 
 /** Falls back to the item's own name as small centered text when it has no hand-picked icon
  * yet — most of the item catalog (every tier added after the original 15-item starter set)

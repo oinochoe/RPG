@@ -39,6 +39,7 @@ interface InventoryItemRow {
   heal_hp: number;
   restore_mp: number;
   teleport_target: string | null;
+  haste_duration_sec: number;
   enchant_scroll_type: "normal" | "blessed" | "cursed" | null;
 }
 
@@ -61,7 +62,7 @@ async function fetchInventory(
     .from("character_inventory")
     .select(
       "id, item_template_id, slot_index, quantity, enchant_level, is_equipped, equipped_slot, " +
-        "item_templates(name, item_type, equip_slot, attack_bonus, defense_bonus, required_level, required_class, buy_price, sell_price, heal_hp, restore_mp, teleport_target, enchant_scroll_type)",
+        "item_templates(name, item_type, equip_slot, attack_bonus, defense_bonus, required_level, required_class, buy_price, sell_price, heal_hp, restore_mp, teleport_target, haste_duration_sec, enchant_scroll_type)",
     )
     .eq("character_id", characterId)
     .order("slot_index", { ascending: true });
@@ -82,6 +83,7 @@ async function fetchInventory(
       heal_hp: number;
       restore_mp: number;
       teleport_target: string | null;
+      haste_duration_sec: number;
       enchant_scroll_type: "normal" | "blessed" | "cursed" | null;
     };
     const enchantBonus = row.enchant_level * ENCHANT_BONUS_PER_LEVEL;
@@ -105,6 +107,7 @@ async function fetchInventory(
       heal_hp: item.heal_hp,
       restore_mp: item.restore_mp,
       teleport_target: item.teleport_target,
+      haste_duration_sec: item.haste_duration_sec,
       enchant_scroll_type: item.enchant_scroll_type,
     };
   });
@@ -917,7 +920,7 @@ charactersRoutes.get("/me/shop", async (c) => {
   let query = admin
     .from("item_templates")
     .select(
-      "id, name, item_type, equip_slot, required_level, required_class, attack_bonus, defense_bonus, buy_price, sell_price, heal_hp, restore_mp, teleport_target",
+      "id, name, item_type, equip_slot, required_level, required_class, attack_bonus, defense_bonus, buy_price, sell_price, heal_hp, restore_mp, teleport_target, haste_duration_sec",
     )
     .gt("buy_price", 0);
   query = kind === "blacksmith" ? query.in("item_type", BLACKSMITH_ITEM_TYPES) : query.not("item_type", "in", `(${BLACKSMITH_ITEM_TYPES.join(",")})`);
@@ -1109,7 +1112,7 @@ charactersRoutes.post("/me/inventory/:id/use", async (c) => {
 
   const { data: row, error: rowError } = await admin
     .from("character_inventory")
-    .select("id, item_templates(heal_hp, restore_mp, teleport_target)")
+    .select("id, item_templates(heal_hp, restore_mp, teleport_target, haste_duration_sec)")
     .eq("id", inventoryId)
     .eq("character_id", characterId)
     .maybeSingle();
@@ -1124,8 +1127,12 @@ charactersRoutes.post("/me/inventory/:id/use", async (c) => {
     heal_hp: number;
     restore_mp: number;
     teleport_target: string | null;
+    haste_duration_sec: number;
   } | null;
-  if (!template || (template.heal_hp <= 0 && template.restore_mp <= 0 && !template.teleport_target)) {
+  if (
+    !template ||
+    (template.heal_hp <= 0 && template.restore_mp <= 0 && !template.teleport_target && template.haste_duration_sec <= 0)
+  ) {
     throw new ApiError(400, "validation_failed", "not_usable", "사용할 수 없는 아이템입니다.", "id");
   }
 

@@ -12,7 +12,7 @@ import { moveTarget, clearMoveTarget } from './moveTarget';
 import { resolveMovement, PLAYER_COLLISION_RADIUS } from './worldColliders';
 import { OFFSET as CAMERA_OFFSET } from './CameraRig';
 import { playSound, playFootstep } from '../../lib/sound';
-import { useCombatStore, findSkillDef, BOSS_KEY_BY_NAME } from '../../stores/combatStore';
+import { useCombatStore, findSkillDef, BOSS_KEY_BY_NAME, HASTE_MOVE_SPEED_MULTIPLIER } from '../../stores/combatStore';
 import { useQuestStore } from '../../stores/questStore';
 import { useLootStore, pickupDrop } from '../../stores/lootStore';
 import { useCharacterStore } from '../../stores/characterStore';
@@ -623,11 +623,13 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       }
       dx /= moveLen;
       dz /= moveLen;
+      const hasted = now < useCombatStore.getState().player.hasteUntil;
+      const moveSpeed = hasted ? MOVE_SPEED * HASTE_MOVE_SPEED_MULTIPLIER : MOVE_SPEED;
       const resolved = resolveMovement(
         playerPosition.x,
         playerPosition.z,
-        dx * MOVE_SPEED * delta,
-        dz * MOVE_SPEED * delta,
+        dx * moveSpeed * delta,
+        dz * moveSpeed * delta,
         PLAYER_COLLISION_RADIUS,
       );
       playerPosition.x = resolved.x;

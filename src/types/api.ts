@@ -69,6 +69,7 @@ export interface InventorySlot {
   heal_hp: number;
   restore_mp: number;
   teleport_target: 'village' | 'blink' | null;
+  haste_duration_sec: number;
   enchant_scroll_type: 'normal' | 'blessed' | 'cursed' | null;
 }
 
@@ -98,6 +99,7 @@ export interface ShopItem {
   heal_hp: number;
   restore_mp: number;
   teleport_target: 'village' | 'blink' | null;
+  haste_duration_sec: number;
 }
 
 export interface ShopListResponse {

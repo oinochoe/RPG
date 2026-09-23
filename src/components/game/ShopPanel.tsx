@@ -317,7 +317,8 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
                   (item.heal_hp > 0 ? `체력 +${item.heal_hp} ` : '') +
                   (item.restore_mp > 0 ? `마나 +${item.restore_mp} ` : '') +
                   (item.teleport_target === 'village' ? '마을 이동 ' : '') +
-                  (item.teleport_target === 'blink' ? '순간이동 ' : '');
+                  (item.teleport_target === 'blink' ? '순간이동 ' : '') +
+                  (item.haste_duration_sec > 0 ? `이속/공속 ${item.haste_duration_sec}초 ` : '');
                 const restriction = !levelOk
                   ? `Lv.${item.required_level} 필요`
                   : !classOk
@@ -363,7 +364,8 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
                     (item.heal_hp > 0 ? `체력 +${item.heal_hp} ` : '') +
                     (item.restore_mp > 0 ? `마나 +${item.restore_mp} ` : '') +
                     (item.teleport_target === 'village' ? '마을 이동 ' : '') +
-                    (item.teleport_target === 'blink' ? '순간이동 ' : '')
+                    (item.teleport_target === 'blink' ? '순간이동 ' : '') +
+                    (item.haste_duration_sec > 0 ? `이속/공속 ${item.haste_duration_sec}초 ` : '')
                   }
                   price={item.sell_price}
                   priceColor="#9aa08f"
