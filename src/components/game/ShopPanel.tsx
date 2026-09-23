@@ -25,6 +25,7 @@ const SHOP_TITLE: Record<'merchant' | 'blacksmith', string> = {
 // at a time, so those rows render without a stepper at all rather than a stepper stuck at 1.
 function ShopRow({
   name,
+  iconName,
   meta,
   price,
   priceColor,
@@ -36,6 +37,10 @@ function ShopRow({
   maxQuantity,
 }: {
   name: string;
+  // The catalog's raw item_name, for icon lookup — `name` itself may have a quantity/
+  // equipped suffix appended (see the sell tab below), which would never match ITEM_ICON's
+  // keys and silently fall back to the blank-text icon.
+  iconName: string;
   meta: string;
   price: number;
   priceColor: string;
@@ -73,7 +78,7 @@ function ShopRow({
             justifyContent: 'center',
           }}
         >
-          <ItemIcon itemName={name} size={24} />
+          <ItemIcon itemName={iconName} size={24} />
         </div>
         <div style={{ minWidth: 0 }}>
           <div style={{ color: '#f4f1e8', fontSize: 13, fontWeight: 600 }}>{name}</div>
@@ -324,6 +329,7 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
                   <ShopRow
                     key={item.id}
                     name={item.name}
+                    iconName={item.name}
                     meta={[bonus, restriction].filter(Boolean).join('· ')}
                     price={item.buy_price}
                     priceColor="#ffd54a"
@@ -350,6 +356,7 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
                 <ShopRow
                   key={item.id}
                   name={item.item_name + (item.quantity > 1 ? ` x${item.quantity}` : '') + (item.is_equipped ? ' (장착 중)' : '')}
+                  iconName={item.item_name}
                   meta={
                     (item.attack_bonus > 0 ? `공격 +${item.attack_bonus} ` : '') +
                     (item.defense_bonus > 0 ? `방어 +${item.defense_bonus} ` : '') +

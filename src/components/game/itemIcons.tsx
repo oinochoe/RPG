@@ -173,18 +173,23 @@ const TIER_ITEMS: [name: string, path: string, requiredLevel: number][] = [
   ['가죽 신발', BOOTS_PATH, 1],
   ['여행자의 장화', BOOTS_PATH, 10],
   ['바람의 장화', BOOTS_PATH, 20],
-  ['낡은 반지', RING_PATH, 1],
-  ['힘의 반지', RING_PATH, 10],
-  ['파괴의 반지', RING_PATH, 20],
-  ['왕의 반지', RING_PATH, 30],
-  ['나무 목걸이', NECKLACE_PATH, 1],
-  ['수호의 목걸이', NECKLACE_PATH, 10],
-  ['대지의 목걸이', NECKLACE_PATH, 20],
-  ['여신의 목걸이', NECKLACE_PATH, 30],
 ];
 for (const [name, path, requiredLevel] of TIER_ITEMS) {
   ITEM_ICON[name] = { path, color: tierColor(requiredLevel) };
 }
+
+// Rings/necklaces skip the bronze/silver/gold metal-tier palette above — on gear that's a
+// weapon or armor material, "better metal" reads fine, but 4 pieces of jewelry all rendered
+// as the same dull bronze/silver progression just looked flat. Each one gets its own color
+// matching what its own name actually evokes instead.
+ITEM_ICON['낡은 반지'] = { path: RING_PATH, color: '#8a8478' }; // worn, dull iron
+ITEM_ICON['힘의 반지'] = { path: RING_PATH, color: '#d9714a' }; // power — fiery ember
+ITEM_ICON['파괴의 반지'] = { path: RING_PATH, color: '#8a2f5a' }; // destruction — dark violet-red
+ITEM_ICON['왕의 반지'] = { path: RING_PATH, color: '#e8c97a' }; // king's — royal gold
+ITEM_ICON['나무 목걸이'] = { path: NECKLACE_PATH, color: '#8a6a3e' }; // wooden — warm wood tone
+ITEM_ICON['수호의 목걸이'] = { path: NECKLACE_PATH, color: '#4fb8b0' }; // guardian — protective teal
+ITEM_ICON['대지의 목걸이'] = { path: NECKLACE_PATH, color: '#8a9a4a' }; // earth — olive/ochre
+ITEM_ICON['여신의 목걸이'] = { path: NECKLACE_PATH, color: '#ffe08a' }; // goddess — radiant gold
 
 // Higher potion tier reuses its own lower tier's shape at a brighter color; the 3 enchant
 // scrolls reuse 마을 귀환 주문서's scroll shape but need their own semantic colors (not a

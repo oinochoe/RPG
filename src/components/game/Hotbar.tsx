@@ -2,6 +2,7 @@ import { useState, type DragEvent } from 'react';
 import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 import { useCombatStore, findSkillDef, type SkillDef } from '../../stores/combatStore';
 import { useTooltip } from './Tooltip';
+import { ItemIcon } from './itemIcons';
 import type { InventorySlot } from '../../types/api';
 
 // Custom mime type for the drag payload (an item_template_id) — namespaced so it never
@@ -197,8 +198,10 @@ function HotbarSlot({
         </>
       ) : row ? (
         <>
-          <span style={{ fontSize: 10, lineHeight: 1.2, textAlign: 'center', padding: '0 2px' }}>{row.item_name}</span>
-          <span style={{ fontSize: 11, fontWeight: 700, color: '#e8c97a' }}>{quantity}</span>
+          <ItemIcon itemName={row.item_name} size={32} />
+          <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: 10, fontWeight: 700, color: '#e8c97a' }}>
+            {quantity}
+          </span>
         </>
       ) : (
         <span style={{ fontSize: 10, color: '#5c6058' }}>빈 슬롯</span>
