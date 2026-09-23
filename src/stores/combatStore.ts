@@ -128,6 +128,11 @@ interface PlayerCombatState {
   // performance.now() timestamp the 초록 물약 haste buff expires at — 0 (the default) means
   // no active buff. Purely a session-local visual/pacing effect, never synced to the server.
   hasteUntil: number;
+  // When the current haste buff was applied — BuffIndicator needs both this and hasteUntil to
+  // compute "how much of the bar is left" (hasteUntil alone is only the absolute expiry, not
+  // the total duration, so a 90s 초록 물약 and a 1800s 강화 초록 물약 would otherwise be
+  // indistinguishable at the same remaining-seconds count).
+  hasteStartedAt: number;
 }
 
 // Stat points granted on each level-up, spent via allocateStat.
@@ -503,6 +508,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     skillLevels: {},
     skillCooldowns: {},
     hasteUntil: 0,
+    hasteStartedAt: 0,
   },
   lastAttackAt: 0,
   castRequestId: 0,
@@ -567,6 +573,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         skillLevels: Object.fromEntries(character.skills.map((s) => [s.skill_template_id, s.skill_level])),
         skillCooldowns: {},
         hasteUntil: 0,
+        hasteStartedAt: 0,
       },
       lastAttackAt: 0,
       targetId: null,
@@ -966,7 +973,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
   applyHaste: (durationSec) => {
     if (durationSec <= 0) return;
     const { player } = get();
-    set({ player: { ...player, hasteUntil: performance.now() + durationSec * 1000 } });
+    const now = performance.now();
+    set({ player: { ...player, hasteUntil: now + durationSec * 1000, hasteStartedAt: now } });
   },
 
   grantQuestReward: (xp, gold) => {

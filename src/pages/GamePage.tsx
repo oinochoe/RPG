@@ -9,6 +9,7 @@ import { Scene } from '../components/game/Scene';
 import { HUD } from '../components/game/HUD';
 import { LevelUpToast } from '../components/game/LevelUpToast';
 import { BossRespawnToast } from '../components/game/BossRespawnToast';
+import { BuffIndicator } from '../components/game/BuffIndicator';
 import { WorldMap } from '../components/game/WorldMap';
 import { MiniMap } from '../components/game/MiniMap';
 import { CharacterPanel } from '../components/game/CharacterPanel';
@@ -125,6 +126,7 @@ export function GamePage() {
       <HUD />
       <LevelUpToast />
       <BossRespawnToast />
+      <BuffIndicator />
       <MiniMap />
       <WorldMap />
       <CharacterPanel character={activeCharacter} />
