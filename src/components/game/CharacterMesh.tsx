@@ -55,7 +55,30 @@ const WEAPON_MODEL_BY_NAME: Record<string, string> = {
   '강철 검': `${KAYKIT_WEAPONS}/sword_D.gltf`,
   '대현자의 지팡이': `${KAYKIT_WEAPONS}/staff_B.gltf`,
   '사냥꾼의 장궁': `${KAYKIT_WEAPONS}/bow_B_withString.gltf`,
+  // The item catalog's 3rd/4th weapon tier per class (see migration 20260923025803) — warrior
+  // has 4 distinct unused sword models to spare (A/B/C/E, D already taken by 강철 검) so both
+  // new tiers get their own look. Mage/archer only ship 2 distinct staff/bow models total in
+  // this pack, both already spent on the starter/lv5 tiers, so their lv15/lv25 tiers reuse
+  // staff_A/bow_A (a visual repeat with no lv5 counterpart, not a duplicate of an existing
+  // mapping) rather than repeating a tier that already has its own look.
+  '기사의 장검': `${KAYKIT_WEAPONS}/sword_A.gltf`,
+  '용사의 대검': `${KAYKIT_WEAPONS}/sword_E.gltf`,
+  '비전의 지팡이': `${KAYKIT_WEAPONS}/staff_A.gltf`,
+  '대마도사의 지팡이': `${KAYKIT_WEAPONS}/staff_A.gltf`,
+  '정예 궁수의 활': `${KAYKIT_WEAPONS}/bow_A_withString.gltf`,
+  '바람의 활': `${KAYKIT_WEAPONS}/bow_A_withString.gltf`,
 };
+
+// Shields (warrior's equip_slot === 'shield' line, see the same migration) — this pack ships
+// exactly 3 distinct shield models, matching the 3 shield tiers 1:1. Off-hand only, so unlike
+// WEAPON_MODEL_BY_NAME there's no "always holding something" fallback — no shield equipped
+// means nothing renders in the off hand (see the attachment effect below).
+const SHIELD_MODEL_BY_NAME: Record<string, string> = {
+  '가죽 방패': `${KAYKIT_WEAPONS}/shield_A.gltf`,
+  '강철 방패': `${KAYKIT_WEAPONS}/shield_B.gltf`,
+  '기사단의 방패': `${KAYKIT_WEAPONS}/shield_C.gltf`,
+};
+const DEFAULT_SHIELD_MODEL = SHIELD_MODEL_BY_NAME['가죽 방패'];
 
 const RIG_GENERAL = '/models/kaykit/Animations/gltf/Rig_Medium/Rig_Medium_General.glb';
 const RIG_MOVEMENT = '/models/kaykit/Animations/gltf/Rig_Medium/Rig_Medium_MovementBasic.glb';
@@ -236,14 +259,22 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   const equippedWeaponName = liveInventory.find((item) => item.is_equipped && item.equip_slot === 'weapon')?.item_name;
   const weaponModelUrl =
     (equippedWeaponName && WEAPON_MODEL_BY_NAME[equippedWeaponName]) || WEAPON_MODEL[character.character_class];
+  // Unlike the weapon, no equipped shield means genuinely nothing in the off hand — the
+  // fallback URL here only keeps useGLTF's own hook call stable (Rules of Hooks: it can't be
+  // skipped), the attachment effect below is what actually decides whether shieldScene ever
+  // gets added to the bone.
+  const equippedShieldName = liveInventory.find((item) => item.is_equipped && item.equip_slot === 'shield')?.item_name;
+  const shieldModelUrl = (equippedShieldName && SHIELD_MODEL_BY_NAME[equippedShieldName]) || null;
 
   const characterGltf = useGLTF(CHARACTER_MODEL[character.character_class]);
   const weaponGltf = useGLTF(weaponModelUrl);
+  const shieldGltf = useGLTF(shieldModelUrl ?? DEFAULT_SHIELD_MODEL);
   const generalGltf = useGLTF(RIG_GENERAL);
   const movementGltf = useGLTF(RIG_MOVEMENT);
 
   const scene = useMemo(() => cloneSkeleton(characterGltf.scene), [characterGltf.scene]);
   const weaponScene = useMemo(() => cloneSkeleton(weaponGltf.scene), [weaponGltf.scene]);
+  const shieldScene = useMemo(() => cloneSkeleton(shieldGltf.scene), [shieldGltf.scene]);
   const clips = useMemo(
     () => [...generalGltf.animations, ...movementGltf.animations],
     [generalGltf.animations, movementGltf.animations],
@@ -286,6 +317,18 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       hand?.remove(weaponScene);
     };
   }, [scene, weaponScene]);
+
+  useEffect(() => {
+    // Off hand ("handslot.l" -> "handslotl", same dot-stripping as the main hand above) —
+    // only actually attaches shieldScene when a shield is really equipped (shieldModelUrl
+    // non-null); otherwise this effect's cleanup from the previous render already removed
+    // whatever was there, and nothing gets added back.
+    const offHand = scene.getObjectByName('handslotl');
+    if (shieldModelUrl) offHand?.add(shieldScene);
+    return () => {
+      offHand?.remove(shieldScene);
+    };
+  }, [scene, shieldScene, shieldModelUrl]);
 
   useEffect(() => {
     if (!modelGroupRef.current) return;
@@ -712,5 +755,6 @@ useGLTF.preload(RIG_GENERAL);
 useGLTF.preload(RIG_MOVEMENT);
 Object.values(CHARACTER_MODEL).forEach((url) => useGLTF.preload(url));
 Object.values(WEAPON_MODEL_BY_NAME).forEach((url) => useGLTF.preload(url));
+Object.values(SHIELD_MODEL_BY_NAME).forEach((url) => useGLTF.preload(url));
 useTexture.preload(SKILL_FLARE_TEXTURE);
 useTexture.preload(SKILL_IMPACT_TEXTURE);
