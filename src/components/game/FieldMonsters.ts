@@ -13,7 +13,8 @@ import {
   inBoneFieldZone,
   inGhoulFieldZone,
 } from './worldColliders';
-import type { MonsterInstanceSummary } from '../../types/api';
+import type { BossCooldown, MonsterInstanceSummary } from '../../types/api';
+import { isBossOnCooldown } from '../../stores/combatStore';
 
 // The server's POST /exploration/enter-map always returns monsters: [] (no real monster-
 // instance persistence exists yet) — same client-authoritative-content pattern as the
@@ -219,8 +220,11 @@ export function isFieldBossAggressive(monster: MonsterInstanceSummary): boolean 
 }
 
 /** Scattered field monsters — a level/species range that gently rewards wandering farther
- * from spawn, same "stronger the deeper/farther you go" idea as the dungeon's floors. */
-export function buildFieldMonsters(): MonsterInstanceSummary[] {
+ * from spawn, same "stronger the deeper/farther you go" idea as the dungeon's floors.
+ * `bossCooldowns` (the character's own boss_cooldowns, if known at build time) omits the
+ * world boss entirely while it's still on its server-tracked respawn cooldown — see
+ * combatStore's BOSS_KEY_BY_NAME/isBossOnCooldown. */
+export function buildFieldMonsters(bossCooldowns?: BossCooldown[]): MonsterInstanceSummary[] {
   const rng = mulberry32(SEED);
   const monsters: MonsterInstanceSummary[] = [];
   let idBase = 8000;
@@ -266,7 +270,9 @@ export function buildFieldMonsters(): MonsterInstanceSummary[] {
   monsters.push(...buildBoneFieldMonsters(idBase));
   idBase += OUTER_MONSTER_COUNT;
   monsters.push(...buildGhoulFieldMonsters(idBase));
-  monsters.push(...buildWorldBoss());
+  if (!isBossOnCooldown('태고의 거인', bossCooldowns)) {
+    monsters.push(...buildWorldBoss());
+  }
 
   return monsters;
 }

@@ -3,9 +3,9 @@ import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { setMoveTarget } from './moveTarget';
-import { useCombatStore } from '../../stores/combatStore';
+import { useCombatStore, isBossOnCooldown } from '../../stores/combatStore';
 import type { Collider, DungeonId } from './worldColliders';
-import type { MonsterInstanceSummary } from '../../types/api';
+import type { BossCooldown, MonsterInstanceSummary } from '../../types/api';
 
 export type { DungeonId };
 
@@ -376,8 +376,12 @@ function roomMonsterPositions(room: Rect): [number, number][] {
 
 /** Deterministic per-floor monster roster, spread across every room in the floor's chain
  * (not the corridors) — stronger the deeper you go, with a tougher captain guarding the last
- * room (the way to the next floor down) and a named boss on the final floor. */
-export function buildFloorMonsters(dungeonId: DungeonId, floor: number): MonsterInstanceSummary[] {
+ * room (the way to the next floor down) and a named boss on the final floor. `bossCooldowns`
+ * (the character's own boss_cooldowns) omits that final-floor unique boss entirely while it's
+ * still on its server-tracked respawn cooldown — see combatStore's isBossOnCooldown. Only the
+ * final floor's unique boss is ever gated this way; every other floor's captain is required
+ * trash to reach the next floor down and isn't a tracked boss. */
+export function buildFloorMonsters(dungeonId: DungeonId, floor: number, bossCooldowns?: BossCooldown[]): MonsterInstanceSummary[] {
   const config = DUNGEON_ROSTERS[dungeonId];
   const maxFloor = DUNGEON_META[dungeonId].maxFloor;
   const level = FLOOR_BASE_LEVEL + (floor - 1) * 3;
@@ -402,26 +406,29 @@ export function buildFloorMonsters(dungeonId: DungeonId, floor: number): Monster
   }
 
   const lastRoom = rooms[rooms.length - 1];
-  monsters.push({
-    instance_id: idBase + 99,
-    // The final floor's boss reuses this dungeon's own captain model at higher stats — every
-    // other floor's captain stays a reskin at its own tier, but the one fight meant to
-    // actually feel like "the strong one shows up eventually" gets the bigger numbers.
-    monster_template_id: isLastFloor ? config.bossTemplateId : config.captainTemplateId,
-    name: isLastFloor ? config.bossName : config.captainName,
-    level: level + (isLastFloor ? 5 : 2),
-    current_hp: captainHp,
-    max_hp: captainHp,
-    // The captain is the one monster on this floor that's aggressive on sight (see
-    // worldStore's isDungeonEscortAggressive), so it sits toward the near (south) side of the
-    // last room — far enough from getExitSpawn (arriving here by ascending from a deeper
-    // floor, near the room's far/north edge) that MONSTER_DETECT_RANGE (6) + wander (2.5)
-    // can't reach it on arrival — guarding the way deeper rather than ambushing anyone who
-    // just walked in.
-    position_x: lastRoom.x1 + (lastRoom.x2 - lastRoom.x1) * 0.7,
-    position_y: 0,
-    position_z: lastRoom.z1 + (lastRoom.z2 - lastRoom.z1) * 0.25,
-  });
+  const bossOnCooldown = isLastFloor && isBossOnCooldown(config.bossName, bossCooldowns);
+  if (!bossOnCooldown) {
+    monsters.push({
+      instance_id: idBase + 99,
+      // The final floor's boss reuses this dungeon's own captain model at higher stats — every
+      // other floor's captain stays a reskin at its own tier, but the one fight meant to
+      // actually feel like "the strong one shows up eventually" gets the bigger numbers.
+      monster_template_id: isLastFloor ? config.bossTemplateId : config.captainTemplateId,
+      name: isLastFloor ? config.bossName : config.captainName,
+      level: level + (isLastFloor ? 5 : 2),
+      current_hp: captainHp,
+      max_hp: captainHp,
+      // The captain is the one monster on this floor that's aggressive on sight (see
+      // worldStore's isDungeonEscortAggressive), so it sits toward the near (south) side of the
+      // last room — far enough from getExitSpawn (arriving here by ascending from a deeper
+      // floor, near the room's far/north edge) that MONSTER_DETECT_RANGE (6) + wander (2.5)
+      // can't reach it on arrival — guarding the way deeper rather than ambushing anyone who
+      // just walked in.
+      position_x: lastRoom.x1 + (lastRoom.x2 - lastRoom.x1) * 0.7,
+      position_y: 0,
+      position_z: lastRoom.z1 + (lastRoom.z2 - lastRoom.z1) * 0.25,
+    });
+  }
 
   return monsters;
 }

@@ -117,6 +117,14 @@ export interface ActiveQuest {
   progress_count: number;
 }
 
+// One row per tracked unique boss (see boss_kill_state migration) — available_at is null
+// when the boss is ready to fight (never killed, or its cooldown already elapsed), otherwise
+// an ISO timestamp for when it respawns.
+export interface BossCooldown {
+  boss_key: string;
+  available_at: string | null;
+}
+
 export interface CharacterProfile {
   id: number;
   user_id: number;
@@ -140,6 +148,7 @@ export interface CharacterProfile {
   stat_wis: number;
   skills: CharacterSkill[];
   active_quests: ActiveQuest[];
+  boss_cooldowns: BossCooldown[];
   current_map_id: number;
   position_x: number;
   position_y: number;

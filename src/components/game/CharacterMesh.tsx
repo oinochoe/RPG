@@ -12,7 +12,7 @@ import { moveTarget, clearMoveTarget } from './moveTarget';
 import { resolveMovement, PLAYER_COLLISION_RADIUS } from './worldColliders';
 import { OFFSET as CAMERA_OFFSET } from './CameraRig';
 import { playSound, playFootstep } from '../../lib/sound';
-import { useCombatStore, findSkillDef } from '../../stores/combatStore';
+import { useCombatStore, findSkillDef, BOSS_KEY_BY_NAME } from '../../stores/combatStore';
 import { useQuestStore } from '../../stores/questStore';
 import { useLootStore, pickupDrop } from '../../stores/lootStore';
 import { useCharacterStore } from '../../stores/characterStore';
@@ -428,6 +428,13 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     if (result.killed && result.monsterTemplateId !== undefined) {
       useQuestStore.getState().reportKill(result.monsterTemplateId);
       if (monster) useLootStore.getState().rollDrop(result.monsterTemplateId, monster.position);
+      const bossKey = monster ? BOSS_KEY_BY_NAME[monster.name] : undefined;
+      if (bossKey && monster) {
+        useCharacterStore.getState().reportBossKill(bossKey, monster.name).catch(() => {
+          // Best-effort — worst case the boss just looks available again until the next
+          // reload/re-entry re-checks boss_cooldowns from a fresh profile fetch.
+        });
+      }
     }
     if (!variant) {
       beginSwing();

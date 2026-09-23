@@ -45,6 +45,7 @@ const profile: CharacterProfile = {
   stat_wis: 5,
   skills: [],
   active_quests: [],
+  boss_cooldowns: [],
   current_map_id: 1,
   position_x: 0,
   position_y: 0,

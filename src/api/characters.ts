@@ -1,6 +1,7 @@
 import { apiRequest } from './client';
 import type {
   ActiveQuest,
+  BossCooldown,
   CharacterClass,
   CharacterProfile,
   CharacterSummary,
@@ -147,5 +148,12 @@ export function lootItem(itemTemplateId: number): Promise<InventoryListResponse>
   return apiRequest('/characters/me/inventory/loot', {
     method: 'POST',
     body: { item_template_id: itemTemplateId },
+  });
+}
+
+export function reportBossKill(bossKey: string): Promise<{ boss_cooldowns: BossCooldown[] }> {
+  return apiRequest('/characters/me/boss-kill', {
+    method: 'POST',
+    body: { boss_key: bossKey },
   });
 }

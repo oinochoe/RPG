@@ -8,6 +8,7 @@ import { useUIStore } from '../stores/uiStore';
 import { Scene } from '../components/game/Scene';
 import { HUD } from '../components/game/HUD';
 import { LevelUpToast } from '../components/game/LevelUpToast';
+import { BossRespawnToast } from '../components/game/BossRespawnToast';
 import { WorldMap } from '../components/game/WorldMap';
 import { MiniMap } from '../components/game/MiniMap';
 import { CharacterPanel } from '../components/game/CharacterPanel';
@@ -123,6 +124,7 @@ export function GamePage() {
       </Canvas>
       <HUD />
       <LevelUpToast />
+      <BossRespawnToast />
       <MiniMap />
       <WorldMap />
       <CharacterPanel character={activeCharacter} />

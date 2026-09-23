@@ -147,11 +147,26 @@ async function fetchQuests(
   return data ?? [];
 }
 
+interface BossCooldownRow {
+  boss_key: string;
+  available_at: string | null;
+}
+
+async function fetchBossCooldowns(
+  admin: ReturnType<typeof getAdminClient>,
+  characterId: number,
+): Promise<BossCooldownRow[]> {
+  const { data, error } = await admin.rpc("get_boss_cooldowns", { p_character_id: characterId });
+  if (error) throw error;
+  return (data as BossCooldownRow[]) ?? [];
+}
+
 function toProfile(
   row: Record<string, unknown>,
   inventory: InventoryItemRow[],
   skills: CharacterSkillRow[],
   quests: CharacterQuestRow[],
+  bossCooldowns: BossCooldownRow[],
 ) {
   return {
     id: row.id,
@@ -176,6 +191,7 @@ function toProfile(
     stat_wis: row.stat_wis,
     skills,
     active_quests: quests,
+    boss_cooldowns: bossCooldowns,
     current_map_id: row.current_map_id,
     position_x: row.position_x,
     position_y: row.position_y,
@@ -788,16 +804,61 @@ charactersRoutes.get("/me", async (c) => {
   let inventory: InventoryItemRow[];
   let skills: CharacterSkillRow[];
   let quests: CharacterQuestRow[];
+  let bossCooldowns: BossCooldownRow[];
   try {
     inventory = await fetchInventory(admin, data.id as number);
     skills = await fetchSkills(admin, data.id as number);
     quests = await fetchQuests(admin, data.id as number);
+    bossCooldowns = await fetchBossCooldowns(admin, data.id as number);
   } catch (error) {
-    console.error("inventory/skills/quests fetch failed:", (error as Error).message);
+    console.error("inventory/skills/quests/boss-cooldowns fetch failed:", (error as Error).message);
     throw new ApiError(500, "internal_error", "inventory_fetch_failed", "인벤토리 조회 중 오류가 발생했습니다.");
   }
 
-  return c.json(toProfile(data as Record<string, unknown>, inventory, skills, quests));
+  return c.json(toProfile(data as Record<string, unknown>, inventory, skills, quests, bossCooldowns));
+});
+
+// Boss keys the client may report a kill for — mirrors boss_respawn_hours in the boss_kill_state
+// migration. Kept in sync manually since there's no shared-constants import between the DB and
+// this edge function.
+const VALID_BOSS_KEYS = ["world_boss", "ruined_catacombs", "orc_stronghold", "ghoul_crypt"];
+
+function mapBossKillRpcError(message: string | undefined): ApiError {
+  if (message?.includes("character_not_found")) {
+    return new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
+  }
+  if (message?.includes("boss_key_invalid")) {
+    return new ApiError(400, "validation_failed", "boss_key_invalid", "알 수 없는 보스입니다.", "boss_key");
+  }
+  if (message?.includes("boss_on_cooldown")) {
+    return new ApiError(409, "conflict", "boss_on_cooldown", "아직 보스가 리스폰되지 않았습니다.", "boss_key");
+  }
+  console.error("record_boss_kill RPC failed:", message);
+  return new ApiError(500, "internal_error", "boss_kill_failed", "보스 처치 기록 중 오류가 발생했습니다.");
+}
+
+// Called once when the client detects a tracked boss died (see combatStore's applyKill) —
+// records the kill server-side so the long respawn window survives a page refresh, then
+// returns the fresh cooldown map the same shape /me returns it in.
+charactersRoutes.post("/me/boss-kill", async (c) => {
+  const appUser = c.get("appUser");
+  const { boss_key } = await readJsonBody(c);
+  if (typeof boss_key !== "string" || !VALID_BOSS_KEYS.includes(boss_key)) {
+    throw new ApiError(400, "validation_failed", "boss_key_invalid", "알 수 없는 보스입니다.", "boss_key");
+  }
+
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  const { error } = await admin.rpc("record_boss_kill", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+    p_boss_key: boss_key,
+  });
+  if (error) throw mapBossKillRpcError(error.message);
+
+  const bossCooldowns = await fetchBossCooldowns(admin, characterId);
+  return c.json({ boss_cooldowns: bossCooldowns });
 });
 
 async function getActiveCharacterId(

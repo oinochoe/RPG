@@ -18,7 +18,7 @@ import {
 } from '../components/game/worldColliders';
 import { getFloorRooms, getDungeonColliders, getEntrySpawn, DUNGEON_META } from '../components/game/Dungeon';
 import { buildFieldMonsters } from '../components/game/FieldMonsters';
-import type { CharacterClass, CharacterProfile, CharacterSummary, EnchantOutcome, InventorySlot, ShopItem } from '../types/api';
+import type { BossCooldown, CharacterClass, CharacterProfile, CharacterSummary, EnchantOutcome, InventorySlot, ShopItem } from '../types/api';
 
 // Shared by useHotbarSlot's teleport_target handling below — 'village' works from anywhere
 // (leaves the dungeon first if needed, same as walking out through its exit would, so
@@ -205,6 +205,14 @@ interface CharacterState {
   // by playerStuck (see CharacterMesh's stuck-detection heuristic) rather than always
   // available, since a free unconditional village return would just duplicate that item.
   unstuck: () => void;
+  // Set right after a tracked boss dies (see CharacterMesh's handleAttackResult) so a toast
+  // can announce when it'll be back — BossRespawnToast watches this and clears it once shown.
+  bossKillNotice: { bossName: string; availableAt: string } | null;
+  /** Records a tracked boss's kill server-side (see boss_kill_state migration) and refreshes
+   * activeCharacter.boss_cooldowns so this session's own spawn checks (buildFieldMonsters/
+   * buildFloorMonsters) see it immediately, without waiting for a reload. */
+  reportBossKill: (bossKey: string, bossName: string) => Promise<void>;
+  clearBossKillNotice: () => void;
 }
 
 export const useCharacterStore = create<CharacterState>((set, get) => ({
@@ -365,4 +373,16 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     playerStuck.value = false;
     playSound('cast', 0.5);
   },
+
+  bossKillNotice: null,
+
+  reportBossKill: async (bossKey, bossName) => {
+    const { boss_cooldowns } = await charactersApi.reportBossKill(bossKey);
+    const activeCharacter = get().activeCharacter;
+    if (activeCharacter) set({ activeCharacter: { ...activeCharacter, boss_cooldowns } });
+    const entry = boss_cooldowns.find((c: BossCooldown) => c.boss_key === bossKey);
+    set({ bossKillNotice: entry?.available_at ? { bossName, availableAt: entry.available_at } : null });
+  },
+
+  clearBossKillNotice: () => set({ bossKillNotice: null }),
 }));

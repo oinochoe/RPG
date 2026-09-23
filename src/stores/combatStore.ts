@@ -183,6 +183,26 @@ export function skillDamageMultiplier(baseDamageMultiplier: number, skillLevel: 
   return baseDamageMultiplier * (1 + (skillLevel - 1) * 0.1);
 }
 
+// The 4 tracked unique bosses (see boss_kill_state migration's boss_respawn_hours) — matched
+// by name since monster instances have no stable "is a tracked boss" flag of their own.
+// Shared by: this file (suppressing the plain 8s local respawn below for boss kills, since
+// their real comeback is server-gated), FieldMonsters.ts/Dungeon.tsx (skip spawning one that's
+// still on cooldown), and CharacterMesh.tsx (report a boss kill to the server).
+export const BOSS_KEY_BY_NAME: Record<string, string> = {
+  '태고의 거인': 'world_boss',
+  '거인 군주': 'ruined_catacombs',
+  '오크 군주': 'orc_stronghold',
+  '구울 군주': 'ghoul_crypt',
+};
+
+export function isBossOnCooldown(name: string, cooldowns: { boss_key: string; available_at: string | null }[] | undefined): boolean {
+  const bossKey = BOSS_KEY_BY_NAME[name];
+  if (!bossKey || !cooldowns) return false;
+  const entry = cooldowns.find((c) => c.boss_key === bossKey);
+  if (!entry?.available_at) return false;
+  return new Date(entry.available_at).getTime() > Date.now();
+}
+
 interface AttackResult {
   hit: boolean;
   instanceId?: number;
@@ -534,7 +554,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       ...target,
       currentHp: nextHp,
       alive: !killed,
-      respawnAt: killed ? now + RESPAWN_DELAY_MS : null,
+      // Tracked bosses never come back via the plain local respawn timer — their real
+      // comeback is server-gated (see BOSS_KEY_BY_NAME) and can be hours away.
+      respawnAt: killed && !(target.name in BOSS_KEY_BY_NAME) ? now + RESPAWN_DELAY_MS : null,
       lastHitAt: now,
     };
 
@@ -610,7 +632,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         ...t,
         currentHp: nextHp,
         alive: !killed,
-        respawnAt: killed ? now + RESPAWN_DELAY_MS : null,
+        respawnAt: killed && !(t.name in BOSS_KEY_BY_NAME) ? now + RESPAWN_DELAY_MS : null,
         lastHitAt: now,
       };
       if (t.instanceId === target.instanceId) {

@@ -167,7 +167,8 @@ export function Scene({
   // persistence yet) — generate the field's roster client-side instead, same pattern as the
   // dungeon's buildFloorMonsters. Stable for the session (computed once, not reshuffled on
   // every re-render).
-  const fieldMonsters = useMemo(() => buildFieldMonsters(), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- session-stable snapshot (see comment above)
+  const fieldMonsters = useMemo(() => buildFieldMonsters(character.boss_cooldowns), []);
   const nearbyFieldMonsterIds = useNearbyFieldMonsterIds(fieldMonsters);
 
   useEffect(() => {
@@ -182,8 +183,11 @@ export function Scene({
 
   const isDungeon = currentArea === 'dungeon' && currentDungeonId !== null;
   const dungeonMonsters = useMemo(
-    () => (isDungeon && currentDungeonId ? buildFloorMonsters(currentDungeonId, dungeonFloor) : []),
-    [isDungeon, currentDungeonId, dungeonFloor],
+    () =>
+      isDungeon && currentDungeonId
+        ? buildFloorMonsters(currentDungeonId, dungeonFloor, character.boss_cooldowns)
+        : [],
+    [isDungeon, currentDungeonId, dungeonFloor, character.boss_cooldowns],
   );
 
   return (

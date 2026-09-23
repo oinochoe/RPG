@@ -36,6 +36,7 @@ const baseCharacter: CharacterProfile = {
   stat_wis: 5,
   skills: [],
   active_quests: [],
+  boss_cooldowns: [],
   created_at: '2026-09-16T00:00:00Z',
   equipped_items: [],
   inventory: [],
