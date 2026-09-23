@@ -171,18 +171,28 @@ export function getEntryTrigger(floor: number): [number, number] {
   const rooms = getFloorRoomList(floor);
   return [entryRoomX(floor), rooms[0].z1 + 1];
 }
+// Was z1 + 3 — only 2 units from the trigger above (z1 + 1), barely past
+// DUNGEON_EXIT_RADIUS (1.8). AreaTransitions.tsx's own re-entry cooldown is a flat 1-second
+// timer, not a "moved far enough away" check, so any residual movement input right after
+// spawning (a held key from before the loading pause, or just walking around) could cross
+// back under the radius the instant the cooldown expired and immediately bounce the player
+// straight back out — real user report: "던젼에서 나갔다 들어오면 가끔 던젼 밖을 가게되는데."
+// A real margin (5 units clear of the trigger, not 0.2) means that can't happen from
+// incidental movement — rooms here are 26-60 units across (see FLOOR_PLANS's `half` values),
+// so there's no risk of this landing outside the room or in the corridor stub behind it.
 export function getEntrySpawn(floor: number): [number, number] {
   const rooms = getFloorRoomList(floor);
-  return [entryRoomX(floor), rooms[0].z1 + 3];
+  return [entryRoomX(floor), rooms[0].z1 + 6];
 }
 export function getExitTrigger(floor: number, maxFloor: number): [number, number] | null {
   if (floor >= maxFloor) return null;
   const rooms = getFloorRoomList(floor);
   return [exitRoomX(floor), rooms[rooms.length - 1].z2 - 1];
 }
+// Same fix, mirrored — see getEntrySpawn's comment above.
 export function getExitSpawn(floor: number): [number, number] {
   const rooms = getFloorRoomList(floor);
-  return [exitRoomX(floor), rooms[rooms.length - 1].z2 - 3];
+  return [exitRoomX(floor), rooms[rooms.length - 1].z2 - 6];
 }
 export const DUNGEON_EXIT_RADIUS = 1.8;
 export const DUNGEON_DESCEND_RADIUS = 1.8;

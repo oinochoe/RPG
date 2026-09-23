@@ -45,6 +45,21 @@ export const DROP_MODEL_BY_ITEM: Record<number, DropModelConfig> = {
   15: { url: '/models/quaternius-scroll/Scroll.glb', targetSize: 0.35, glowColor: '#c084fc' },
 };
 
+// Every item_template_id added after the original 15-item starter set (46-item catalog
+// expansion, enchant scrolls, boss gear, 초록 물약, gems/materials — 50+ ids) had no entry
+// above, and `if (!config) return null` made the drop render literally nothing: no model, no
+// glow ring, no click hitbox — real user report: "던젼에서 가끔 떨어진 아이템이 안보이는데."
+// Rather than hand-authoring 50+ more per-ID entries, this falls back to a shape already
+// loaded for the drop's own itemType (see lootStore's DropTableEntry) whenever there's no
+// specific entry, so nothing can ever be fully invisible again, present or future.
+const CATEGORY_FALLBACK: Record<import('../../stores/lootStore').DropItemType, DropModelConfig> = {
+  weapon: { url: `${KAYKIT_ROOT}/sword_1handed.gltf`, targetSize: 0.8, glowColor: '#c9d6e3' },
+  armor: { url: `${KAYKIT_DUNGEON}/chest.gltf`, targetSize: 0.45, glowColor: '#c9d6e3' },
+  consumable: { url: `${KAYKIT_DUNGEON}/bottle_A_green.gltf`, targetSize: 0.3, glowColor: '#7be08a' },
+  scroll: { url: '/models/quaternius-scroll/Scroll.glb', targetSize: 0.35, glowColor: '#ffd54a' },
+  misc: { url: `${KAYKIT_DUNGEON}/chest.gltf`, targetSize: 0.3, glowColor: '#e8c97a' },
+};
+
 const BOB_HEIGHT = 0.08;
 const BOB_BASE_Y = 0.25;
 const BOB_SPEED = 2.2;
@@ -96,7 +111,7 @@ function DropModel({ config }: { config: DropModelConfig }) {
  * distance, and self-despawns once its TTL elapses (see lootStore's DROP_TTL_MS) rather than
  * needing a separate global ticker to sweep stale drops. */
 export function ItemDropMesh({ drop }: { drop: WorldDrop }) {
-  const config = DROP_MODEL_BY_ITEM[drop.itemTemplateId];
+  const config = DROP_MODEL_BY_ITEM[drop.itemTemplateId] ?? CATEGORY_FALLBACK[drop.itemType];
   const bobRef = useRef<THREE.Group>(null);
   const glowRef = useRef<THREE.Mesh>(null);
   const expiredRef = useRef(false);
@@ -136,8 +151,6 @@ export function ItemDropMesh({ drop }: { drop: WorldDrop }) {
       setLootMoveTarget(drop.position[0], drop.position[2], drop.id);
     }
   }
-
-  if (!config) return null;
 
   return (
     <group position={drop.position}>
