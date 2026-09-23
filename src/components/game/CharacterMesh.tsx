@@ -427,7 +427,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     const monster = result.instanceId != null ? useCombatStore.getState().monsters[result.instanceId] : undefined;
     if (result.killed && result.monsterTemplateId !== undefined) {
       useQuestStore.getState().reportKill(result.monsterTemplateId);
-      if (monster) useLootStore.getState().rollDrop(result.monsterTemplateId, monster.position);
+      if (monster) useLootStore.getState().rollDrop(result.monsterTemplateId, monster.name, monster.position);
       const bossKey = monster ? BOSS_KEY_BY_NAME[monster.name] : undefined;
       if (bossKey && monster) {
         useCharacterStore.getState().reportBossKill(bossKey, monster.name).catch(() => {

@@ -96,7 +96,76 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
 // potion, 15% mana potion. The boss (5) always drops something.
 const NOTHING_WEIGHT: Record<number, number> = { 1: 40, 2: 35, 3: 35, 4: 40, 5: 0, 6: 40, 7: 35, 8: 40 };
 
-function rollDropEntry(monsterTemplateId: number): DropTableEntry | null {
+// The 6 boss-exclusive weapon/armor items (see the boss_exclusive_gear migration) — never
+// sold in the shop (buy_price 0), only reachable through this pool. Low weight each so a
+// single boss kill only has a modest chance at any specific one; shared verbatim across all
+// 4 boss tables below so every boss can drop any class's gear (a warrior who only ever fights
+// 오크 군주 shouldn't be locked out of 태고의 파쇄검 just because that's nominally a "different"
+// boss's table).
+const BOSS_EXCLUSIVE_GEAR_ENTRIES: DropTableEntry[] = [
+  { itemTemplateId: 51, itemName: '태고의 파쇄검', itemType: 'weapon', weight: 3 },
+  { itemTemplateId: 52, itemName: '거인 군주의 판금 갑주', itemType: 'armor', weight: 3 },
+  { itemTemplateId: 53, itemName: '태고의 심판 지팡이', itemType: 'weapon', weight: 3 },
+  { itemTemplateId: 54, itemName: '태고의 대현자 로브', itemType: 'armor', weight: 3 },
+  { itemTemplateId: 55, itemName: '태고의 관통궁', itemType: 'weapon', weight: 3 },
+  { itemTemplateId: 56, itemName: '그림자 군주의 은신 갑옷', itemType: 'armor', weight: 3 },
+];
+
+// Keyed by monster NAME rather than monster_template_id — templates 5/6/7 are each shared
+// between a boss and a regular/captain-tier monster (see FieldMonsters.ts/Dungeon.tsx's own
+// comments on this), so a template-keyed table would leak the boss-exclusive gear pool to
+// every regular kill of that species too. Only the 4 tracked unique bosses (see combatStore's
+// BOSS_KEY_BY_NAME) get a table here; everything else still resolves through DROP_TABLE by
+// monster_template_id as before.
+const BOSS_DROP_TABLE: Record<string, DropTableEntry[]> = {
+  '태고의 거인': [
+    { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 50 },
+    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
+    { itemTemplateId: 14, itemName: '마을 귀환 주문서', itemType: 'scroll', weight: 20 },
+    { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 15 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    ...BOSS_EXCLUSIVE_GEAR_ENTRIES,
+  ],
+  '거인 군주': [
+    { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 50 },
+    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
+    { itemTemplateId: 14, itemName: '마을 귀환 주문서', itemType: 'scroll', weight: 20 },
+    { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 15 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    ...BOSS_EXCLUSIVE_GEAR_ENTRIES,
+  ],
+  '오크 군주': [
+    { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 50 },
+    { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 30 },
+    { itemTemplateId: 9, itemName: '강철 검', itemType: 'weapon', weight: 8 },
+    { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 8 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 48, itemName: '저주의 강화 주문서', itemType: 'scroll', weight: 5 },
+    ...BOSS_EXCLUSIVE_GEAR_ENTRIES,
+  ],
+  '구울 군주': [
+    { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 40 },
+    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
+    { itemTemplateId: 15, itemName: '순간이동 주문서', itemType: 'scroll', weight: 12 },
+    { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 5 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    ...BOSS_EXCLUSIVE_GEAR_ENTRIES,
+  ],
+};
+
+function rollDropEntry(monsterTemplateId: number, monsterName: string): DropTableEntry | null {
+  const bossEntries = BOSS_DROP_TABLE[monsterName];
+  if (bossEntries) {
+    // Bosses always drop something, same as template 5's own NOTHING_WEIGHT of 0.
+    const totalWeight = bossEntries.reduce((sum, e) => sum + e.weight, 0);
+    let roll = Math.random() * totalWeight;
+    for (const entry of bossEntries) {
+      if (roll < entry.weight) return entry;
+      roll -= entry.weight;
+    }
+    return null;
+  }
+
   const entries = DROP_TABLE[monsterTemplateId];
   if (!entries) return null;
   const nothingWeight = NOTHING_WEIGHT[monsterTemplateId] ?? 0;
@@ -122,9 +191,10 @@ export const DROP_TTL_MS = 90_000;
 interface LootState {
   drops: WorldDrop[];
   nextId: number;
-  /** No-op if the roll comes up empty — see DROP_TABLE/NOTHING_WEIGHT. Called once per kill
-   * (see CharacterMesh's handleAttackResult) with that monster's own death position. */
-  rollDrop: (monsterTemplateId: number, position: [number, number, number]) => void;
+  /** No-op if the roll comes up empty — see DROP_TABLE/NOTHING_WEIGHT (or BOSS_DROP_TABLE for
+   * one of the 4 tracked unique bosses, matched by name). Called once per kill (see
+   * CharacterMesh's handleAttackResult) with that monster's own death position. */
+  rollDrop: (monsterTemplateId: number, monsterName: string, position: [number, number, number]) => void;
   /** Called on a successful pickup (see CharacterMesh's F4 handler) or by ItemDropMesh once
    * a drop's TTL expires. */
   removeDrop: (dropId: number) => void;
@@ -137,8 +207,8 @@ export const useLootStore = create<LootState>((set, get) => ({
   drops: [],
   nextId: 1,
 
-  rollDrop: (monsterTemplateId, position) => {
-    const entry = rollDropEntry(monsterTemplateId);
+  rollDrop: (monsterTemplateId, monsterName, position) => {
+    const entry = rollDropEntry(monsterTemplateId, monsterName);
     if (!entry) return;
     const { nextId, drops } = get();
     const drop: WorldDrop = {
