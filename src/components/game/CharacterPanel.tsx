@@ -46,6 +46,7 @@ function StatRow({
   canAllocate: boolean;
   onAllocate: () => void;
 }) {
+  const { handlers: tooltipHandlers, tooltip } = useTooltip(`다음 1점: ${cost} 포인트`);
   return (
     <div
       style={{
@@ -64,6 +65,7 @@ function StatRow({
         <button
           onClick={onAllocate}
           disabled={!canAllocate}
+          {...tooltipHandlers}
           style={{
             width: 28,
             height: 24,
@@ -74,10 +76,11 @@ function StatRow({
             fontWeight: 700,
             fontSize: 13,
             cursor: canAllocate ? 'pointer' : 'default',
+            position: 'relative',
           }}
-          title={`다음 1점: ${cost} 포인트`}
         >
           +
+          {tooltip}
         </button>
       </div>
     </div>

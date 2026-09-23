@@ -5,6 +5,7 @@ import { useUIStore } from "../../stores/uiStore";
 import { useCharacterStore } from "../../stores/characterStore";
 import { playerStuck } from "./playerTransform";
 import { useDraggablePanel } from "./useDraggablePanel";
+import { useTooltip } from "./Tooltip";
 
 const PANEL_WIDTH = 280;
 const STUCK_POLL_MS = 300;
@@ -52,6 +53,12 @@ export function SystemMenu() {
     const id = window.setInterval(poll, STUCK_POLL_MS);
     return () => window.clearInterval(id);
   }, [isOpen]);
+
+  const { handlers: stuckTooltipHandlers, tooltip: stuckTooltip } = useTooltip(
+    isStuck
+      ? "지형에 낀 상태가 감지되었습니다 — 가까운 마을로 즉시 이동합니다"
+      : "지형에 낀 상태에서만 사용할 수 있습니다 (평소 이동에는 마을 귀환 주문서를 사용하세요)",
+  );
 
   if (!isOpen) return null;
 
@@ -155,11 +162,7 @@ export function SystemMenu() {
           closeSystemMenu();
         }}
         disabled={!isStuck}
-        title={
-          isStuck
-            ? "지형에 낀 상태가 감지되었습니다 — 가까운 마을로 즉시 이동합니다"
-            : "지형에 낀 상태에서만 사용할 수 있습니다 (평소 이동에는 마을 귀환 주문서를 사용하세요)"
-        }
+        {...stuckTooltipHandlers}
         style={{
           width: "100%",
           padding: "6px 0",
@@ -170,9 +173,11 @@ export function SystemMenu() {
           color: isStuck ? "#e0538a" : "rgba(224, 83, 138, 0.4)",
           fontSize: 12,
           cursor: isStuck ? "pointer" : "not-allowed",
+          position: "relative",
         }}
       >
         긴급 탈출 {isStuck ? "(마을로 이동)" : "(끼었을 때만 사용 가능)"}
+        {stuckTooltip}
       </button>
 
       <button
