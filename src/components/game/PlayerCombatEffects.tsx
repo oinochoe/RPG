@@ -7,6 +7,8 @@ import { VILLAGE_CENTER } from './Village';
 import { useCombatStore } from '../../stores/combatStore';
 import { useWorldStore } from '../../stores/worldStore';
 import { formatGold } from './itemLabels';
+import { playSound } from '../../lib/sound';
+import { resolveMovement, PLAYER_COLLISION_RADIUS } from './worldColliders';
 import type { MonsterInstanceSummary } from '../../types/api';
 
 interface FloatPopup {
@@ -75,7 +77,12 @@ export function PlayerCombatEffects({ fieldMonsters }: { fieldMonsters: MonsterI
       useCombatStore.getState().tickMonsterMovement(playerPosition.x, playerPosition.z, step);
     }
 
-    const { died } = useCombatStore.getState().monsterAttackTick(playerPosition.x, playerPosition.z);
+    const { died, knockback } = useCombatStore.getState().monsterAttackTick(playerPosition.x, playerPosition.z);
+    if (knockback && !died) {
+      playSound('hitHeavy', 0.55);
+      const resolved = resolveMovement(playerPosition.x, playerPosition.z, knockback.dx, knockback.dz, PLAYER_COLLISION_RADIUS);
+      playerPosition.set(resolved.x, 0, resolved.z);
+    }
     if (died) {
       if (useWorldStore.getState().currentArea === 'dungeon') {
         useWorldStore.getState().exitDungeon(fieldMonsters);

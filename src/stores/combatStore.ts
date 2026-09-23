@@ -53,6 +53,10 @@ function monsterAttackPower(level: number, isBoss: boolean): number {
 // just periodic burst damage so a boss fight doesn't read as a flat stream of identical hits.
 const BOSS_SKILL_COOLDOWN_MS = 6000;
 const BOSS_SKILL_DAMAGE_MULTIPLIER = 2.2;
+// How far the skill hit shoves the player, straight away from the boss — enough to actually
+// disrupt melee positioning (warrior's own attack range is 2.2, see ATTACK_RANGE_BY_CLASS)
+// without launching them somewhere absurd.
+const BOSS_KNOCKBACK_DISTANCE = 2.5;
 
 export interface MonsterCombatState {
   instanceId: number;
@@ -233,6 +237,11 @@ interface AttackResult {
 
 interface MonsterAttackResult {
   died: boolean;
+  // Set only when a boss's periodic "skill" hit lands (see BOSS_SKILL_COOLDOWN_MS) — a shove
+  // away from the monster for the caller (PlayerCombatEffects) to apply to the player's real
+  // position, plus a distinct sound cue, so the burst hit reads as a real attack pattern
+  // instead of just a bigger number on the same plain hit.
+  knockback: { dx: number; dz: number } | null;
 }
 
 interface CombatState {
@@ -699,10 +708,11 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     const { monsters, player } = get();
     // Player is already at 0 HP waiting for the respawn effect to run — ignore further hits
     // until respawnPlayer() heals them back up, so we don't double-trigger death handling.
-    if (player.currentHp <= 0) return { died: false };
+    if (player.currentHp <= 0) return { died: false, knockback: null };
 
     let nextMonsters: Record<number, MonsterCombatState> | null = null;
     let currentHp = player.currentHp;
+    let knockback: { dx: number; dz: number } | null = null;
 
     for (const monster of Object.values(monsters)) {
       if (!monster.alive) continue;
@@ -728,12 +738,20 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         lastAttackAt: now,
         lastSkillAttackAt: useSkill ? now : monster.lastSkillAttackAt,
       };
+      if (useSkill) {
+        // Shove the player directly away from the monster — a real positional effect, not
+        // just a bigger damage number, so the burst hit actually reads as a different attack.
+        const pdx = playerX - monster.position[0];
+        const pdz = playerZ - monster.position[2];
+        const dist = Math.hypot(pdx, pdz) || 1;
+        knockback = { dx: (pdx / dist) * BOSS_KNOCKBACK_DISTANCE, dz: (pdz / dist) * BOSS_KNOCKBACK_DISTANCE };
+      }
       if (currentHp <= 0) break;
     }
 
-    if (!nextMonsters) return { died: false };
+    if (!nextMonsters) return { died: false, knockback: null };
     set({ monsters: nextMonsters, player: { ...player, currentHp } });
-    return { died: currentHp <= 0 };
+    return { died: currentHp <= 0, knockback };
   },
 
   tickMonsterMovement: (playerX, playerZ, delta) => {
