@@ -21,7 +21,7 @@ import {
   GIANT_VARIANT,
   ORC_VARIANT,
   GHOUL_VARIANT,
-  FAIRY_VARIANT,
+  MUSHROOM_KING_VARIANT,
 } from './MonsterMesh';
 import { CameraRig } from './CameraRig';
 import { LightRig } from './LightRig';
@@ -78,7 +78,7 @@ function fieldMonsterVariant(templateId: number) {
   if (templateId === 4) return CACTORO_VARIANT;
   if (templateId === 6) return ORC_VARIANT;
   if (templateId === 7) return GHOUL_VARIANT;
-  if (templateId === 8) return FAIRY_VARIANT;
+  if (templateId === 8) return MUSHROOM_KING_VARIANT;
   return undefined;
 }
 

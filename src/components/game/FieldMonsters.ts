@@ -91,7 +91,7 @@ function buildFairyForestMonsters(idBaseStart: number): MonsterInstanceSummary[]
     monsters.push({
       instance_id: idBase++,
       monster_template_id: 8,
-      name: '요정',
+      name: '버섯왕',
       level: OUTER_MONSTER_LEVEL,
       current_hp: OUTER_MONSTER_HP,
       max_hp: OUTER_MONSTER_HP,

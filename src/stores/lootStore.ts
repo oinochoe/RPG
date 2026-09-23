@@ -25,7 +25,7 @@ interface DropTableEntry {
 // monster_drop_templates table exists in the schema but was never populated (nothing reads
 // it either), so this is the actual source of truth for what a kill can drop. Keyed by
 // monster_template_id (see FieldMonsters.ts/Dungeon.tsx's own comments for that convention:
-// 1=슬라임, 2=고블린, 3=스켈레톤, 4=가시선인장, 5=거인 군주, 6=오크, 7=구울, 8=요정). Weights
+// 1=슬라임, 2=고블린, 3=스켈레톤, 4=가시선인장, 5=거인 군주, 6=오크, 7=구울, 8=버섯왕). Weights
 // are relative, not percentages — rollDropEntry below divides by their sum (plus each table's
 // own "nothing" weight) to get real probabilities, so they don't need to add up to 100.
 const DROP_TABLE: Record<number, DropTableEntry[]> = {
@@ -66,8 +66,9 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
     { itemTemplateId: 15, itemName: '순간이동 주문서', itemType: 'scroll', weight: 12 },
   ],
-  // 요정의 숲's field monster — a magic-leaning table (mana potions plus a rare staff) matching
-  // its fae theme.
+  // 요정의 숲's field monster (버섯왕/Mushroom King) — a magic-leaning table (mana potions plus
+  // a rare staff) matching the zone's fae/forest theme, even though the monster itself is a
+  // mushroom creature rather than a literal fairy.
   8: [
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 30 },
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 20 },

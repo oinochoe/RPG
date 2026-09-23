@@ -18,7 +18,7 @@ interface DamagePopup {
 
 export interface MonsterVariant {
   nameAccent: string;
-  model: 'slime' | 'goblin' | 'skeleton' | 'cactoro' | 'giant' | 'orc' | 'ghoul' | 'fairy';
+  model: 'slime' | 'goblin' | 'skeleton' | 'cactoro' | 'giant' | 'orc' | 'ghoul' | 'mushroomKing';
   labelHeight: number;
 }
 
@@ -64,10 +64,10 @@ export const GHOUL_VARIANT: MonsterVariant = {
   labelHeight: 0.95,
 };
 
-export const FAIRY_VARIANT: MonsterVariant = {
-  nameAccent: '#f0a8e0',
-  model: 'fairy',
-  labelHeight: 0.6,
+export const MUSHROOM_KING_VARIANT: MonsterVariant = {
+  nameAccent: '#e07ad0',
+  model: 'mushroomKing',
+  labelHeight: 0.8,
 };
 
 // How long the body keeps rendering (playing its Death clip) after currentHp hits 0, before
@@ -204,32 +204,36 @@ const GHOUL_CONFIG: RiggedMonsterConfig = {
   facingOffset: 0,
 };
 
-// Fairy (Quaternius "Hywirl", CC0 — https://poly.pizza/m/zjr7CmWGER) — 요정의 숲's field monster.
-// A flyer: no ground Idle/Walk clips exist, only Flying_Idle/Fast_Flying, so those stand in for
-// idle/walk here. See public/models/quaternius-fairy/License.txt.
-const FAIRY_CONFIG: RiggedMonsterConfig = {
-  modelUrl: '/models/quaternius-fairy/Fairy.glb',
-  targetHeight: 0.45,
+// Mushroom King (Quaternius, CC0 — https://poly.pizza/m/grnFTziU8u) — 요정의 숲's field
+// monster. Replaces an earlier pick (Quaternius "Hywirl", a generic flying creature) that
+// didn't read as a fairy-tale forest denizen at all — real user feedback ("몹을 잘못다운받았는지
+// 이상하게 생긴게 있네.. 지금 요정은 못생겼다"). No CC0 werewolf/faun/centaur/arachne exists
+// anywhere in Quaternius's catalog (confirmed via two separate research passes), so a crowned
+// mushroom creature was the best actual fairy-tale-forest fit available. See
+// public/models/quaternius-mushroomking/License.txt.
+const MUSHROOM_KING_CONFIG: RiggedMonsterConfig = {
+  modelUrl: '/models/quaternius-mushroomking/MushroomKing.glb',
+  targetHeight: 0.7,
   clips: {
-    idle: 'CharacterArmature|Flying_Idle',
-    walk: 'CharacterArmature|Fast_Flying',
-    attack: 'CharacterArmature|Headbutt',
+    idle: 'CharacterArmature|Idle',
+    walk: 'CharacterArmature|Run',
+    attack: 'CharacterArmature|Punch',
     hit: 'CharacterArmature|HitReact',
     death: 'CharacterArmature|Death',
   },
-  attackAnimMs: 400,
-  hitAnimMs: 260,
+  attackAnimMs: 420,
+  hitAnimMs: 280,
   facingOffset: 0,
 };
 
-const MONSTER_CONFIG: Record<'goblin' | 'slime' | 'cactoro' | 'giant' | 'orc' | 'ghoul' | 'fairy', RiggedMonsterConfig> = {
+const MONSTER_CONFIG: Record<'goblin' | 'slime' | 'cactoro' | 'giant' | 'orc' | 'ghoul' | 'mushroomKing', RiggedMonsterConfig> = {
   goblin: GOBLIN_CONFIG,
   slime: SLIME_CONFIG,
   cactoro: CACTORO_CONFIG,
   giant: GIANT_CONFIG,
   orc: ORC_CONFIG,
   ghoul: GHOUL_CONFIG,
-  fairy: FAIRY_CONFIG,
+  mushroomKing: MUSHROOM_KING_CONFIG,
 };
 
 // Skeleton characters (KayKit - Character Pack: Skeletons) share the same rig/bone-naming

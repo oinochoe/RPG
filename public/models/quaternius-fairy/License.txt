@@ -1,4 +1,0 @@
-Model: Hywirl (used as the "fairy forest" field monster)
-Author: Quaternius
-Source: https://poly.pizza/m/zjr7CmWGER
-License: CC0 1.0 (Public Domain)
