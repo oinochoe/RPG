@@ -272,17 +272,3 @@ function hexToRgb(hex: string): [number, number, number] {
 function rgbToHex(r: number, g: number, b: number): string {
   return `#${[r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
-
-export type ItemRarity = 'normal' | 'rare';
-
-// No rarity column exists (or is needed) server-side — required_level is already a good
-// enough proxy: every item requiring more than the starting level is a meaningfully better
-// upgrade (the 3 class weapon upgrades, all required_level 5), so it gets the "rare" frame.
-export function itemRarity(requiredLevel: number): ItemRarity {
-  return requiredLevel > 1 ? 'rare' : 'normal';
-}
-
-export const RARITY_SLOT_FRAME: Record<ItemRarity, string | null> = {
-  normal: null,
-  rare: '/image/fantasy-inventory/slot_rare.png',
-};

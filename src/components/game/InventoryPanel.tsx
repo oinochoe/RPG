@@ -5,7 +5,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL, formatGold } from './itemLabels';
 import { HOTBAR_DRAG_MIME } from './Hotbar';
 import { useDraggablePanel } from './useDraggablePanel';
-import { ItemIcon, itemRarity, RARITY_SLOT_FRAME } from './itemIcons';
+import { ItemIcon } from './itemIcons';
 import { useTooltip } from './Tooltip';
 import type { CharacterProfile, EnchantOutcome, InventorySlot } from '../../types/api';
 
@@ -72,7 +72,6 @@ function GridCell({
   // Only consumables are hotbar-assignable (equip/use items go through the 장착 button or a
   // double-click instead; scrolls are double-click-onto-a-target items, not hotbar items).
   const draggable = !!item && (item.heal_hp > 0 || item.restore_mp > 0 || !!item.teleport_target);
-  const rarityFrame = item ? RARITY_SLOT_FRAME[itemRarity(item.required_level)] : null;
   const { handlers: tooltipHandlers, tooltip } = useTooltip(item?.item_name);
 
   return (
@@ -94,8 +93,6 @@ function GridCell({
         border: `1px solid ${eligibleForPendingScroll ? '#57c25b' : selected ? '#e8c97a' : 'rgba(232, 201, 122, 0.3)'}`,
         boxShadow: eligibleForPendingScroll ? '0 0 6px rgba(87, 194, 91, 0.7)' : undefined,
         background: item?.is_equipped ? 'rgba(232, 201, 122, 0.18)' : 'rgba(0, 0, 0, 0.35)',
-        backgroundImage: rarityFrame ? `url(${rarityFrame})` : undefined,
-        backgroundSize: '100% 100%',
         position: 'relative',
         cursor: item ? (draggable ? 'grab' : 'pointer') : 'default',
         padding: 2,

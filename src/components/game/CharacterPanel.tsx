@@ -12,7 +12,7 @@ import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL } from './itemLabels';
 import { HOTBAR_DRAG_SKILL_MIME } from './Hotbar';
-import { ItemIcon, itemRarity, RARITY_SLOT_FRAME } from './itemIcons';
+import { ItemIcon } from './itemIcons';
 import { useTooltip } from './Tooltip';
 import { useDraggablePanel } from './useDraggablePanel';
 import type { CharacterProfile, InventorySlot } from '../../types/api';
@@ -123,15 +123,12 @@ function EquipmentSlotBox({
   pending: boolean;
   onClick: () => void;
 }) {
-  const rarityFrame = item ? RARITY_SLOT_FRAME[itemRarity(item.required_level)] : null;
   const { handlers: tooltipHandlers, tooltip } = useTooltip(item ? item.item_name : EQUIP_SLOT_LABEL[slot]);
   return (
     <div
       style={{
         ...SLOT_BOX,
         ...style,
-        backgroundImage: rarityFrame ? `url(${rarityFrame})` : undefined,
-        backgroundSize: '100% 100%',
         opacity: item && pending ? 0.5 : 1,
       }}
       onClick={onClick}
