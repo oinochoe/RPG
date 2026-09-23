@@ -196,7 +196,7 @@ interface CharacterState {
   fetchShop: (kind: 'merchant' | 'blacksmith') => Promise<void>;
   buyItem: (itemTemplateId: number, price: number, quantity?: number) => Promise<void>;
   sellItem: (inventoryId: number, price: number, quantity?: number) => Promise<void>;
-  enchantItem: (inventoryId: number, goldCost: number) => Promise<{ outcome: EnchantOutcome; enchantLevel: number | null }>;
+  enchantItem: (inventoryId: number, scrollInventoryId: number) => Promise<{ outcome: EnchantOutcome; enchantLevel: number | null }>;
   setHotbarSlot: (slot: number, assignment: HotbarAssignment | null) => void;
   useHotbarSlot: (slot: number) => Promise<void>;
   // Free (no item/cooldown) escape hatch for getting wedged in world geometry — same
@@ -288,20 +288,17 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     useCombatStore.getState().adjustGold(price * quantity);
   },
 
-  // goldCost is passed in by the caller (InventoryPanel's own ENCHANT_COST table, keyed by
-  // the item's CURRENT enchant_level before this call) — same "caller already knows the
-  // price" reasoning as buyItem/sellItem. Spent on every outcome including a destroy (that's
-  // the actual risk now — see the RPC's own comment on the Lineage-style destroy chance),
-  // which is why this always deducts gold regardless of `outcome`. If the item was destroyed,
-  // `items` from the server already omits it — sumEquippedBonus's before/after diff picks up
-  // the lost equipment bonus for free, same as any other inventory-shrinking call.
-  enchantItem: async (inventoryId, goldCost) => {
+  // No gold involved at all — enchanting is scroll-based now (a dropped item consumed on the
+  // server, see enchant_item's own migration comment for why this changed from an earlier
+  // gold-cost design). If the target item was destroyed, `items` from the server already
+  // omits it — sumEquippedBonus's before/after diff picks up the lost equipment bonus for
+  // free, same as any other inventory-shrinking call.
+  enchantItem: async (inventoryId, scrollInventoryId) => {
     const before = sumEquippedBonus(get().inventory);
-    const { items, outcome, enchant_level } = await charactersApi.enchantItem(inventoryId);
+    const { items, outcome, enchant_level } = await charactersApi.enchantItem(inventoryId, scrollInventoryId);
     const after = sumEquippedBonus(items);
     set({ inventory: items });
     useCombatStore.getState().applyEquipmentDelta(after.attack - before.attack, after.defense - before.defense);
-    useCombatStore.getState().adjustGold(-goldCost);
     return { outcome, enchantLevel: enchant_level };
   },
 

@@ -39,6 +39,7 @@ interface InventoryItemRow {
   heal_hp: number;
   restore_mp: number;
   teleport_target: string | null;
+  enchant_scroll_type: "normal" | "blessed" | "cursed" | null;
 }
 
 // Flat bonus per enchant_level, added to whichever of attack_bonus/defense_bonus is the
@@ -60,7 +61,7 @@ async function fetchInventory(
     .from("character_inventory")
     .select(
       "id, item_template_id, slot_index, quantity, enchant_level, is_equipped, equipped_slot, " +
-        "item_templates(name, item_type, equip_slot, attack_bonus, defense_bonus, required_level, required_class, buy_price, sell_price, heal_hp, restore_mp, teleport_target)",
+        "item_templates(name, item_type, equip_slot, attack_bonus, defense_bonus, required_level, required_class, buy_price, sell_price, heal_hp, restore_mp, teleport_target, enchant_scroll_type)",
     )
     .eq("character_id", characterId)
     .order("slot_index", { ascending: true });
@@ -81,6 +82,7 @@ async function fetchInventory(
       heal_hp: number;
       restore_mp: number;
       teleport_target: string | null;
+      enchant_scroll_type: "normal" | "blessed" | "cursed" | null;
     };
     const enchantBonus = row.enchant_level * ENCHANT_BONUS_PER_LEVEL;
     return {
@@ -103,6 +105,7 @@ async function fetchInventory(
       heal_hp: item.heal_hp,
       restore_mp: item.restore_mp,
       teleport_target: item.teleport_target,
+      enchant_scroll_type: item.enchant_scroll_type,
     };
   });
 }
@@ -236,7 +239,7 @@ function mapSkillUpgradeRpcError(message: string | undefined): ApiError {
 }
 
 // Maps enchant_item's RAISE EXCEPTION messages (see
-// supabase/migrations/20260923041612_enchant_item_destroy_risk.sql, the latest rewrite) to
+// supabase/migrations/20260923043517_enchant_scrolls_drop_only.sql, the latest rewrite) to
 // the API error envelope.
 function mapEnchantRpcError(message: string | undefined): ApiError {
   if (message?.includes("character_not_found")) {
@@ -250,6 +253,21 @@ function mapEnchantRpcError(message: string | undefined): ApiError {
   }
   if (message?.includes("enchant_maxed")) {
     return new ApiError(400, "validation_failed", "enchant_maxed", "이미 최대 강화 수치입니다.", "id");
+  }
+  if (message?.includes("scroll_required")) {
+    return new ApiError(400, "validation_failed", "scroll_required", "강화 주문서가 필요합니다.", "scroll_inventory_id");
+  }
+  if (message?.includes("scroll_not_found")) {
+    return new ApiError(404, "not_found", "scroll_not_found", "해당 주문서를 찾을 수 없습니다.", "scroll_inventory_id");
+  }
+  if (message?.includes("not_a_scroll")) {
+    return new ApiError(400, "validation_failed", "not_a_scroll", "강화 주문서가 아닙니다.", "scroll_inventory_id");
+  }
+  if (message?.includes("blessed_requires_plus5")) {
+    return new ApiError(400, "validation_failed", "blessed_requires_plus5", "+5 이상부터 사용할 수 있는 주문서입니다.", "scroll_inventory_id");
+  }
+  if (message?.includes("cursed_requires_plus1")) {
+    return new ApiError(400, "validation_failed", "cursed_requires_plus1", "+1 이상부터 사용할 수 있는 주문서입니다.", "scroll_inventory_id");
   }
   console.error("enchant_item RPC failed:", message);
   return new ApiError(500, "internal_error", "enchant_failed", "인챈트 중 오류가 발생했습니다.");
@@ -1105,18 +1123,22 @@ charactersRoutes.post("/me/inventory/:id/unequip", async (c) => {
   return c.json({ items: inventory });
 });
 
-// Enchant an equipped-or-not weapon/armor row up by one level — Lineage-style risk (see
-// enchant_item's own migration comment): +0..+3 is guaranteed safe, beyond that a failed
-// roll can destroy the item outright (weapons riskier than armor/accessories at the same
-// level), in which case `enchant_level` comes back null and the row is gone from `items`.
-// Like buy/sell, doesn't touch gold — the client checks/deducts its own locally-tracked gold
-// before calling this, same reasoning as the shop routes' own comment (gold was never made
-// server-authoritative for this project).
+// Enchant an equipped-or-not weapon/armor row using a scroll from the caller's own inventory
+// (see enchant_item's own migration comment) — scroll_inventory_id is required, not gold:
+// 'normal' scrolls are safe through +6 then risk destroying the item beyond that (weapons
+// riskier than armor/accessories); 'blessed' scrolls always succeed with a random +1-3 jump
+// (usable from +5 on); 'cursed' scrolls always succeed and knock the item down by 1 (usable
+// from +1 on). `enchant_level` comes back null when the outcome is 'destroyed' — the row is
+// gone from `items` in that case.
 charactersRoutes.post("/me/inventory/:id/enchant", async (c) => {
   const appUser = c.get("appUser");
   const inventoryId = Number(c.req.param("id"));
   if (!Number.isInteger(inventoryId)) {
     throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
+  }
+  const { scroll_inventory_id } = await readJsonBody(c);
+  if (typeof scroll_inventory_id !== "number" || !Number.isInteger(scroll_inventory_id)) {
+    throw new ApiError(400, "validation_failed", "scroll_required", "강화 주문서가 필요합니다.", "scroll_inventory_id");
   }
 
   const admin = getAdminClient();
@@ -1126,10 +1148,11 @@ charactersRoutes.post("/me/inventory/:id/enchant", async (c) => {
     p_user_id: appUser.id,
     p_character_id: characterId,
     p_inventory_id: inventoryId,
+    p_scroll_inventory_id: scroll_inventory_id,
   });
   if (error) throw mapEnchantRpcError(error.message);
 
-  const row = (data as { enchant_level: number | null; outcome: "success" | "fail" | "destroyed" }[])[0];
+  const row = (data as { enchant_level: number | null; outcome: "success" | "fail" | "destroyed" | "cursed" }[])[0];
   const inventory = await fetchInventory(admin, characterId);
   return c.json({ enchant_level: row.enchant_level, outcome: row.outcome, items: inventory });
 });

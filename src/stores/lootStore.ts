@@ -32,25 +32,35 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
   1: [
     { itemTemplateId: 7, itemName: '체력 물약', itemType: 'consumable', weight: 45 },
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 15 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 5 },
   ],
   2: [
     { itemTemplateId: 7, itemName: '체력 물약', itemType: 'consumable', weight: 35 },
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 20 },
     { itemTemplateId: 2, itemName: '가죽 방패', itemType: 'armor', weight: 10 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 8 },
   ],
   3: [
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 30 },
     { itemTemplateId: 7, itemName: '체력 물약', itemType: 'consumable', weight: 25 },
     { itemTemplateId: 15, itemName: '순간이동 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 8 },
+    { itemTemplateId: 48, itemName: '저주의 강화 주문서', itemType: 'scroll', weight: 3 },
   ],
   4: [
     { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 40 },
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 20 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 6 },
   ],
   5: [
     { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 50 },
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
     { itemTemplateId: 14, itemName: '마을 귀환 주문서', itemType: 'scroll', weight: 20 },
+    // 거인 군주 — the original dungeon's final boss AND 태고의 거인, the field's own world
+    // boss (see FieldMonsters.ts's buildWorldBoss) both use this template, so both get a real
+    // chance at the rarest scroll in the game.
+    { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 15 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
   ],
   // 오크 마을's field monster — a real weapon drop (강철 검) alongside the usual potions, since
   // orcs are tougher than anything in the original field short of the dungeon boss.
@@ -58,6 +68,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 35 },
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 20 },
     { itemTemplateId: 9, itemName: '강철 검', itemType: 'weapon', weight: 8 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 8 },
+    { itemTemplateId: 48, itemName: '저주의 강화 주문서', itemType: 'scroll', weight: 4 },
   ],
   // 구울 평원's field monster — the hardest of the 4 new zones, so its table leans toward the
   // upper-tier consumables and a real chance at the teleport scroll.
@@ -65,6 +77,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 40 },
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
     { itemTemplateId: 15, itemName: '순간이동 주문서', itemType: 'scroll', weight: 12 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 5 },
   ],
   // 요정의 숲's field monster (버섯왕/Mushroom King) — a magic-leaning table (mana potions plus
   // a rare staff) matching the zone's fae/forest theme, even though the monster itself is a
@@ -73,6 +87,7 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 30 },
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 20 },
     { itemTemplateId: 10, itemName: '대현자의 지팡이', itemType: 'weapon', weight: 5 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 8 },
   ],
 };
 

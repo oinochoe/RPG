@@ -69,13 +69,14 @@ export interface InventorySlot {
   heal_hp: number;
   restore_mp: number;
   teleport_target: 'village' | 'blink' | null;
+  enchant_scroll_type: 'normal' | 'blessed' | 'cursed' | null;
 }
 
 export interface InventoryListResponse {
   items: InventorySlot[];
 }
 
-export type EnchantOutcome = 'success' | 'fail' | 'destroyed';
+export type EnchantOutcome = 'success' | 'fail' | 'destroyed' | 'cursed';
 
 export interface EnchantItemResponse {
   enchant_level: number | null;

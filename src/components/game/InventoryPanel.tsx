@@ -13,20 +13,40 @@ const GRID_ROWS = 4;
 const GRID_SLOT_COUNT = GRID_COLUMNS * GRID_ROWS;
 const PANEL_WIDTH = 580;
 
-// Enchant system — indexed by the item's CURRENT enchant_level (0-6), i.e. the odds/cost of
-// going from that level to the next. Mirrors the server's own tables exactly (see
-// supabase/migrations/20260923041612_enchant_item_destroy_risk.sql) — kept as a separate
-// client-side copy purely for display (odds/cost preview before the player commits gold), the
-// server is still the one actually rolling the outcome. +0..+2 -> +1..+3 is always safe;
-// beyond that a failed roll can destroy the item, weapons more often than armor/accessories.
-const ENCHANT_MAX_LEVEL = 7;
-const ENCHANT_COST = [50, 100, 200, 400, 800, 1500, 3000];
-const ENCHANT_SUCCESS_CHANCE = [1.0, 1.0, 1.0, 0.7, 0.5, 0.3, 0.15];
-const ENCHANT_DESTROY_CHANCE_WEAPON = [0, 0, 0, 0.1, 0.25, 0.4, 0.6];
-const ENCHANT_DESTROY_CHANCE_ARMOR = [0, 0, 0, 0.05, 0.15, 0.25, 0.4];
+// Enchanting is scroll-based, not gold-based — the player finds these as monster drops (see
+// lootStore.ts's DROP_TABLE) and applies them by double-clicking the scroll, then
+// double-clicking the target weapon/armor (see handleCellDoubleClick below). These tables
+// mirror the 'normal' scroll's own risk curve on the server exactly (see
+// supabase/migrations/20260923043517_enchant_scrolls_drop_only.sql) — kept as a separate
+// client-side copy purely for display, the server is still the one actually rolling the
+// outcome. +0..+5 -> +1..+6 is always safe; beyond that a failed roll can destroy the item,
+// weapons more often than armor/accessories.
+const ENCHANT_MAX_LEVEL = 10;
+const ENCHANT_SUCCESS_CHANCE = [1, 1, 1, 1, 1, 1, 0.5, 0.4, 0.3, 0.2];
+const ENCHANT_DESTROY_CHANCE_WEAPON = [0, 0, 0, 0, 0, 0, 0.3, 0.4, 0.5, 0.6];
+const ENCHANT_DESTROY_CHANCE_ARMOR = [0, 0, 0, 0, 0, 0, 0.15, 0.2, 0.25, 0.3];
+// blessed/cursed's own preconditions, mirroring the RPC's blessed_requires_plus5/
+// cursed_requires_plus1 guards.
+const BLESSED_MIN_LEVEL = 5;
+const CURSED_MIN_LEVEL = 1;
 
 function enchantDestroyChance(level: number, isWeapon: boolean): number {
   return (isWeapon ? ENCHANT_DESTROY_CHANCE_WEAPON : ENCHANT_DESTROY_CHANCE_ARMOR)[level];
+}
+
+// Why a given scroll can't be applied to a given target right now — null means it's a valid
+// application. Shared by the double-click handler (blocks + shows the reason as an error) and
+// the grid's eligibility highlight while a scroll is armed.
+function scrollIneligibleReason(target: InventorySlot, scroll: InventorySlot): string | null {
+  if (target.equip_slot === null) return '장비 아이템에만 사용할 수 있습니다.';
+  if (target.enchant_level >= ENCHANT_MAX_LEVEL) return '이미 최대 강화 수치입니다.';
+  if (scroll.enchant_scroll_type === 'blessed' && target.enchant_level < BLESSED_MIN_LEVEL) {
+    return `+${BLESSED_MIN_LEVEL} 이상부터 사용할 수 있는 주문서입니다.`;
+  }
+  if (scroll.enchant_scroll_type === 'cursed' && target.enchant_level < CURSED_MIN_LEVEL) {
+    return `+${CURSED_MIN_LEVEL} 이상부터 사용할 수 있는 주문서입니다.`;
+  }
+  return null;
 }
 
 const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
@@ -38,16 +58,18 @@ const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
 function GridCell({
   item,
   selected,
+  eligibleForPendingScroll,
   onClick,
   onDoubleClick,
 }: {
   item: InventorySlot | undefined;
   selected: boolean;
+  eligibleForPendingScroll: boolean;
   onClick: () => void;
   onDoubleClick: () => void;
 }) {
   // Only consumables are hotbar-assignable (equip/use items go through the 장착 button or a
-  // double-click instead).
+  // double-click instead; scrolls are double-click-onto-a-target items, not hotbar items).
   const draggable = !!item && (item.heal_hp > 0 || item.restore_mp > 0 || !!item.teleport_target);
   const rarityFrame = item ? RARITY_SLOT_FRAME[itemRarity(item.required_level)] : null;
 
@@ -67,7 +89,8 @@ function GridCell({
         width: 56,
         height: 56,
         borderRadius: 8,
-        border: `1px solid ${selected ? '#e8c97a' : 'rgba(232, 201, 122, 0.3)'}`,
+        border: `1px solid ${eligibleForPendingScroll ? '#57c25b' : selected ? '#e8c97a' : 'rgba(232, 201, 122, 0.3)'}`,
+        boxShadow: eligibleForPendingScroll ? '0 0 6px rgba(87, 194, 91, 0.7)' : undefined,
         background: item?.is_equipped ? 'rgba(232, 201, 122, 0.18)' : 'rgba(0, 0, 0, 0.35)',
         backgroundImage: rarityFrame ? `url(${rarityFrame})` : undefined,
         backgroundSize: '100% 100%',
@@ -116,6 +139,11 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Which enchant scroll (if any) is "armed" — double-click a scroll to arm it, then
+  // double-click a weapon/armor item to apply it. Persists across single-clicks (browsing
+  // other items while a scroll is armed is fine) and is cleared by applying, canceling
+  // (double-clicking the same scroll again, or Escape), or closing the panel.
+  const [pendingScroll, setPendingScroll] = useState<InventorySlot | null>(null);
   // Feedback from the last enchant attempt — keyed by item NAME rather than inventoryId,
   // because a 'destroyed' outcome deletes the row entirely, so `selected` (and any id lookup)
   // goes null right after; showing the message outside the item-details panel (see render
@@ -132,6 +160,17 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
     setError(null);
     fetchInventory().catch(() => setError('인벤토리를 불러오지 못했습니다.'));
   }, [isOpen, fetchInventory]);
+
+  // Escape cancels an armed scroll without closing the panel (the panel's own ESC-to-close
+  // binding lives in GamePage/HUD — this just intercepts first while a scroll is pending).
+  useEffect(() => {
+    if (!isOpen || !pendingScroll) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.code === 'Escape') setPendingScroll(null);
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, pendingScroll]);
 
   // Derived above the isOpen early-return (hooks below need them) rather than after it, where
   // they used to live — same values, just reordered.
@@ -193,16 +232,14 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
     }
   }
 
-  async function handleEnchant(item: InventorySlot) {
-    if (item.enchant_level >= ENCHANT_MAX_LEVEL) return;
-    const cost = ENCHANT_COST[item.enchant_level];
-    if (player.gold < cost) return;
+  async function handleApplyScroll(target: InventorySlot, scroll: InventorySlot) {
     setError(null);
     setEnchantResult(null);
+    setPendingScroll(null);
     setPending(true);
     try {
-      const { outcome } = await enchantItem(item.id, cost);
-      setEnchantResult({ itemName: item.item_name, outcome });
+      const { outcome } = await enchantItem(target.id, scroll.id);
+      setEnchantResult({ itemName: target.item_name, outcome });
       // A destroyed item is gone from `inventory` after this — drop the now-stale selection
       // so the details panel falls back to "아이템을 선택하세요" instead of showing nothing
       // for an id that no longer resolves.
@@ -212,6 +249,36 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
     } finally {
       setPending(false);
     }
+  }
+
+  // Double-click drives the whole enchant flow: double-click a scroll to arm it (or
+  // double-click the same armed scroll again to cancel), then double-click a weapon/armor to
+  // apply it. Double-clicking anything else while a scroll is armed just cancels — no reason
+  // to strand the player in targeting mode over a stray click. Equip-toggle keeps its own
+  // existing double-click behavior when no scroll is armed.
+  function handleCellDoubleClick(item: InventorySlot | undefined) {
+    if (!item) return;
+    if (pendingScroll) {
+      if (item.id === pendingScroll.id) {
+        setPendingScroll(null);
+        return;
+      }
+      const reason = scrollIneligibleReason(item, pendingScroll);
+      if (reason) {
+        setError(reason);
+        setPendingScroll(null);
+        return;
+      }
+      handleApplyScroll(item, pendingScroll);
+      return;
+    }
+    if (item.enchant_scroll_type) {
+      setPendingScroll(item);
+      setError(null);
+      setEnchantResult(null);
+      return;
+    }
+    if (item.equip_slot !== null) toggleEquip(item);
   }
 
   return (
@@ -267,7 +334,14 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
         {enchantResult && (
           <p
             style={{
-              color: enchantResult.outcome === 'success' ? '#57c25b' : enchantResult.outcome === 'destroyed' ? '#e0538a' : '#9aa08f',
+              color:
+                enchantResult.outcome === 'success'
+                  ? '#57c25b'
+                  : enchantResult.outcome === 'destroyed'
+                    ? '#e0538a'
+                    : enchantResult.outcome === 'cursed'
+                      ? '#c084fc'
+                      : '#9aa08f',
               fontSize: 12,
               marginBottom: 8,
               fontWeight: enchantResult.outcome === 'destroyed' ? 700 : 400,
@@ -276,6 +350,13 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
             {enchantResult.outcome === 'success' && `${enchantResult.itemName} 강화에 성공했습니다!`}
             {enchantResult.outcome === 'fail' && `${enchantResult.itemName} 강화에 실패했습니다.`}
             {enchantResult.outcome === 'destroyed' && `${enchantResult.itemName}이(가) 강화에 실패하여 파괴되었습니다.`}
+            {enchantResult.outcome === 'cursed' && `${enchantResult.itemName}의 강화 수치가 1 낮아졌습니다.`}
+          </p>
+        )}
+        {pendingScroll && (
+          <p style={{ color: '#e8c97a', fontSize: 12, marginBottom: 8 }}>
+            {pendingScroll.item_name} 사용 중 — 적용할 무기/방어구를 더블클릭하세요. (ESC 또는 같은 주문서를 다시
+            더블클릭하면 취소)
           </p>
         )}
 
@@ -300,12 +381,13 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                   key={item?.id ?? `empty-${i}`}
                   item={item}
                   selected={item?.id === selectedId}
+                  eligibleForPendingScroll={!!(item && pendingScroll && item.id !== pendingScroll.id && !scrollIneligibleReason(item, pendingScroll))}
                   onClick={() => {
                     if (!item) return;
                     setSelectedId(item.id);
                     setEnchantResult(null);
                   }}
-                  onDoubleClick={() => item && item.equip_slot !== null && toggleEquip(item)}
+                  onDoubleClick={() => handleCellDoubleClick(item)}
                 />
               );
             })}
@@ -334,6 +416,27 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                   {!classOk && <div style={{ color: '#e0538a' }}>직업 제한</div>}
                 </div>
 
+                {selected.enchant_scroll_type && (
+                  <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.6, marginBottom: 10 }}>
+                    {selected.enchant_scroll_type === 'normal' && (
+                      <>
+                        <div>더블클릭 후 강화할 무기/방어구를 더블클릭하세요.</div>
+                        <div>+0~+6은 100% 안전, +6 이상부터 실패 시 파괴 위험이 있습니다 (무기가 더 위험).</div>
+                      </>
+                    )}
+                    {selected.enchant_scroll_type === 'blessed' && (
+                      <>
+                        <div>+{BLESSED_MIN_LEVEL} 이상부터 사용 가능. 파괴 위험 없이 무작위로 +1~+3 상승합니다.</div>
+                      </>
+                    )}
+                    {selected.enchant_scroll_type === 'cursed' && (
+                      <>
+                        <div>+{CURSED_MIN_LEVEL} 이상부터 사용 가능. 강화 수치를 1 낮춥니다 (파괴 위험 없음).</div>
+                      </>
+                    )}
+                  </div>
+                )}
+
                 {equippable && (
                   <>
                     <button
@@ -355,59 +458,31 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                     </button>
                     <p style={{ color: '#9aa08f', fontSize: 10, marginTop: 4 }}>더블클릭으로도 장착/해제됩니다.</p>
 
-                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(232, 201, 122, 0.15)' }}>
-                      {selected.enchant_level >= ENCHANT_MAX_LEVEL ? (
-                        <p style={{ color: '#9aa08f', fontSize: 11 }}>최대 강화 수치입니다.</p>
-                      ) : (
-                        (() => {
+                    {selected.enchant_level < ENCHANT_MAX_LEVEL && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(232, 201, 122, 0.15)' }}>
+                        {(() => {
                           const level = selected.enchant_level;
                           const isWeapon = selected.equip_slot === 'weapon';
                           const destroyChance = enchantDestroyChance(level, isWeapon);
                           const successChance = ENCHANT_SUCCESS_CHANCE[level];
                           const failChance = 1 - successChance - destroyChance;
-                          const cost = ENCHANT_COST[level];
                           return (
-                            <>
-                              <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.6, marginBottom: 6 }}>
-                                <div>
-                                  인챈트 <span style={{ color: '#e8c97a' }}>+{level}</span> →{' '}
-                                  <span style={{ color: '#e8c97a' }}>+{level + 1}</span>
-                                </div>
-                                <div>성공 확률 {Math.round(successChance * 100)}%</div>
+                            <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.6 }}>
+                              <div>
+                                일반 강화 주문서 사용 시: 성공 {Math.round(successChance * 100)}%
                                 {destroyChance > 0 && (
-                                  <div style={{ color: '#e0538a' }}>
-                                    실패 {Math.round(failChance * 100)}% · 파괴 {Math.round(destroyChance * 100)}%
-                                  </div>
+                                  <span style={{ color: '#e0538a' }}>
+                                    {' '}
+                                    · 실패 {Math.round(failChance * 100)}% · 파괴 {Math.round(destroyChance * 100)}%
+                                  </span>
                                 )}
-                                <div style={{ color: player.gold < cost ? '#e0538a' : '#ffd54a' }}>비용 {cost} G</div>
                               </div>
-                              {destroyChance > 0 && (
-                                <p style={{ color: '#e0538a', fontSize: 10, marginBottom: 6 }}>
-                                  ⚠ 실패 시 아이템이 파괴될 수 있습니다.
-                                </p>
-                              )}
-                              <button
-                                onClick={() => handleEnchant(selected)}
-                                disabled={pending || player.gold < cost}
-                                style={{
-                                  width: '100%',
-                                  padding: '6px 0',
-                                  borderRadius: 6,
-                                  border: `1px solid ${destroyChance > 0 ? '#e0538a' : '#e8c97a'}`,
-                                  background: 'rgba(255,255,255,0.05)',
-                                  color: player.gold < cost ? '#6a6a5f' : destroyChance > 0 ? '#e0538a' : '#e8c97a',
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  cursor: pending ? 'default' : 'pointer',
-                                }}
-                              >
-                                인챈트
-                              </button>
-                            </>
+                              <div style={{ marginTop: 2 }}>인벤토리에서 강화 주문서를 더블클릭해 사용하세요.</div>
+                            </div>
                           );
-                        })()
-                      )}
-                    </div>
+                        })()}
+                      </div>
+                    )}
                   </>
                 )}
 

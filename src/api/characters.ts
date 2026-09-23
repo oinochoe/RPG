@@ -107,8 +107,11 @@ export function useItem(inventoryId: number): Promise<InventoryListResponse> {
   return apiRequest(`/characters/me/inventory/${inventoryId}/use`, { method: 'POST' });
 }
 
-export function enchantItem(inventoryId: number): Promise<EnchantItemResponse> {
-  return apiRequest(`/characters/me/inventory/${inventoryId}/enchant`, { method: 'POST' });
+export function enchantItem(inventoryId: number, scrollInventoryId: number): Promise<EnchantItemResponse> {
+  return apiRequest(`/characters/me/inventory/${inventoryId}/enchant`, {
+    method: 'POST',
+    body: { scroll_inventory_id: scrollInventoryId },
+  });
 }
 
 export function upgradeSkill(skillTemplateId: number): Promise<{ skill_level: number; skill_upgrade_points: number }> {
