@@ -25,6 +25,7 @@ import {
 } from './worldColliders';
 import { Village, villageColliders } from './Village';
 import { CaveEntrance } from './CaveEntrance';
+import { FieldNpcs } from './FieldNpcs';
 
 // A bit larger than worldColliders.ts's FIELD_EXTENT (400) so the visible grass plane
 // extends past the walkable/decorated area instead of ending in a visible hard edge.
@@ -318,6 +319,7 @@ export function Ground() {
 
       <Village />
       <CaveEntrance />
+      <FieldNpcs />
     </group>
   );
 }

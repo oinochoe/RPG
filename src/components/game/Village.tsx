@@ -99,7 +99,13 @@ export const VILLAGE_CONFIGS: VillageConfig[] = [
       { kind: 'merchant', name: '상인', offset: [7, -3] },
       { kind: 'blacksmith', name: '대장장이', offset: [-7, -3] },
     ],
-    flavorNpcs: [{ kind: 'villager', name: '촌장', offset: [0, 4], facingY: Math.PI }],
+    flavorNpcs: [
+      { kind: 'villager', name: '촌장', offset: [0, 4], facingY: Math.PI },
+      // Decorative only (no quest written for this name — QuestPanel already handles that
+      // gracefully with "지금은 특별히 부탁할 일이 없네") — every other village already had 2
+      // flavor NPCs, this one only had 1.
+      { kind: 'townsman', name: '여관 주인', offset: [-4, 3] },
+    ],
   },
   {
     // A second town further south — same building set, different NPCs/props (market stalls,
