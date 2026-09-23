@@ -4,6 +4,7 @@ import { clearMoveTarget } from '../components/game/moveTarget';
 import { activeColliders, rockColliders, DUNGEON_ENTRANCES, type DungeonId } from '../components/game/worldColliders';
 import { villageColliders } from '../components/game/Village';
 import { getDungeonColliders, buildFloorMonsters, getEntrySpawn, getExitSpawn, DUNGEON_META } from '../components/game/Dungeon';
+import { isFieldBossAggressive } from '../components/game/FieldMonsters';
 import { useCombatStore } from './combatStore';
 import { useLootStore } from './lootStore';
 import type { MonsterInstanceSummary } from '../types/api';
@@ -88,7 +89,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     const dungeonId = get().currentDungeonId;
     clearMoveTarget();
     activeColliders.list = [...rockColliders, ...villageColliders];
-    useCombatStore.getState().loadMonsters(fieldMonsters, false);
+    useCombatStore.getState().loadMonsters(fieldMonsters, isFieldBossAggressive);
     useLootStore.getState().clear();
     const [x, z] = dungeonId ? fieldReturnPoint(dungeonId) : fieldReturnPoint('ruined_catacombs');
     playerPosition.set(x, 0, z);

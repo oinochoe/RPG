@@ -4,7 +4,7 @@ import { useFrame } from '@react-three/fiber';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import { Ground } from './Ground';
 import { Dungeon, buildFloorMonsters } from './Dungeon';
-import { buildFieldMonsters } from './FieldMonsters';
+import { buildFieldMonsters, isFieldBossAggressive } from './FieldMonsters';
 import { AreaTransitions } from './AreaTransitions';
 import { PlayerCombatEffects } from './PlayerCombatEffects';
 import { PositionSync } from './PositionSync';
@@ -72,10 +72,13 @@ function useNearbyFieldMonsterIds(monsters: MonsterInstanceSummary[]): Set<numbe
 }
 
 // Field monster_template_id convention (see FieldMonsters.ts): 1 = slime (the default variant
-// MonsterMesh itself falls back to), 3 = skeleton, 4 = 가시선인장 (desert-only).
+// MonsterMesh itself falls back to), 3 = skeleton, 4 = 가시선인장 (desert-only), 5 = Giant —
+// reused here for 태고의 거인, the field's own world boss (see buildWorldBoss), the same
+// "share a template_id, override name/level/hp client-side" trick 고블린 대장/오크 대장 use.
 function fieldMonsterVariant(templateId: number) {
   if (templateId === 3) return SKELETON_VARIANT;
   if (templateId === 4) return CACTORO_VARIANT;
+  if (templateId === 5) return GIANT_VARIANT;
   if (templateId === 6) return ORC_VARIANT;
   if (templateId === 7) return GHOUL_VARIANT;
   if (templateId === 8) return MUSHROOM_KING_VARIANT;
@@ -94,6 +97,9 @@ function dungeonMonsterVariant(templateId: number) {
 }
 
 function monsterScale(name: string): number {
+  // The field's own world boss (see FieldMonsters.ts's buildWorldBoss) — checked first so it
+  // reads as visibly bigger than any dungeon boss, including the Giant model it reuses.
+  if (name.includes('태고')) return 2.2;
   // The Giant boss's size already comes from its own (much bigger) model — the extra
   // scale-up below is a goblin-reskin trick for "대장/군주" that doesn't need to stack here.
   if (name.includes('거인')) return 1.0;
@@ -165,7 +171,7 @@ export function Scene({
   const nearbyFieldMonsterIds = useNearbyFieldMonsterIds(fieldMonsters);
 
   useEffect(() => {
-    initCombat(character, fieldMonsters, false);
+    initCombat(character, fieldMonsters, isFieldBossAggressive);
     initQuests(character.active_quests);
     // Combat state is local-only for now (no backend combat API yet) and should only be
     // (re)seeded when a genuinely new map/character session starts, not on every re-render
@@ -217,6 +223,7 @@ export function Scene({
                 key={monster.instance_id}
                 monster={monster}
                 variant={fieldMonsterVariant(monster.monster_template_id)}
+                scale={monsterScale(monster.name)}
                 tint={monsterTint(monster.name)}
               />
             ))}

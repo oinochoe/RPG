@@ -183,6 +183,41 @@ function buildGhoulFieldMonsters(idBaseStart: number): MonsterInstanceSummary[] 
   return monsters;
 }
 
+// The field's own world boss — a single, fixed-position unique reusing monster_template_id 5
+// (Giant), same "share a template, override name/level/hp client-side" trick the dungeon's own
+// 고블린 대장/오크 대장/구울 대장 use, so no new DB row or 3D asset was needed. Sits deep inside
+// 구울 평원 (the hardest of the 4 outer zones), far past the dungeon entrance and any NPC in
+// that zone. Deliberately much tougher than any dungeon boss — see Scene.tsx's monsterScale,
+// which checks this name first and scales it up beyond even the Giant model's own dungeon use.
+const WORLD_BOSS_LEVEL = 40;
+const WORLD_BOSS_HP = 5000;
+const WORLD_BOSS_POSITION: [number, number] = [300, -260];
+const WORLD_BOSS_ID = 8999;
+
+function buildWorldBoss(): MonsterInstanceSummary[] {
+  return [
+    {
+      instance_id: WORLD_BOSS_ID,
+      monster_template_id: 5,
+      name: '태고의 거인',
+      level: WORLD_BOSS_LEVEL,
+      current_hp: WORLD_BOSS_HP,
+      max_hp: WORLD_BOSS_HP,
+      position_x: WORLD_BOSS_POSITION[0],
+      position_y: 0,
+      position_z: WORLD_BOSS_POSITION[1],
+    },
+  ];
+}
+
+// The field's regular monsters are all passive (retaliate once hit — Scene.tsx/worldStore.ts
+// used to pass a flat `false` for the whole field roster) — only the world boss aggros on
+// sight, same "the one strong one is the exception" pattern the dungeon's
+// isDungeonEscortAggressive uses for its own captains/bosses.
+export function isFieldBossAggressive(monster: MonsterInstanceSummary): boolean {
+  return monster.name.includes('태고');
+}
+
 /** Scattered field monsters — a level/species range that gently rewards wandering farther
  * from spawn, same "stronger the deeper/farther you go" idea as the dungeon's floors. */
 export function buildFieldMonsters(): MonsterInstanceSummary[] {
@@ -231,6 +266,7 @@ export function buildFieldMonsters(): MonsterInstanceSummary[] {
   monsters.push(...buildBoneFieldMonsters(idBase));
   idBase += OUTER_MONSTER_COUNT;
   monsters.push(...buildGhoulFieldMonsters(idBase));
+  monsters.push(...buildWorldBoss());
 
   return monsters;
 }
