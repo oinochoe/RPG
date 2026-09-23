@@ -196,6 +196,7 @@ interface CharacterState {
   fetchShop: (kind: 'merchant' | 'blacksmith') => Promise<void>;
   buyItem: (itemTemplateId: number, price: number, quantity?: number) => Promise<void>;
   sellItem: (inventoryId: number, price: number, quantity?: number) => Promise<void>;
+  enchantItem: (inventoryId: number, goldCost: number) => Promise<{ success: boolean; enchantLevel: number }>;
   setHotbarSlot: (slot: number, assignment: HotbarAssignment | null) => void;
   useHotbarSlot: (slot: number) => Promise<void>;
   // Free (no item/cooldown) escape hatch for getting wedged in world geometry — same
@@ -285,6 +286,21 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     set({ inventory: items });
     useCombatStore.getState().applyEquipmentDelta(after.attack - before.attack, after.defense - before.defense);
     useCombatStore.getState().adjustGold(price * quantity);
+  },
+
+  // goldCost is passed in by the caller (InventoryPanel's own ENCHANT_COST table, keyed by
+  // the item's CURRENT enchant_level before this call) — same "caller already knows the
+  // price" reasoning as buyItem/sellItem. Spent whether the roll succeeds or fails (that's
+  // the actual risk in an "안전 강화" system with no destroy-on-fail — see the RPC's own
+  // comment), which is why this always deducts gold regardless of the returned `success`.
+  enchantItem: async (inventoryId, goldCost) => {
+    const before = sumEquippedBonus(get().inventory);
+    const { items, success, enchant_level } = await charactersApi.enchantItem(inventoryId);
+    const after = sumEquippedBonus(items);
+    set({ inventory: items });
+    useCombatStore.getState().applyEquipmentDelta(after.attack - before.attack, after.defense - before.defense);
+    useCombatStore.getState().adjustGold(-goldCost);
+    return { success, enchantLevel: enchant_level };
   },
 
   setHotbarSlot: (slot, assignment) => {

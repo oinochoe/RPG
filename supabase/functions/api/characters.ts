@@ -41,6 +41,14 @@ interface InventoryItemRow {
   teleport_target: string | null;
 }
 
+// Flat bonus per enchant_level, added to whichever of attack_bonus/defense_bonus is the
+// item's own non-zero "primary" stat (every item_templates row is single-purpose: weapons
+// have attack_bonus>0/defense_bonus=0 and vice versa for armor) — baked into fetchInventory's
+// response below rather than sent as a separate field, so callers that already sum
+// attack_bonus/defense_bonus across equipped items (see characterStore.ts's
+// sumEquippedBonus) get the enchanted total for free with no client-side change.
+const ENCHANT_BONUS_PER_LEVEL = 2;
+
 // Denormalizes character_inventory joined with item_templates into the shape the client
 // needs to render the inventory panel — the client never talks to Postgres directly, so
 // item name/stats have to be embedded here rather than looked up client-side.
@@ -74,6 +82,7 @@ async function fetchInventory(
       restore_mp: number;
       teleport_target: string | null;
     };
+    const enchantBonus = row.enchant_level * ENCHANT_BONUS_PER_LEVEL;
     return {
       id: row.id,
       item_template_id: row.item_template_id,
@@ -85,8 +94,8 @@ async function fetchInventory(
       item_name: item.name,
       item_type: item.item_type,
       equip_slot: item.equip_slot,
-      attack_bonus: item.attack_bonus,
-      defense_bonus: item.defense_bonus,
+      attack_bonus: item.attack_bonus > 0 ? item.attack_bonus + enchantBonus : item.attack_bonus,
+      defense_bonus: item.defense_bonus > 0 ? item.defense_bonus + enchantBonus : item.defense_bonus,
       required_level: item.required_level,
       required_class: item.required_class,
       buy_price: item.buy_price,
@@ -224,6 +233,25 @@ function mapSkillUpgradeRpcError(message: string | undefined): ApiError {
   }
   console.error("upgrade_character_skill RPC failed:", message);
   return new ApiError(500, "internal_error", "skill_upgrade_failed", "스킬 강화 중 오류가 발생했습니다.");
+}
+
+// Maps enchant_item's RAISE EXCEPTION messages (see
+// supabase/migrations/20260923023513_enchant_item_rpc.sql) to the API error envelope.
+function mapEnchantRpcError(message: string | undefined): ApiError {
+  if (message?.includes("character_not_found")) {
+    return new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
+  }
+  if (message?.includes("item_not_found")) {
+    return new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
+  }
+  if (message?.includes("not_enchantable")) {
+    return new ApiError(400, "validation_failed", "not_enchantable", "인챈트할 수 없는 아이템입니다.", "id");
+  }
+  if (message?.includes("enchant_maxed")) {
+    return new ApiError(400, "validation_failed", "enchant_maxed", "이미 최대 강화 수치입니다.", "id");
+  }
+  console.error("enchant_item RPC failed:", message);
+  return new ApiError(500, "internal_error", "enchant_failed", "인챈트 중 오류가 발생했습니다.");
 }
 
 // Maps accept_quest/report_quest_kill/claim_quest_reward's RAISE EXCEPTION messages (see
@@ -1074,4 +1102,31 @@ charactersRoutes.post("/me/inventory/:id/unequip", async (c) => {
 
   const inventory = await fetchInventory(admin, characterId);
   return c.json({ items: inventory });
+});
+
+// Enchant an equipped-or-not weapon/armor row up by one level — "안전 강화": a failed roll
+// never destroys or downgrades the item (see enchant_item's own migration comment for why),
+// it just doesn't advance enchant_level. Like buy/sell, doesn't touch gold — the client
+// checks/deducts its own locally-tracked gold before calling this, same reasoning as the shop
+// routes' own comment (gold was never made server-authoritative for this project).
+charactersRoutes.post("/me/inventory/:id/enchant", async (c) => {
+  const appUser = c.get("appUser");
+  const inventoryId = Number(c.req.param("id"));
+  if (!Number.isInteger(inventoryId)) {
+    throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
+  }
+
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  const { data, error } = await admin.rpc("enchant_item", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+    p_inventory_id: inventoryId,
+  });
+  if (error) throw mapEnchantRpcError(error.message);
+
+  const row = (data as { enchant_level: number; success: boolean }[])[0];
+  const inventory = await fetchInventory(admin, characterId);
+  return c.json({ enchant_level: row.enchant_level, success: row.success, items: inventory });
 });

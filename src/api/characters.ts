@@ -4,6 +4,7 @@ import type {
   CharacterClass,
   CharacterProfile,
   CharacterSummary,
+  EnchantItemResponse,
   InventoryListResponse,
   PaginatedResponse,
   ShopListResponse,
@@ -104,6 +105,10 @@ export function sellItem(inventoryId: number, quantity = 1): Promise<InventoryLi
 
 export function useItem(inventoryId: number): Promise<InventoryListResponse> {
   return apiRequest(`/characters/me/inventory/${inventoryId}/use`, { method: 'POST' });
+}
+
+export function enchantItem(inventoryId: number): Promise<EnchantItemResponse> {
+  return apiRequest(`/characters/me/inventory/${inventoryId}/enchant`, { method: 'POST' });
 }
 
 export function upgradeSkill(skillTemplateId: number): Promise<{ skill_level: number; skill_upgrade_points: number }> {

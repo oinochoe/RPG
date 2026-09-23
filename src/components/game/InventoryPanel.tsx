@@ -13,6 +13,15 @@ const GRID_ROWS = 4;
 const GRID_SLOT_COUNT = GRID_COLUMNS * GRID_ROWS;
 const PANEL_WIDTH = 580;
 
+// Enchant system — indexed by the item's CURRENT enchant_level (0-6), i.e. the chance/cost of
+// going from that level to the next. Mirrors the server's own table exactly (see
+// supabase/migrations/20260923023513_enchant_item_rpc.sql's v_chance CASE) — kept as a
+// separate client-side copy purely for display (chance/cost preview before the player commits
+// gold), the server is still the one actually rolling the outcome.
+const ENCHANT_MAX_LEVEL = 7;
+const ENCHANT_CHANCE = [1.0, 1.0, 0.9, 0.7, 0.5, 0.3, 0.15];
+const ENCHANT_COST = [50, 100, 200, 400, 800, 1500, 3000];
+
 const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
   warrior: '#f4c430',
   mage: '#9be7ff',
@@ -74,6 +83,11 @@ function GridCell({
           {item.is_equipped && (
             <span style={{ position: 'absolute', top: 2, left: 4, fontSize: 8, color: '#57c25b' }}>●</span>
           )}
+          {item.enchant_level > 0 && (
+            <span style={{ position: 'absolute', top: 2, right: 4, fontSize: 10, fontWeight: 700, color: '#ffd54a' }}>
+              +{item.enchant_level}
+            </span>
+          )}
         </>
       )}
     </button>
@@ -88,12 +102,16 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
   const fetchInventory = useCharacterStore((s) => s.fetchInventory);
   const equipItem = useCharacterStore((s) => s.equipItem);
   const unequipItem = useCharacterStore((s) => s.unequipItem);
+  const enchantItem = useCharacterStore((s) => s.enchantItem);
   const hotbar = useCharacterStore((s) => s.hotbar);
   const setHotbarSlot = useCharacterStore((s) => s.setHotbarSlot);
   const accent = CLASS_ACCENT[character.character_class];
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Feedback from the last enchant attempt (성공/실패), keyed to the inventory row it applied
+  // to so switching the selection doesn't leave a stale result showing on a different item.
+  const [enchantResult, setEnchantResult] = useState<{ inventoryId: number; success: boolean } | null>(null);
   const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
     x: window.innerWidth - PANEL_WIDTH - 16,
     y: Math.max(16, window.innerHeight / 2 - 160),
@@ -160,6 +178,23 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '처리 중 오류가 발생했습니다.');
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function handleEnchant(item: InventorySlot) {
+    if (item.enchant_level >= ENCHANT_MAX_LEVEL) return;
+    const cost = ENCHANT_COST[item.enchant_level];
+    if (player.gold < cost) return;
+    setError(null);
+    setEnchantResult(null);
+    setPending(true);
+    try {
+      const { success } = await enchantItem(item.id, cost);
+      setEnchantResult({ inventoryId: item.id, success });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '인챈트 중 오류가 발생했습니다.');
     } finally {
       setPending(false);
     }
@@ -250,6 +285,7 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                   <ItemIcon itemName={selected.item_name} size={24} />
                   <div style={{ color: '#f4f1e8', fontSize: 13, fontWeight: 700 }}>
+                    {selected.enchant_level > 0 && <span style={{ color: '#ffd54a' }}>+{selected.enchant_level} </span>}
                     {selected.item_name}
                     {selected.quantity > 1 && <span style={{ color: '#9aa08f', fontWeight: 400 }}> x{selected.quantity}</span>}
                   </div>
@@ -286,6 +322,47 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                       {selected.is_equipped ? '해제' : '장착'}
                     </button>
                     <p style={{ color: '#9aa08f', fontSize: 10, marginTop: 4 }}>더블클릭으로도 장착/해제됩니다.</p>
+
+                    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(232, 201, 122, 0.15)' }}>
+                      {selected.enchant_level >= ENCHANT_MAX_LEVEL ? (
+                        <p style={{ color: '#9aa08f', fontSize: 11 }}>최대 강화 수치입니다.</p>
+                      ) : (
+                        <>
+                          <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.6, marginBottom: 6 }}>
+                            <div>
+                              인챈트 <span style={{ color: '#e8c97a' }}>+{selected.enchant_level}</span> →{' '}
+                              <span style={{ color: '#e8c97a' }}>+{selected.enchant_level + 1}</span>
+                            </div>
+                            <div>성공 확률 {Math.round(ENCHANT_CHANCE[selected.enchant_level] * 100)}%</div>
+                            <div style={{ color: player.gold < ENCHANT_COST[selected.enchant_level] ? '#e0538a' : '#ffd54a' }}>
+                              비용 {ENCHANT_COST[selected.enchant_level]} G
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleEnchant(selected)}
+                            disabled={pending || player.gold < ENCHANT_COST[selected.enchant_level]}
+                            style={{
+                              width: '100%',
+                              padding: '6px 0',
+                              borderRadius: 6,
+                              border: '1px solid #e8c97a',
+                              background: 'rgba(255,255,255,0.05)',
+                              color: player.gold < ENCHANT_COST[selected.enchant_level] ? '#6a6a5f' : '#e8c97a',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: pending ? 'default' : 'pointer',
+                            }}
+                          >
+                            인챈트
+                          </button>
+                          {enchantResult && enchantResult.inventoryId === selected.id && (
+                            <p style={{ color: enchantResult.success ? '#57c25b' : '#e0538a', fontSize: 11, marginTop: 4 }}>
+                              {enchantResult.success ? '강화에 성공했습니다!' : '강화에 실패했습니다.'}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </>
                 )}
 

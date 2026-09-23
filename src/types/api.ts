@@ -75,6 +75,12 @@ export interface InventoryListResponse {
   items: InventorySlot[];
 }
 
+export interface EnchantItemResponse {
+  enchant_level: number;
+  success: boolean;
+  items: InventorySlot[];
+}
+
 export interface ShopItem {
   id: number;
   name: string;
