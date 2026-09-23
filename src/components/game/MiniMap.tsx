@@ -6,14 +6,15 @@ import {
   DESERT_X_START,
   DESERT_X_END,
   VILLAGES,
-  FIELD_ENTRANCE_POINT,
+  DUNGEON_ENTRANCES,
+  type DungeonId,
   riverPathD,
   curvedBandPathD,
   fairyForestEdgeAt,
   orcVillageEdgeAt,
   boneFieldEdgeAt,
 } from './worldColliders';
-import { DUNGEON_MAX_FLOOR, getEntryTrigger, getExitTrigger, getFloorRects } from './Dungeon';
+import { DUNGEON_META, getEntryTrigger, getExitTrigger, getFloorRects } from './Dungeon';
 import { ICON_PATH, MapIcon, PlayerArrow } from './mapIcons';
 import { useUIStore } from '../../stores/uiStore';
 import { useWorldStore } from '../../stores/worldStore';
@@ -76,18 +77,30 @@ function MiniFieldView({ player, facing }: { player: { x: number; z: number }; f
       {VILLAGES.map((zone, i) => (
         <MapIcon key={i} path={ICON_PATH.house} x={zone.center[0]} y={zone.center[1]} size={9} color="#e8c97a" />
       ))}
-      <MapIcon path={ICON_PATH.cave} x={FIELD_ENTRANCE_POINT[0]} y={FIELD_ENTRANCE_POINT[1]} size={6} color="#c084fc" />
+      {(Object.keys(DUNGEON_ENTRANCES) as DungeonId[]).map((id) => (
+        <MapIcon key={id} path={ICON_PATH.cave} x={DUNGEON_ENTRANCES[id].point[0]} y={DUNGEON_ENTRANCES[id].point[1]} size={6} color="#c084fc" />
+      ))}
 
       <PlayerArrow x={player.x} y={player.z} facingRad={facing} size={5.5} />
     </svg>
   );
 }
 
-function MiniDungeonView({ player, facing, floor }: { player: { x: number; z: number }; facing: number; floor: number }) {
-  const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
-  const rects = useMemo(() => getFloorRects(floor), [floor]);
+function MiniDungeonView({
+  player,
+  facing,
+  floor,
+  maxFloor,
+}: {
+  player: { x: number; z: number };
+  facing: number;
+  floor: number;
+  maxFloor: number;
+}) {
+  const hasNorthGap = floor < maxFloor;
+  const rects = useMemo(() => getFloorRects(floor, maxFloor), [floor, maxFloor]);
   const entryTrigger = useMemo(() => getEntryTrigger(floor), [floor]);
-  const exitTrigger = useMemo(() => getExitTrigger(floor), [floor]);
+  const exitTrigger = useMemo(() => getExitTrigger(floor, maxFloor), [floor, maxFloor]);
   const half = DUNGEON_LOCAL_HALF;
 
   return (
@@ -124,8 +137,11 @@ function MiniDungeonView({ player, facing, floor }: { player: { x: number; z: nu
 export function MiniMap() {
   const isMapOpen = useUIStore((s) => s.isMapOpen);
   const currentArea = useWorldStore((s) => s.currentArea);
+  const currentDungeonId = useWorldStore((s) => s.currentDungeonId);
   const dungeonFloor = useWorldStore((s) => s.dungeonFloor);
   const [player, setPlayer] = useState({ x: 0, z: 0, facing: 0 });
+  const inDungeon = currentArea === 'dungeon' && currentDungeonId !== null;
+  const dungeonMeta = currentDungeonId ? DUNGEON_META[currentDungeonId] : null;
 
   useEffect(() => {
     const poll = () => setPlayer({ x: playerPosition.x, z: playerPosition.z, facing: playerFacing.radians });
@@ -157,8 +173,8 @@ export function MiniMap() {
         zIndex: 2147483000,
       }}
     >
-      {currentArea === 'dungeon' ? (
-        <MiniDungeonView player={player} facing={player.facing} floor={dungeonFloor} />
+      {inDungeon && dungeonMeta ? (
+        <MiniDungeonView player={player} facing={player.facing} floor={dungeonFloor} maxFloor={dungeonMeta.maxFloor} />
       ) : (
         <MiniFieldView player={player} facing={player.facing} />
       )}
@@ -178,7 +194,7 @@ export function MiniMap() {
       >
         M
       </div>
-      {currentArea === 'dungeon' && (
+      {inDungeon && dungeonMeta && (
         <div
           style={{
             position: 'absolute',
@@ -193,7 +209,7 @@ export function MiniMap() {
             fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
           }}
         >
-          지하 {dungeonFloor}층
+          {dungeonMeta.name} 지하 {dungeonFloor}층
         </div>
       )}
     </div>

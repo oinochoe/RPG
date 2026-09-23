@@ -16,7 +16,7 @@ import {
   inDesertZone,
   inCaveClearZone,
 } from '../components/game/worldColliders';
-import { getFloorRooms, getDungeonColliders, getEntrySpawn } from '../components/game/Dungeon';
+import { getFloorRooms, getDungeonColliders, getEntrySpawn, DUNGEON_META } from '../components/game/Dungeon';
 import { buildFieldMonsters } from '../components/game/FieldMonsters';
 import type { CharacterClass, CharacterProfile, CharacterSummary, InventorySlot, ShopItem } from '../types/api';
 
@@ -51,11 +51,12 @@ function collidesAt(x: number, z: number, colliders: { x: number; z: number; rad
 // pattern FieldMonsters.ts uses) so it can't strand the player inside a wall/rock/river.
 function randomBlinkPoint(): [number, number] {
   const world = useWorldStore.getState();
-  if (world.currentArea === 'dungeon') {
+  if (world.currentArea === 'dungeon' && world.currentDungeonId) {
     // Picks one of this floor's rooms (not the connecting corridors — a narrow hallway isn't
     // a great place to land) and rejection-samples a point inside it.
     const { all: roomList } = getFloorRooms(world.dungeonFloor);
-    const colliders = getDungeonColliders(world.dungeonFloor);
+    const maxFloor = DUNGEON_META[world.currentDungeonId].maxFloor;
+    const colliders = getDungeonColliders(world.dungeonFloor, maxFloor);
     const margin = 1.5;
     for (let i = 0; i < BLINK_ATTEMPTS; i++) {
       const room = roomList[Math.floor(Math.random() * roomList.length)];

@@ -82,11 +82,14 @@ function fieldMonsterVariant(templateId: number) {
   return undefined;
 }
 
-// Dungeon monster_template_id convention (see Dungeon.tsx's buildFloorMonsters): 2 = goblin
-// (the default), 3 = skeleton, 5 = the final-floor Giant boss.
+// Dungeon monster_template_id convention (see Dungeon.tsx's DUNGEON_ROSTERS): 2 = goblin
+// (ruined_catacombs' default), 3 = skeleton, 5 = its final-floor Giant boss, 6 = orc
+// (orc_stronghold's whole roster), 7 = ghoul (ghoul_crypt's whole roster).
 function dungeonMonsterVariant(templateId: number) {
   if (templateId === 3) return SKELETON_VARIANT;
   if (templateId === 5) return GIANT_VARIANT;
+  if (templateId === 6) return ORC_VARIANT;
+  if (templateId === 7) return GHOUL_VARIANT;
   return GOBLIN_VARIANT;
 }
 
@@ -151,6 +154,7 @@ export function Scene({
   const initQuests = useQuestStore((s) => s.init);
   const drops = useLootStore((s) => s.drops);
   const currentArea = useWorldStore((s) => s.currentArea);
+  const currentDungeonId = useWorldStore((s) => s.currentDungeonId);
   const dungeonFloor = useWorldStore((s) => s.dungeonFloor);
 
   // The server's enter-map response always returns monsters: [] (no real monster-instance
@@ -170,10 +174,10 @@ export function Scene({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [character.id, map.map_id]);
 
-  const isDungeon = currentArea === 'dungeon';
+  const isDungeon = currentArea === 'dungeon' && currentDungeonId !== null;
   const dungeonMonsters = useMemo(
-    () => (isDungeon ? buildFloorMonsters(dungeonFloor) : []),
-    [isDungeon, dungeonFloor],
+    () => (isDungeon && currentDungeonId ? buildFloorMonsters(currentDungeonId, dungeonFloor) : []),
+    [isDungeon, currentDungeonId, dungeonFloor],
   );
 
   return (
@@ -190,9 +194,9 @@ export function Scene({
       <hemisphereLight args={['#e8f4ff', '#3f6b34', isDungeon ? 0.08 : 0.32]} />
       <ambientLight intensity={isDungeon ? 0.12 : 0.35} />
 
-      {isDungeon ? (
+      {isDungeon && currentDungeonId ? (
         <>
-          <Dungeon floor={dungeonFloor} />
+          <Dungeon dungeonId={currentDungeonId} floor={dungeonFloor} />
           {dungeonMonsters.map((monster) => (
             <MonsterMesh
               key={monster.instance_id}

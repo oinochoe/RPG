@@ -1,8 +1,8 @@
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { playerPosition } from './playerTransform';
-import { FIELD_ENTRANCE_POINT, FIELD_ENTRANCE_RADIUS } from './worldColliders';
-import { getEntryTrigger, DUNGEON_EXIT_RADIUS, getExitTrigger, DUNGEON_DESCEND_RADIUS } from './Dungeon';
+import { DUNGEON_ENTRANCES, type DungeonId } from './worldColliders';
+import { getEntryTrigger, DUNGEON_EXIT_RADIUS, getExitTrigger, DUNGEON_DESCEND_RADIUS, DUNGEON_META } from './Dungeon';
 import { useWorldStore } from '../../stores/worldStore';
 import type { MonsterInstanceSummary } from '../../types/api';
 
@@ -15,16 +15,18 @@ const TRANSITION_COOLDOWN_SEC = 1;
  */
 export function AreaTransitions({ fieldMonsters }: { fieldMonsters: MonsterInstanceSummary[] }) {
   const currentArea = useWorldStore((s) => s.currentArea);
+  const currentDungeonId = useWorldStore((s) => s.currentDungeonId);
   const dungeonFloor = useWorldStore((s) => s.dungeonFloor);
   const enterDungeon = useWorldStore((s) => s.enterDungeon);
   const descendFloor = useWorldStore((s) => s.descendFloor);
   const ascendFloor = useWorldStore((s) => s.ascendFloor);
   const exitDungeon = useWorldStore((s) => s.exitDungeon);
   const cooldown = useRef(0);
+  const maxFloor = currentDungeonId ? DUNGEON_META[currentDungeonId].maxFloor : 1;
   // Each floor's entry/exit points now depend on its own shape (see Dungeon.tsx's FLOOR_PLANS)
   // rather than being fixed constants, so these are recomputed whenever the floor changes.
   const entryTrigger = useMemo(() => getEntryTrigger(dungeonFloor), [dungeonFloor]);
-  const exitTrigger = useMemo(() => getExitTrigger(dungeonFloor), [dungeonFloor]);
+  const exitTrigger = useMemo(() => getExitTrigger(dungeonFloor, maxFloor), [dungeonFloor, maxFloor]);
 
   useFrame((_, delta) => {
     if (cooldown.current > 0) {
@@ -33,11 +35,15 @@ export function AreaTransitions({ fieldMonsters }: { fieldMonsters: MonsterInsta
     }
 
     if (currentArea === 'field') {
-      const dx = playerPosition.x - FIELD_ENTRANCE_POINT[0];
-      const dz = playerPosition.z - FIELD_ENTRANCE_POINT[1];
-      if (Math.hypot(dx, dz) < FIELD_ENTRANCE_RADIUS) {
-        enterDungeon();
-        cooldown.current = TRANSITION_COOLDOWN_SEC;
+      for (const id of Object.keys(DUNGEON_ENTRANCES) as DungeonId[]) {
+        const { point, radius } = DUNGEON_ENTRANCES[id];
+        const dx = playerPosition.x - point[0];
+        const dz = playerPosition.z - point[1];
+        if (Math.hypot(dx, dz) < radius) {
+          enterDungeon(id);
+          cooldown.current = TRANSITION_COOLDOWN_SEC;
+          return;
+        }
       }
       return;
     }

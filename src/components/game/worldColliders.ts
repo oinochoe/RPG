@@ -206,17 +206,32 @@ export function inVillageClearZone(x: number, z: number): boolean {
   });
 }
 
-// The dungeon cave mouth in the field — walk within FIELD_ENTRANCE_RADIUS of this point to
-// enter (see worldStore.ts). Placed away from the village and the field's own monster
-// spawns. A clear zone keeps rocks from spawning on top of the entrance decoration.
-export const FIELD_ENTRANCE_POINT: [number, number] = [34, 22];
-export const FIELD_ENTRANCE_RADIUS = 1.8;
+// Dungeon cave mouths in the field — walk within a dungeon's own radius of its point to enter
+// it (see worldStore.ts). One per dungeon (see Dungeon.tsx's DUNGEON_META for each dungeon's
+// name/floor count) — 'ruined_catacombs' is the original single dungeon, placed near spawn as
+// before; the 2 new ones sit inside their matching outer-ring zone (오크 소굴 in 오크 마을,
+// 저주받은 묘지 in 구울 평원) so reaching them is itself part of that zone's danger. A clear
+// zone around each keeps rocks/trees/monsters from spawning on top of the entrance decoration.
+export type DungeonId = 'ruined_catacombs' | 'orc_stronghold' | 'ghoul_crypt';
+
+export const DUNGEON_ENTRANCES: Record<DungeonId, { point: [number, number]; radius: number }> = {
+  ruined_catacombs: { point: [34, 22], radius: 1.8 },
+  orc_stronghold: { point: [50, -270], radius: 1.8 },
+  ghoul_crypt: { point: [270, 90], radius: 1.8 },
+};
+
+// Kept for existing single-entrance callers (characterStore's blink-scroll clear check,
+// WorldMap/MiniMap's cave icon) that only ever cared about the original dungeon.
+export const FIELD_ENTRANCE_POINT = DUNGEON_ENTRANCES.ruined_catacombs.point;
+export const FIELD_ENTRANCE_RADIUS = DUNGEON_ENTRANCES.ruined_catacombs.radius;
 const CAVE_CLEAR_RADIUS = 5;
 
 export function inCaveClearZone(x: number, z: number): boolean {
-  const dx = x - FIELD_ENTRANCE_POINT[0];
-  const dz = z - FIELD_ENTRANCE_POINT[1];
-  return Math.hypot(dx, dz) < CAVE_CLEAR_RADIUS;
+  return Object.values(DUNGEON_ENTRANCES).some(({ point }) => {
+    const dx = x - point[0];
+    const dz = z - point[1];
+    return Math.hypot(dx, dz) < CAVE_CLEAR_RADIUS;
+  });
 }
 
 export interface Decoration {

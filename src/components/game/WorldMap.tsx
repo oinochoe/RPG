@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { playerPosition, playerFacing } from './playerTransform';
 import {
-  FIELD_ENTRANCE_POINT,
+  DUNGEON_ENTRANCES,
+  type DungeonId,
   RIVER_X_CENTER,
   RIVER_HALF_WIDTH,
   DESERT_X_START,
@@ -16,7 +17,7 @@ import {
   boneFieldEdgeAt,
 } from './worldColliders';
 import { VILLAGE_CONFIGS } from './Village';
-import { DUNGEON_MAX_FLOOR, getEntryTrigger, getExitTrigger, ROOM_HALF_X, ROOM_HALF_Z, getFloorRects } from './Dungeon';
+import { DUNGEON_META, getEntryTrigger, getExitTrigger, ROOM_HALF_X, ROOM_HALF_Z, getFloorRects } from './Dungeon';
 import { ICON_PATH, MapIcon, PlayerArrow } from './mapIcons';
 import { useUIStore } from '../../stores/uiStore';
 import { useWorldStore } from '../../stores/worldStore';
@@ -236,17 +237,20 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
         </g>
       ))}
 
-      <MapIcon path={ICON_PATH.cave} x={FIELD_ENTRANCE_POINT[0]} y={FIELD_ENTRANCE_POINT[1]} size={6} color="#c084fc" />
-      <text
-        x={FIELD_ENTRANCE_POINT[0]}
-        y={FIELD_ENTRANCE_POINT[1] - 4}
-        fill="#c084fc"
-        fontSize={3}
-        textAnchor="middle"
-        fontWeight={700}
-      >
-        던전
-      </text>
+      {/* One cave icon + name per dungeon (see worldColliders.ts's DUNGEON_ENTRANCES /
+          Dungeon.tsx's DUNGEON_META) — used to be a single hardcoded "던전" label for the one
+          dungeon that existed. */}
+      {(Object.keys(DUNGEON_ENTRANCES) as DungeonId[]).map((id) => {
+        const { point } = DUNGEON_ENTRANCES[id];
+        return (
+          <g key={id}>
+            <MapIcon path={ICON_PATH.cave} x={point[0]} y={point[1]} size={6} color="#c084fc" />
+            <text x={point[0]} y={point[1] - 4} fill="#c084fc" fontSize={3} textAnchor="middle" fontWeight={700}>
+              {DUNGEON_META[id].name}
+            </text>
+          </g>
+        );
+      })}
 
       <PlayerArrow x={player.x} y={player.z} facingRad={facing} size={11} />
 
@@ -267,15 +271,17 @@ function DungeonMap({
   player,
   facing,
   floor,
+  maxFloor,
 }: {
   player: { x: number; z: number };
   facing: number;
   floor: number;
+  maxFloor: number;
 }) {
-  const hasNorthGap = floor < DUNGEON_MAX_FLOOR;
-  const rects = useMemo(() => getFloorRects(floor), [floor]);
+  const hasNorthGap = floor < maxFloor;
+  const rects = useMemo(() => getFloorRects(floor, maxFloor), [floor, maxFloor]);
   const entryTrigger = useMemo(() => getEntryTrigger(floor), [floor]);
-  const exitTrigger = useMemo(() => getExitTrigger(floor), [floor]);
+  const exitTrigger = useMemo(() => getExitTrigger(floor, maxFloor), [floor, maxFloor]);
 
   return (
     <svg
@@ -354,8 +360,11 @@ export function WorldMap() {
   const isOpen = useUIStore((s) => s.isMapOpen);
   const closeMap = useUIStore((s) => s.closeMap);
   const currentArea = useWorldStore((s) => s.currentArea);
+  const currentDungeonId = useWorldStore((s) => s.currentDungeonId);
   const dungeonFloor = useWorldStore((s) => s.dungeonFloor);
   const [player, setPlayer] = useState({ x: 0, z: 0, facing: 0 });
+  const inDungeon = currentArea === 'dungeon' && currentDungeonId !== null;
+  const dungeonMeta = currentDungeonId ? DUNGEON_META[currentDungeonId] : null;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -396,12 +405,12 @@ export function WorldMap() {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>
-            {currentArea === 'dungeon' ? `지도 · 던전 지하 ${dungeonFloor}층` : '지도'}
+            {inDungeon && dungeonMeta ? `지도 · ${dungeonMeta.name} 지하 ${dungeonFloor}층` : '지도'}
           </span>
           <span style={{ color: '#9aa08f', fontSize: 12 }}>M 또는 ESC로 닫기</span>
         </div>
-        {currentArea === 'dungeon' ? (
-          <DungeonMap player={player} facing={player.facing} floor={dungeonFloor} />
+        {inDungeon && dungeonMeta ? (
+          <DungeonMap player={player} facing={player.facing} floor={dungeonFloor} maxFloor={dungeonMeta.maxFloor} />
         ) : (
           <FieldMap player={player} facing={player.facing} />
         )}

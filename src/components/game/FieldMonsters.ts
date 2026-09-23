@@ -1,6 +1,5 @@
 import { mulberry32 } from './proceduralTextures';
 import {
-  FIELD_ENTRANCE_POINT,
   FIELD_EXTENT,
   DESERT_X_START,
   DESERT_X_END,
@@ -8,6 +7,7 @@ import {
   inRiverZone,
   inDesertZone,
   inVillageClearZone,
+  inCaveClearZone,
   inFairyForestZone,
   inOrcVillageZone,
   inBoneFieldZone,
@@ -26,13 +26,6 @@ const SEED = 7;
 const FIELD_MONSTER_COUNT = 90;
 const SCATTER_EXTENT = 180;
 const SPAWN_CLEAR_RADIUS = 8;
-const CAVE_CLEAR_RADIUS = 6;
-
-function inCaveClearZone(x: number, z: number): boolean {
-  const dx = x - FIELD_ENTRANCE_POINT[0];
-  const dz = z - FIELD_ENTRANCE_POINT[1];
-  return Math.hypot(dx, dz) < CAVE_CLEAR_RADIUS;
-}
 
 // monster_template_id convention (matches the mock backend / MonsterMesh variant lookup in
 // Scene.tsx): 1 = slime, 3 = skeleton. Skeletons only spawn past this distance tier, so the
@@ -120,6 +113,9 @@ function buildOrcVillageMonsters(idBaseStart: number): MonsterInstanceSummary[] 
     const x = -FIELD_HALF + rng() * (DESERT_X_END + FIELD_HALF);
     const z = -FIELD_HALF + rng() * (FIELD_HALF - OUTER_ZONE_BOUND);
     if (!inOrcVillageZone(x, z)) continue;
+    // 오크 소굴's entrance sits inside this zone (see worldColliders.ts's DUNGEON_ENTRANCES) —
+    // keep monsters off the cave mouth same as the field's own inCaveClearZone use.
+    if (inCaveClearZone(x, z)) continue;
     monsters.push({
       instance_id: idBase++,
       monster_template_id: 6,
@@ -170,6 +166,8 @@ function buildGhoulFieldMonsters(idBaseStart: number): MonsterInstanceSummary[] 
     const x = DESERT_X_END + rng() * (FIELD_HALF - DESERT_X_END);
     const z = (rng() - 0.5) * FIELD_HALF * 2;
     if (!inGhoulFieldZone(x)) continue;
+    // 저주받은 묘지's entrance sits inside this zone — same cave-mouth clearance as above.
+    if (inCaveClearZone(x, z)) continue;
     monsters.push({
       instance_id: idBase++,
       monster_template_id: 7,
