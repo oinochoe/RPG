@@ -3,6 +3,7 @@ import { useCombatStore } from '../../stores/combatStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useDraggablePanel } from './useDraggablePanel';
+import { formatGold } from './itemLabels';
 import type { CharacterProfile } from '../../types/api';
 
 const PANEL_WIDTH = 340;
@@ -105,8 +106,8 @@ function ShopRow({
             </button>
           </div>
         )}
-        <span style={{ color: priceColor, fontSize: 12, fontWeight: 700, minWidth: 48, textAlign: 'right' }}>
-          {totalPrice} G
+        <span style={{ color: priceColor, fontSize: 12, fontWeight: 700, minWidth: 64, textAlign: 'right' }}>
+          {formatGold(totalPrice)} G
         </span>
         <button
           onClick={onAction}
@@ -242,7 +243,7 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
           ✕
         </button>
       </div>
-      <div style={{ color: '#ffd54a', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{player.gold} G 보유</div>
+      <div style={{ color: '#ffd54a', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{formatGold(player.gold)} G 보유</div>
 
         <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
           {(['buy', 'sell'] as const).map((t) => (

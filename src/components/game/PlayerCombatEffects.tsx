@@ -6,6 +6,7 @@ import { playerPosition } from './playerTransform';
 import { VILLAGE_CENTER } from './Village';
 import { useCombatStore } from '../../stores/combatStore';
 import { useWorldStore } from '../../stores/worldStore';
+import { formatGold } from './itemLabels';
 import type { MonsterInstanceSummary } from '../../types/api';
 
 interface FloatPopup {
@@ -55,7 +56,7 @@ export function PlayerCombatEffects({ fieldMonsters }: { fieldMonsters: MonsterI
 
         const gold = state.player.gold;
         if (gold > prevGoldRef.current) {
-          pushPopup(`+${gold - prevGoldRef.current}G`, '#ffd54a');
+          pushPopup(`+${formatGold(gold - prevGoldRef.current)}G`, '#ffd54a');
         }
         prevGoldRef.current = gold;
       }),

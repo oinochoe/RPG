@@ -95,10 +95,28 @@ const ITEM_ICON: Record<string, IconConfig> = {
   },
 };
 
-/** Renders null (caller falls back to the item's name text) when the item has no icon yet. */
+/** Falls back to the item's own name as small centered text when it has no hand-picked icon
+ * yet — most of the item catalog (every tier added after the original 15-item starter set)
+ * has no entry above, and a blank square with no icon AND no text is indistinguishable from
+ * an empty slot. */
 export function ItemIcon({ itemName, size = 32 }: { itemName: string; size?: number }) {
   const config = ITEM_ICON[itemName];
-  if (!config) return null;
+  if (!config) {
+    return (
+      <span
+        style={{
+          fontSize: Math.max(8, Math.round(size * 0.22)),
+          color: '#c7cdb9',
+          textAlign: 'center',
+          lineHeight: 1.15,
+          padding: '0 2px',
+          wordBreak: 'keep-all',
+        }}
+      >
+        {itemName}
+      </span>
+    );
+  }
   return (
     <svg width={size} height={size} viewBox="0 0 512 512" style={{ display: 'block', flexShrink: 0 }}>
       <path d={config.path} fill={config.color} />

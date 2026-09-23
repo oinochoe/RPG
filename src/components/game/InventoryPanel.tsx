@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
 import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
-import { EQUIP_SLOT_LABEL } from './itemLabels';
+import { EQUIP_SLOT_LABEL, formatGold } from './itemLabels';
 import { HOTBAR_DRAG_MIME } from './Hotbar';
 import { useDraggablePanel } from './useDraggablePanel';
 import { ItemIcon, itemRarity, RARITY_SLOT_FRAME } from './itemIcons';
@@ -312,7 +312,7 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
         }}
       >
         <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>인벤토리</span>
-        <span style={{ color: '#ffd54a', fontWeight: 700, fontSize: 13 }}>{player.gold} G</span>
+        <span style={{ color: '#ffd54a', fontWeight: 700, fontSize: 13 }}>{formatGold(player.gold)} G</span>
         <button
           onClick={closeInventory}
           style={{
