@@ -18,7 +18,7 @@ import {
 } from '../components/game/worldColliders';
 import { getFloorRooms, getDungeonColliders, getEntrySpawn, DUNGEON_META } from '../components/game/Dungeon';
 import { buildFieldMonsters } from '../components/game/FieldMonsters';
-import type { CharacterClass, CharacterProfile, CharacterSummary, InventorySlot, ShopItem } from '../types/api';
+import type { CharacterClass, CharacterProfile, CharacterSummary, EnchantOutcome, InventorySlot, ShopItem } from '../types/api';
 
 // Shared by useHotbarSlot's teleport_target handling below — 'village' works from anywhere
 // (leaves the dungeon first if needed, same as walking out through its exit would, so
@@ -196,7 +196,7 @@ interface CharacterState {
   fetchShop: (kind: 'merchant' | 'blacksmith') => Promise<void>;
   buyItem: (itemTemplateId: number, price: number, quantity?: number) => Promise<void>;
   sellItem: (inventoryId: number, price: number, quantity?: number) => Promise<void>;
-  enchantItem: (inventoryId: number, goldCost: number) => Promise<{ success: boolean; enchantLevel: number }>;
+  enchantItem: (inventoryId: number, goldCost: number) => Promise<{ outcome: EnchantOutcome; enchantLevel: number | null }>;
   setHotbarSlot: (slot: number, assignment: HotbarAssignment | null) => void;
   useHotbarSlot: (slot: number) => Promise<void>;
   // Free (no item/cooldown) escape hatch for getting wedged in world geometry — same
@@ -290,17 +290,19 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
   // goldCost is passed in by the caller (InventoryPanel's own ENCHANT_COST table, keyed by
   // the item's CURRENT enchant_level before this call) — same "caller already knows the
-  // price" reasoning as buyItem/sellItem. Spent whether the roll succeeds or fails (that's
-  // the actual risk in an "안전 강화" system with no destroy-on-fail — see the RPC's own
-  // comment), which is why this always deducts gold regardless of the returned `success`.
+  // price" reasoning as buyItem/sellItem. Spent on every outcome including a destroy (that's
+  // the actual risk now — see the RPC's own comment on the Lineage-style destroy chance),
+  // which is why this always deducts gold regardless of `outcome`. If the item was destroyed,
+  // `items` from the server already omits it — sumEquippedBonus's before/after diff picks up
+  // the lost equipment bonus for free, same as any other inventory-shrinking call.
   enchantItem: async (inventoryId, goldCost) => {
     const before = sumEquippedBonus(get().inventory);
-    const { items, success, enchant_level } = await charactersApi.enchantItem(inventoryId);
+    const { items, outcome, enchant_level } = await charactersApi.enchantItem(inventoryId);
     const after = sumEquippedBonus(items);
     set({ inventory: items });
     useCombatStore.getState().applyEquipmentDelta(after.attack - before.attack, after.defense - before.defense);
     useCombatStore.getState().adjustGold(-goldCost);
-    return { success, enchantLevel: enchant_level };
+    return { outcome, enchantLevel: enchant_level };
   },
 
   setHotbarSlot: (slot, assignment) => {

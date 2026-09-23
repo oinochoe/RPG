@@ -236,7 +236,8 @@ function mapSkillUpgradeRpcError(message: string | undefined): ApiError {
 }
 
 // Maps enchant_item's RAISE EXCEPTION messages (see
-// supabase/migrations/20260923023513_enchant_item_rpc.sql) to the API error envelope.
+// supabase/migrations/20260923041612_enchant_item_destroy_risk.sql, the latest rewrite) to
+// the API error envelope.
 function mapEnchantRpcError(message: string | undefined): ApiError {
   if (message?.includes("character_not_found")) {
     return new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
@@ -1104,11 +1105,13 @@ charactersRoutes.post("/me/inventory/:id/unequip", async (c) => {
   return c.json({ items: inventory });
 });
 
-// Enchant an equipped-or-not weapon/armor row up by one level — "안전 강화": a failed roll
-// never destroys or downgrades the item (see enchant_item's own migration comment for why),
-// it just doesn't advance enchant_level. Like buy/sell, doesn't touch gold — the client
-// checks/deducts its own locally-tracked gold before calling this, same reasoning as the shop
-// routes' own comment (gold was never made server-authoritative for this project).
+// Enchant an equipped-or-not weapon/armor row up by one level — Lineage-style risk (see
+// enchant_item's own migration comment): +0..+3 is guaranteed safe, beyond that a failed
+// roll can destroy the item outright (weapons riskier than armor/accessories at the same
+// level), in which case `enchant_level` comes back null and the row is gone from `items`.
+// Like buy/sell, doesn't touch gold — the client checks/deducts its own locally-tracked gold
+// before calling this, same reasoning as the shop routes' own comment (gold was never made
+// server-authoritative for this project).
 charactersRoutes.post("/me/inventory/:id/enchant", async (c) => {
   const appUser = c.get("appUser");
   const inventoryId = Number(c.req.param("id"));
@@ -1126,7 +1129,7 @@ charactersRoutes.post("/me/inventory/:id/enchant", async (c) => {
   });
   if (error) throw mapEnchantRpcError(error.message);
 
-  const row = (data as { enchant_level: number; success: boolean }[])[0];
+  const row = (data as { enchant_level: number | null; outcome: "success" | "fail" | "destroyed" }[])[0];
   const inventory = await fetchInventory(admin, characterId);
-  return c.json({ enchant_level: row.enchant_level, success: row.success, items: inventory });
+  return c.json({ enchant_level: row.enchant_level, outcome: row.outcome, items: inventory });
 });

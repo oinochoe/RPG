@@ -6,21 +6,28 @@ import { EQUIP_SLOT_LABEL } from './itemLabels';
 import { HOTBAR_DRAG_MIME } from './Hotbar';
 import { useDraggablePanel } from './useDraggablePanel';
 import { ItemIcon, itemRarity, RARITY_SLOT_FRAME } from './itemIcons';
-import type { CharacterProfile, InventorySlot } from '../../types/api';
+import type { CharacterProfile, EnchantOutcome, InventorySlot } from '../../types/api';
 
 const GRID_COLUMNS = 6;
 const GRID_ROWS = 4;
 const GRID_SLOT_COUNT = GRID_COLUMNS * GRID_ROWS;
 const PANEL_WIDTH = 580;
 
-// Enchant system — indexed by the item's CURRENT enchant_level (0-6), i.e. the chance/cost of
-// going from that level to the next. Mirrors the server's own table exactly (see
-// supabase/migrations/20260923023513_enchant_item_rpc.sql's v_chance CASE) — kept as a
-// separate client-side copy purely for display (chance/cost preview before the player commits
-// gold), the server is still the one actually rolling the outcome.
+// Enchant system — indexed by the item's CURRENT enchant_level (0-6), i.e. the odds/cost of
+// going from that level to the next. Mirrors the server's own tables exactly (see
+// supabase/migrations/20260923041612_enchant_item_destroy_risk.sql) — kept as a separate
+// client-side copy purely for display (odds/cost preview before the player commits gold), the
+// server is still the one actually rolling the outcome. +0..+2 -> +1..+3 is always safe;
+// beyond that a failed roll can destroy the item, weapons more often than armor/accessories.
 const ENCHANT_MAX_LEVEL = 7;
-const ENCHANT_CHANCE = [1.0, 1.0, 0.9, 0.7, 0.5, 0.3, 0.15];
 const ENCHANT_COST = [50, 100, 200, 400, 800, 1500, 3000];
+const ENCHANT_SUCCESS_CHANCE = [1.0, 1.0, 1.0, 0.7, 0.5, 0.3, 0.15];
+const ENCHANT_DESTROY_CHANCE_WEAPON = [0, 0, 0, 0.1, 0.25, 0.4, 0.6];
+const ENCHANT_DESTROY_CHANCE_ARMOR = [0, 0, 0, 0.05, 0.15, 0.25, 0.4];
+
+function enchantDestroyChance(level: number, isWeapon: boolean): number {
+  return (isWeapon ? ENCHANT_DESTROY_CHANCE_WEAPON : ENCHANT_DESTROY_CHANCE_ARMOR)[level];
+}
 
 const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
   warrior: '#f4c430',
@@ -109,9 +116,12 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  // Feedback from the last enchant attempt (성공/실패), keyed to the inventory row it applied
-  // to so switching the selection doesn't leave a stale result showing on a different item.
-  const [enchantResult, setEnchantResult] = useState<{ inventoryId: number; success: boolean } | null>(null);
+  // Feedback from the last enchant attempt — keyed by item NAME rather than inventoryId,
+  // because a 'destroyed' outcome deletes the row entirely, so `selected` (and any id lookup)
+  // goes null right after; showing the message outside the item-details panel (see render
+  // below) is what makes it still visible in that case. Cleared when a different item is
+  // selected or the panel closes.
+  const [enchantResult, setEnchantResult] = useState<{ itemName: string; outcome: EnchantOutcome } | null>(null);
   const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
     x: window.innerWidth - PANEL_WIDTH - 16,
     y: Math.max(16, window.innerHeight / 2 - 160),
@@ -191,8 +201,12 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
     setEnchantResult(null);
     setPending(true);
     try {
-      const { success } = await enchantItem(item.id, cost);
-      setEnchantResult({ inventoryId: item.id, success });
+      const { outcome } = await enchantItem(item.id, cost);
+      setEnchantResult({ itemName: item.item_name, outcome });
+      // A destroyed item is gone from `inventory` after this — drop the now-stale selection
+      // so the details panel falls back to "아이템을 선택하세요" instead of showing nothing
+      // for an id that no longer resolves.
+      if (outcome === 'destroyed') setSelectedId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : '인챈트 중 오류가 발생했습니다.');
     } finally {
@@ -250,6 +264,20 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
       </div>
 
         {error && <p style={{ color: '#e0538a', fontSize: 12, marginBottom: 8 }}>{error}</p>}
+        {enchantResult && (
+          <p
+            style={{
+              color: enchantResult.outcome === 'success' ? '#57c25b' : enchantResult.outcome === 'destroyed' ? '#e0538a' : '#9aa08f',
+              fontSize: 12,
+              marginBottom: 8,
+              fontWeight: enchantResult.outcome === 'destroyed' ? 700 : 400,
+            }}
+          >
+            {enchantResult.outcome === 'success' && `${enchantResult.itemName} 강화에 성공했습니다!`}
+            {enchantResult.outcome === 'fail' && `${enchantResult.itemName} 강화에 실패했습니다.`}
+            {enchantResult.outcome === 'destroyed' && `${enchantResult.itemName}이(가) 강화에 실패하여 파괴되었습니다.`}
+          </p>
+        )}
 
         <div style={{ display: 'flex', gap: 14 }}>
           <div
@@ -272,7 +300,11 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                   key={item?.id ?? `empty-${i}`}
                   item={item}
                   selected={item?.id === selectedId}
-                  onClick={() => item && setSelectedId(item.id)}
+                  onClick={() => {
+                    if (!item) return;
+                    setSelectedId(item.id);
+                    setEnchantResult(null);
+                  }}
                   onDoubleClick={() => item && item.equip_slot !== null && toggleEquip(item)}
                 />
               );
@@ -327,40 +359,53 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                       {selected.enchant_level >= ENCHANT_MAX_LEVEL ? (
                         <p style={{ color: '#9aa08f', fontSize: 11 }}>최대 강화 수치입니다.</p>
                       ) : (
-                        <>
-                          <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.6, marginBottom: 6 }}>
-                            <div>
-                              인챈트 <span style={{ color: '#e8c97a' }}>+{selected.enchant_level}</span> →{' '}
-                              <span style={{ color: '#e8c97a' }}>+{selected.enchant_level + 1}</span>
-                            </div>
-                            <div>성공 확률 {Math.round(ENCHANT_CHANCE[selected.enchant_level] * 100)}%</div>
-                            <div style={{ color: player.gold < ENCHANT_COST[selected.enchant_level] ? '#e0538a' : '#ffd54a' }}>
-                              비용 {ENCHANT_COST[selected.enchant_level]} G
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => handleEnchant(selected)}
-                            disabled={pending || player.gold < ENCHANT_COST[selected.enchant_level]}
-                            style={{
-                              width: '100%',
-                              padding: '6px 0',
-                              borderRadius: 6,
-                              border: '1px solid #e8c97a',
-                              background: 'rgba(255,255,255,0.05)',
-                              color: player.gold < ENCHANT_COST[selected.enchant_level] ? '#6a6a5f' : '#e8c97a',
-                              fontSize: 12,
-                              fontWeight: 700,
-                              cursor: pending ? 'default' : 'pointer',
-                            }}
-                          >
-                            인챈트
-                          </button>
-                          {enchantResult && enchantResult.inventoryId === selected.id && (
-                            <p style={{ color: enchantResult.success ? '#57c25b' : '#e0538a', fontSize: 11, marginTop: 4 }}>
-                              {enchantResult.success ? '강화에 성공했습니다!' : '강화에 실패했습니다.'}
-                            </p>
-                          )}
-                        </>
+                        (() => {
+                          const level = selected.enchant_level;
+                          const isWeapon = selected.equip_slot === 'weapon';
+                          const destroyChance = enchantDestroyChance(level, isWeapon);
+                          const successChance = ENCHANT_SUCCESS_CHANCE[level];
+                          const failChance = 1 - successChance - destroyChance;
+                          const cost = ENCHANT_COST[level];
+                          return (
+                            <>
+                              <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.6, marginBottom: 6 }}>
+                                <div>
+                                  인챈트 <span style={{ color: '#e8c97a' }}>+{level}</span> →{' '}
+                                  <span style={{ color: '#e8c97a' }}>+{level + 1}</span>
+                                </div>
+                                <div>성공 확률 {Math.round(successChance * 100)}%</div>
+                                {destroyChance > 0 && (
+                                  <div style={{ color: '#e0538a' }}>
+                                    실패 {Math.round(failChance * 100)}% · 파괴 {Math.round(destroyChance * 100)}%
+                                  </div>
+                                )}
+                                <div style={{ color: player.gold < cost ? '#e0538a' : '#ffd54a' }}>비용 {cost} G</div>
+                              </div>
+                              {destroyChance > 0 && (
+                                <p style={{ color: '#e0538a', fontSize: 10, marginBottom: 6 }}>
+                                  ⚠ 실패 시 아이템이 파괴될 수 있습니다.
+                                </p>
+                              )}
+                              <button
+                                onClick={() => handleEnchant(selected)}
+                                disabled={pending || player.gold < cost}
+                                style={{
+                                  width: '100%',
+                                  padding: '6px 0',
+                                  borderRadius: 6,
+                                  border: `1px solid ${destroyChance > 0 ? '#e0538a' : '#e8c97a'}`,
+                                  background: 'rgba(255,255,255,0.05)',
+                                  color: player.gold < cost ? '#6a6a5f' : destroyChance > 0 ? '#e0538a' : '#e8c97a',
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  cursor: pending ? 'default' : 'pointer',
+                                }}
+                              >
+                                인챈트
+                              </button>
+                            </>
+                          );
+                        })()
                       )}
                     </div>
                   </>

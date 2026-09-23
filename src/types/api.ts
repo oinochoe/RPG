@@ -75,9 +75,11 @@ export interface InventoryListResponse {
   items: InventorySlot[];
 }
 
+export type EnchantOutcome = 'success' | 'fail' | 'destroyed';
+
 export interface EnchantItemResponse {
-  enchant_level: number;
-  success: boolean;
+  enchant_level: number | null;
+  outcome: EnchantOutcome;
   items: InventorySlot[];
 }
 
