@@ -30,9 +30,10 @@ const SCATTER_EXTENT = 180;
 const SPAWN_CLEAR_RADIUS = 8;
 
 // monster_template_id convention (matches the mock backend / MonsterMesh variant lookup in
-// Scene.tsx): 1 = slime, 3 = skeleton. Skeletons only spawn past this distance tier, so the
-// field's difficulty curve still reads as "slimes near spawn, skeletons further out" rather
-// than a random mix.
+// Scene.tsx): 1 = slime, 3 = skeleton, 15 = 늑대 (mixed into the slime tier only, see
+// WOLF_MIX_HP below). Skeletons only spawn past this distance tier, so the field's difficulty
+// curve still reads as "slimes/wolves near spawn, skeletons further out" rather than a random
+// mix.
 const SKELETON_MIN_TIER = 2;
 
 // Desert-only fauna — 가시선인장 (Cactoro, a Quaternius CC0 cactus creature; see MonsterMesh's

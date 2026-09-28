@@ -67,16 +67,34 @@ const WEAPON_MODEL_BY_NAME: Record<string, string> = {
   '대마도사의 지팡이': `${KAYKIT_WEAPONS}/staff_A.gltf`,
   '정예 궁수의 활': `${KAYKIT_WEAPONS}/bow_A_withString.gltf`,
   '바람의 활': `${KAYKIT_WEAPONS}/bow_A_withString.gltf`,
+  // The Lv30 "royal" tier (add_tier3_royal_gear) and Lv35 boss-exclusive tier
+  // (boss_exclusive_gear) had no entry here at all until now — every one of these 6 weapons
+  // silently rendered the plain starter model in-hand despite being the best gear in the game.
+  // Warrior still had 2 genuinely unused sword models (B/C — A/D/E already spent above).
+  // Mage/archer's staff/bow pools were already fully spent by the earlier tiers, so their new
+  // entries reuse an existing look (still strictly better than falling back to the bare
+  // starter model) — except 태고의 심판 지팡이, which gets wand_A, this pack's one remaining
+  // distinct mage-weapon model, saved for the single rarest mage item in the game.
+  '근위기사단장의 대검': `${KAYKIT_WEAPONS}/sword_B.gltf`,
+  '태고의 파쇄검': `${KAYKIT_WEAPONS}/sword_C.gltf`,
+  '왕실 마도사의 지팡이': `${KAYKIT_WEAPONS}/staff_B.gltf`,
+  '태고의 심판 지팡이': `${KAYKIT_WEAPONS}/wand_A.gltf`,
+  '왕실 궁병대장의 활': `${KAYKIT_WEAPONS}/bow_A_withString.gltf`,
+  '태고의 관통궁': `${KAYKIT_WEAPONS}/bow_B_withString.gltf`,
 };
 
 // Shields (warrior's equip_slot === 'shield' line, see the same migration) — this pack ships
-// exactly 3 distinct shield models, matching the 3 shield tiers 1:1. Off-hand only, so unlike
-// WEAPON_MODEL_BY_NAME there's no "always holding something" fallback — no shield equipped
-// means nothing renders in the off hand (see the attachment effect below).
+// exactly 3 distinct shield models, matching the original 3 shield tiers 1:1. Off-hand only,
+// so unlike WEAPON_MODEL_BY_NAME there's no "always holding something" fallback — no shield
+// equipped means nothing renders in the off hand (see the attachment effect below). The Lv30
+// "royal" shield (add_tier3_royal_gear) has no 4th model to call its own, so it reuses
+// 기사단의 방패's — no boss-exclusive shield exists at all, so shield_C's tier ceiling is
+// genuinely this ceiling, not a placeholder standing in for something rarer.
 const SHIELD_MODEL_BY_NAME: Record<string, string> = {
   '가죽 방패': `${KAYKIT_WEAPONS}/shield_A.gltf`,
   '강철 방패': `${KAYKIT_WEAPONS}/shield_B.gltf`,
   '기사단의 방패': `${KAYKIT_WEAPONS}/shield_C.gltf`,
+  '왕실 근위의 방패': `${KAYKIT_WEAPONS}/shield_C.gltf`,
 };
 const DEFAULT_SHIELD_MODEL = SHIELD_MODEL_BY_NAME['가죽 방패'];
 
