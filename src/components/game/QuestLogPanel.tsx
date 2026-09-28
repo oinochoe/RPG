@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
-import { useQuestStore, QUEST_DEFS, type QuestDef } from '../../stores/questStore';
+import { useQuestStore, QUEST_DEFS, mainQuestUnlocked, type QuestDef } from '../../stores/questStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useDraggablePanel } from './useDraggablePanel';
 import type { ActiveQuest } from '../../types/api';
@@ -75,7 +75,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** The Q-key quest log — a read-only tracker across all 5 quests (see questStore's
+/** The Q-key quest log — a read-only tracker across every quest (see questStore's
  * QUEST_DEFS), grouped into available/in-progress/completed with a progress bar for each
  * in-progress one. Deliberately has no accept/claim buttons of its own (see QuestPanel.tsx
  * for that) — these are personal, one-on-one NPC conversations by design (see the quest
@@ -103,9 +103,12 @@ export function QuestLogPanel() {
       // done (see questStore's findQuestByGiver) — skip listing it as "available" before
       // that, so the log doesn't imply it can be picked up already.
       if (quest.repeatable) {
-        const story = QUEST_DEFS.find((q) => q.giverNpcName === quest.giverNpcName && !q.repeatable);
+        const story = QUEST_DEFS.find((q) => q.giverNpcName === quest.giverNpcName && !q.repeatable && !q.isMainQuest);
         if (story && quests[story.id]?.status !== 'completed') continue;
       }
+      // Same idea for the main quest — it isn't actually offered until every one of the 5
+      // NPC stories is done (see questStore's mainQuestUnlocked/findQuestByGiver).
+      if (quest.isMainQuest && !mainQuestUnlocked(quests)) continue;
       available.push(quest);
     } else if (state.status === 'completed') completed.push(quest);
     else inProgress.push(quest);

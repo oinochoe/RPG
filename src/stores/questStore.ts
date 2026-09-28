@@ -39,7 +39,16 @@ export interface QuestDef {
   // exactly one story (repeatable: false) and one repeatable quest — see findQuestByGiver,
   // which decides which of an NPC's two quests is currently "the" one they offer.
   repeatable: boolean;
+  // The single capstone quest tying all 5 NPCs' stories together (see STORY_QUEST_IDS) —
+  // findQuestByGiver only ever surfaces this once every one of them is completed, and only
+  // through 촌장 (its giverNpcName), same one-quest-per-NPC-at-a-time shape as everything else.
+  isMainQuest?: boolean;
 }
+
+// The 5 one-time NPC story quests (ids 1-5) the main quest (id 11) gates on — kept as its own
+// list rather than deriving from QUEST_DEFS at call time so findQuestByGiver doesn't need to
+// exclude the main quest itself (and any future non-gating story quest) from that derivation.
+const STORY_QUEST_IDS = [1, 2, 3, 4, 5];
 
 export const QUEST_DEFS: QuestDef[] = [
   {
@@ -219,7 +228,39 @@ export const QUEST_DEFS: QuestDef[] = [
     hookText: '자네를 보면 여전히 그 아이 생각이 나. 요즘도 던전 어귀에 고블린이 어슬렁거린다더군. 좀 살펴봐 주겠나?',
     completionText: '고맙네... 자네가 있어 다행이야.',
   },
+  // The main quest — see STORY_QUEST_IDS/isMainQuest. Ties the 5 NPCs' separate griefs
+  // (a drowned child, a dying wife, fallen war comrades, a missing lover, a vanished son)
+  // into one thread: something ancient waking in 구울 평원 is why every field monster's been
+  // fiercer lately. Its target (거인 군주, monster_template_id 5) is the same template
+  // 태고의 거인 — the field's own world boss — reuses, so no new boss encounter was needed.
+  {
+    id: 11,
+    title: '잊혀진 재앙',
+    giverNpcName: '촌장',
+    villageName: '새벽여울',
+    targetMonsterId: 5,
+    targetMonsterName: '거인 군주',
+    targetCount: 1,
+    requiredLevel: 20,
+    rewardXp: 800,
+    rewardGold: 400,
+    rewardItemId: 47,
+    rewardItemName: '축복의 강화 주문서',
+    repeatable: false,
+    isMainQuest: true,
+    hookText:
+      '자네가 우리 다섯을 도와준 뒤로... 이상한 걸 알아챘네. 슬라임도, 스켈레톤도, 가시선인장도 — 전에 없이 사나워졌어. 던전 저 너머 평원에서 뭔가 아주 오래된 것이 눈을 떴다더군. 다섯의 슬픔이 다 그것과 이어져 있었던 건 아닐까 싶네. 자네라면... 그걸 끝낼 수 있겠나.',
+    completionText: '정말로 해냈군. 이제야 이 마을들이 예전처럼 평온해지겠어. 자네가 우리 다섯의 슬픔을 다 짊어지고 여기까지 왔다는 걸, 우린 잊지 않을 걸세.',
+  },
 ];
+
+/** Whether every one of the 5 NPC story quests has been turned in — the single gate the main
+ * quest (see QuestDef.isMainQuest) checks, shared between findQuestByGiver (governs what a
+ * giver actually offers) and QuestLogPanel (governs what shows as "available" before that's
+ * true) so the two never disagree about whether it's unlocked yet. */
+export function mainQuestUnlocked(quests: Record<number, ActiveQuest>): boolean {
+  return STORY_QUEST_IDS.every((id) => quests[id]?.status === 'completed');
+}
 
 // An NPC currently offers exactly one of their two quests (story + repeatable, see
 // QuestDef.repeatable): the story quest until it's actually completed, then the repeatable
@@ -227,9 +268,13 @@ export const QUEST_DEFS: QuestDef[] = [
 // catalog) has to factor in here, unlike before repeatable quests existed.
 export function findQuestByGiver(npcName: string, quests: Record<number, ActiveQuest>): QuestDef | undefined {
   const candidates = QUEST_DEFS.filter((q) => q.giverNpcName === npcName);
-  const story = candidates.find((q) => !q.repeatable);
+  const story = candidates.find((q) => !q.repeatable && !q.isMainQuest);
   const repeatable = candidates.find((q) => q.repeatable);
+  const main = candidates.find((q) => q.isMainQuest);
   if (story && quests[story.id]?.status !== 'completed') return story;
+  if (main && quests[main.id]?.status !== 'completed' && mainQuestUnlocked(quests)) {
+    return main;
+  }
   return repeatable ?? story;
 }
 
