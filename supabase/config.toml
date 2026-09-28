@@ -233,14 +233,23 @@ otp_length = 6
 otp_expiry = 3600
 
 # Use a production-ready SMTP server
+# Production SMTP via Resend — see HANDOFF.md "메일 발송(SMTP) 설정". Left commented so
+# `supabase start` keeps using the local Inbucket mailbox; the live project is configured
+# in Dashboard → Authentication → SMTP Settings with these same values.
 # [auth.email.smtp]
 # enabled = true
-# host = "smtp.sendgrid.net"
-# port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+# host = "smtp.resend.com"
+# port = 465
+# user = "resend"
+# pass = "env(RESEND_API_KEY)"
+# admin_email = "no-reply@<your-domain>"
+# sender_name = "RPG"
+
+# Sends the confirmation link straight to the client's /verify-email route (token hash in
+# the query string) instead of GoTrue's hosted verify-then-redirect flow.
+[auth.email.template.confirmation]
+subject = "[RPG] 이메일 인증을 완료해주세요"
+content_path = "./supabase/templates/confirmation.html"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]

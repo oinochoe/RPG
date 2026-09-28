@@ -1,5 +1,6 @@
-import { mulberry32 } from './proceduralTextures';
+import { mulberry32 } from '../../lib/random';
 import {
+  RUINS_POSITION,
   FIELD_EXTENT,
   DESERT_X_START,
   DESERT_X_END,
@@ -13,7 +14,6 @@ import {
   inBoneFieldZone,
   inGhoulFieldZone,
 } from './worldColliders';
-import { RUINS_POSITION } from './AncientRuins';
 import type { BossCooldown, MonsterInstanceSummary } from '../../types/api';
 import { isBossOnCooldown } from '../../stores/combatStore';
 

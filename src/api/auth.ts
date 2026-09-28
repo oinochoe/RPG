@@ -1,8 +1,14 @@
 import { apiRequest } from './client';
 import type { AuthTokens } from '../types/api';
 
-export function register(email: string, password: string): Promise<void> {
-  return apiRequest<void>('/auth/register', {
+export interface RegisterResult {
+  // false when the server has email verification switched off — the account is usable
+  // immediately. Older servers return `{}`, which callers should treat as true.
+  requires_verification?: boolean;
+}
+
+export function register(email: string, password: string): Promise<RegisterResult> {
+  return apiRequest<RegisterResult>('/auth/register', {
     method: 'POST',
     body: { email, password },
     auth: false,

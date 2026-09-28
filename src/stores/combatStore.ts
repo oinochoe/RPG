@@ -844,7 +844,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       // Has to actually be standing next to the player — see tickMonsterMovement, which
       // closes this distance by chasing.
       if (Math.hypot(dx, dz) > MONSTER_ATTACK_REACH) continue;
-      if (now - (monster.lastAttackAt ?? 0) < MONSTER_ATTACK_COOLDOWN_MS) continue;
+      // null = never attacked yet. Don't coerce it to 0: performance.now() starts near 0 on
+      // page load, so `now - 0` would read as "attacked a moment ago" for the first 1.2s.
+      if (monster.lastAttackAt !== null && now - monster.lastAttackAt < MONSTER_ATTACK_COOLDOWN_MS) continue;
 
       const isBoss = monster.name in BOSS_KEY_BY_NAME;
       const useSkill = isBoss && now - (monster.lastSkillAttackAt ?? -Infinity) >= BOSS_SKILL_COOLDOWN_MS;

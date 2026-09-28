@@ -70,7 +70,7 @@ export interface InventorySlot {
   restore_mp: number;
   teleport_target: 'village' | 'blink' | null;
   haste_duration_sec: number;
-  enchant_scroll_type: 'normal' | 'blessed' | 'cursed' | null;
+  enchant_scroll_type: 'weapon' | 'armor' | 'blessed' | 'cursed' | null;
 }
 
 export interface InventoryListResponse {
