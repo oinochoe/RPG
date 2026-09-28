@@ -511,6 +511,16 @@ function applyExperienceGain(
 
 // Shared by attackNearest and castSkill so a kill always applies identical exp/level-
 // up/gold/skill-point logic regardless of which attack type landed the final hit.
+//
+// Deliberately keyed off the monster's own runtime level, not monster_templates'
+// experience_reward/gold_min/gold_max columns (those go entirely unread here, same as
+// lootStore's own documented monster_drop_templates — "the table exists in the schema but
+// nothing reads it"). This isn't an oversight: 거인 군주/태고의 거인 share monster_template_id
+// 5 at level 20 vs 40, 오크/오크 군주 share id 6 at level 5 vs whatever DUNGEON_ROSTERS sets its
+// boss to, and so on for every 대장/군주 — a template-keyed reward table would collapse all of
+// those back down to one flat reward regardless of which one actually died, breaking the exact
+// scaling that makes a 군주 kill worth more than its regular counterpart. Don't tune the DB
+// columns expecting an effect; tune the formula below (or its constants) instead.
 function applyKill(
   player: PlayerCombatState,
   nearest: MonsterCombatState,
