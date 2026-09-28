@@ -297,6 +297,12 @@ export function isFieldBossAggressive(monster: MonsterInstanceSummary): boolean 
  * `bossCooldowns` (the character's own boss_cooldowns, if known at build time) omits the
  * world boss entirely while it's still on its server-tracked respawn cooldown — see
  * combatStore's BOSS_KEY_BY_NAME/isBossOnCooldown. */
+// 늑대 (see MonsterMesh's WOLF_CONFIG) — mixes into the field's own middle distance tier
+// alongside slimes, so that band reads as "a grassland with more than one animal in it"
+// instead of just a bigger slime. Its level already matches that tier's own formula
+// (1 + tier = 2), so only HP needs its own constant — the wolf's real signature stat.
+const WOLF_MIX_HP = 35;
+
 export function buildFieldMonsters(bossCooldowns?: BossCooldown[]): MonsterInstanceSummary[] {
   const rng = mulberry32(SEED);
   const monsters: MonsterInstanceSummary[] = [];
@@ -319,12 +325,13 @@ export function buildFieldMonsters(bossCooldowns?: BossCooldown[]): MonsterInsta
     const tier = Math.min(2, Math.floor(distFromSpawn / 55));
     const level = 1 + tier;
     const isSkeleton = tier >= SKELETON_MIN_TIER;
-    const hp = isSkeleton ? 40 + tier * 15 : 15 + tier * 10;
+    const isWolf = tier === 1 && !isSkeleton && monsters.length % 2 === 0;
+    const hp = isSkeleton ? 40 + tier * 15 : isWolf ? WOLF_MIX_HP : 15 + tier * 10;
 
     monsters.push({
       instance_id: idBase++,
-      monster_template_id: isSkeleton ? 3 : 1,
-      name: isSkeleton ? '스켈레톤' : '슬라임',
+      monster_template_id: isSkeleton ? 3 : isWolf ? 15 : 1,
+      name: isSkeleton ? '스켈레톤' : isWolf ? '늑대' : '슬라임',
       level,
       current_hp: hp,
       max_hp: hp,

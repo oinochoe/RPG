@@ -18,7 +18,7 @@ interface DamagePopup {
 
 export interface MonsterVariant {
   nameAccent: string;
-  model: 'slime' | 'goblin' | 'skeleton' | 'cactoro' | 'giant' | 'orc' | 'ghoul' | 'mushroomKing';
+  model: 'slime' | 'goblin' | 'skeleton' | 'cactoro' | 'giant' | 'orc' | 'ghoul' | 'mushroomKing' | 'wolf';
   labelHeight: number;
 }
 
@@ -68,6 +68,12 @@ export const MUSHROOM_KING_VARIANT: MonsterVariant = {
   nameAccent: '#e07ad0',
   model: 'mushroomKing',
   labelHeight: 0.8,
+};
+
+export const WOLF_VARIANT: MonsterVariant = {
+  nameAccent: '#b8c4d4',
+  model: 'wolf',
+  labelHeight: 0.7,
 };
 
 // How long the body keeps rendering (playing its Death clip) after currentHp hits 0, before
@@ -226,7 +232,27 @@ const MUSHROOM_KING_CONFIG: RiggedMonsterConfig = {
   facingOffset: 0,
 };
 
-const MONSTER_CONFIG: Record<'goblin' | 'slime' | 'cactoro' | 'giant' | 'orc' | 'ghoul' | 'mushroomKing', RiggedMonsterConfig> = {
+// Wolf (Quaternius, CC0 — https://poly.pizza/m/P1gU3Qkr9r) — the bestiary's first real animal
+// (everything else is humanoid/undead/plant), verified before download this time (24 baked
+// clips under its own AnimalArmature|, including a proper Attack/Death/HitReact set) rather
+// than guessing from a thumbnail, per the lesson from Mushroom King's own earlier mis-pick
+// (see that config's comment above). See public/models/quaternius-wolf/License.txt.
+const WOLF_CONFIG: RiggedMonsterConfig = {
+  modelUrl: '/models/quaternius-wolf/Wolf.glb',
+  targetHeight: 0.7,
+  clips: {
+    idle: 'AnimalArmature|Idle',
+    walk: 'AnimalArmature|Walk',
+    attack: 'AnimalArmature|Attack',
+    hit: 'AnimalArmature|Idle_HitReact_Left',
+    death: 'AnimalArmature|Death',
+  },
+  attackAnimMs: 450,
+  hitAnimMs: 280,
+  facingOffset: 0,
+};
+
+const MONSTER_CONFIG: Record<'goblin' | 'slime' | 'cactoro' | 'giant' | 'orc' | 'ghoul' | 'mushroomKing' | 'wolf', RiggedMonsterConfig> = {
   goblin: GOBLIN_CONFIG,
   slime: SLIME_CONFIG,
   cactoro: CACTORO_CONFIG,
@@ -234,6 +260,7 @@ const MONSTER_CONFIG: Record<'goblin' | 'slime' | 'cactoro' | 'giant' | 'orc' | 
   orc: ORC_CONFIG,
   ghoul: GHOUL_CONFIG,
   mushroomKing: MUSHROOM_KING_CONFIG,
+  wolf: WOLF_CONFIG,
 };
 
 // Skeleton characters (KayKit - Character Pack: Skeletons) share the same rig/bone-naming

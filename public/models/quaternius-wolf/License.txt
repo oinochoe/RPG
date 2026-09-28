@@ -1,0 +1,4 @@
+Model: Wolf
+Author: Quaternius
+Source: https://poly.pizza/m/P1gU3Qkr9r
+License: CC0 1.0 (Public Domain)

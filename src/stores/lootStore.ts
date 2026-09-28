@@ -26,7 +26,7 @@ interface DropTableEntry {
 // it either), so this is the actual source of truth for what a kill can drop. Keyed by
 // monster_template_id (see FieldMonsters.ts/Dungeon.tsx's own comments for that convention:
 // 1=슬라임, 2=고블린, 3=스켈레톤, 4=가시선인장, 5=거인 군주, 6=오크, 7=구울, 8=버섯왕, 9=버섯 정령,
-// 10=사구 웜, 11=코볼트, 12=오크 궁수, 13=죽음의 기사, 14=유적의 파수병). Weights
+// 10=사구 웜, 11=코볼트, 12=오크 궁수, 13=죽음의 기사, 14=유적의 파수병, 15=늑대). Weights
 // are relative, not percentages — rollDropEntry below divides by their sum (plus each table's
 // own "nothing" weight) to get real probabilities, so they don't need to add up to 100.
 const DROP_TABLE: Record<number, DropTableEntry[]> = {
@@ -35,6 +35,15 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 15 },
     { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 12 },
     { itemTemplateId: 73, itemName: '동물 가죽', itemType: 'misc', weight: 10 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 5 },
+  ],
+  // 늑대 — a real animal, so 동물 가죽 (Animal Hide) is its own signature drop at a much
+  // higher weight than the other species that only nominally carry it.
+  15: [
+    { itemTemplateId: 7, itemName: '체력 물약', itemType: 'consumable', weight: 35 },
+    { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 15 },
+    { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 10 },
+    { itemTemplateId: 73, itemName: '동물 가죽', itemType: 'misc', weight: 20 },
     { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 5 },
   ],
   2: [
@@ -196,6 +205,7 @@ const NOTHING_WEIGHT: Record<number, number> = {
   // 죽음의 기사/유적의 파수병 — field elites always drop something, same as the tracked bosses' 0.
   13: 0,
   14: 0,
+  15: 38,
 };
 
 // The 6 boss-exclusive weapon/armor items (see the boss_exclusive_gear migration) — never

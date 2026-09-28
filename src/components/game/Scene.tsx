@@ -22,6 +22,7 @@ import {
   ORC_VARIANT,
   GHOUL_VARIANT,
   MUSHROOM_KING_VARIANT,
+  WOLF_VARIANT,
 } from './MonsterMesh';
 import { CameraRig } from './CameraRig';
 import { LightRig } from './LightRig';
@@ -77,7 +78,8 @@ function useNearbyFieldMonsterIds(monsters: MonsterInstanceSummary[]): Set<numbe
 // "share a template_id, override name/level/hp client-side" trick 고블린 대장/오크 대장 use.
 // 9-13 are the expand_monster_catalog_v1 additions (see that migration) — all reuse an
 // existing rigged body (no new GLB assets sourced for them) and get their own species
-// identity purely from monsterTint below, the same trick 대장/군주 already relies on.
+// identity purely from monsterTint below, the same trick 대장/군주 already relies on. 15 (늑대)
+// is a real new asset instead (see MonsterMesh's own WOLF_CONFIG comment).
 function fieldMonsterVariant(templateId: number) {
   if (templateId === 3) return SKELETON_VARIANT;
   if (templateId === 4) return CACTORO_VARIANT;
@@ -86,6 +88,7 @@ function fieldMonsterVariant(templateId: number) {
   if (templateId === 7) return GHOUL_VARIANT;
   if (templateId === 8) return MUSHROOM_KING_VARIANT;
   if (templateId === 9) return MUSHROOM_KING_VARIANT;
+  if (templateId === 15) return WOLF_VARIANT;
   if (templateId === 10) return CACTORO_VARIANT;
   if (templateId === 11) return GOBLIN_VARIANT;
   if (templateId === 12) return ORC_VARIANT;
