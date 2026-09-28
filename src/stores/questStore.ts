@@ -252,6 +252,111 @@ export const QUEST_DEFS: QuestDef[] = [
       '자네가 우리 다섯을 도와준 뒤로... 이상한 걸 알아챘네. 슬라임도, 스켈레톤도, 가시선인장도 — 전에 없이 사나워졌어. 던전 저 너머 평원에서 뭔가 아주 오래된 것이 눈을 떴다더군. 다섯의 슬픔이 다 그것과 이어져 있었던 건 아닐까 싶네. 자네라면... 그걸 끝낼 수 있겠나.',
     completionText: '정말로 해냈군. 이제야 이 마을들이 예전처럼 평온해지겠어. 자네가 우리 다섯의 슬픔을 다 짊어지고 여기까지 왔다는 걸, 우린 잊지 않을 걸세.',
   },
+  // The 3 newer flavor NPCs (see Village.tsx's flavorNpcs) get their own story + repeatable
+  // pair too, same shape as the original 5 — their targets lean on the expand_monster_catalog_v1
+  // additions (슬라임/코볼트/사구 웜) rather than repeating the original roster.
+  {
+    id: 12,
+    title: '빨래터의 불청객',
+    giverNpcName: '빨래하는 아낙',
+    villageName: '새벽여울',
+    targetMonsterId: 1,
+    targetMonsterName: '슬라임',
+    targetCount: 6,
+    requiredLevel: 2,
+    rewardXp: 50,
+    rewardGold: 35,
+    rewardItemId: null,
+    rewardItemName: null,
+    repeatable: false,
+    hookText: '요 며칠 빨래터에 슬라임이 자꾸 꼬여서 말이야... 미끌미끌한 게 옷에 닿으면 얼룩이 안 빠져. 좀 쫓아내 주겠나?',
+    completionText: '이제야 마음 편히 빨래를 널 수 있겠어. 고맙네.',
+  },
+  {
+    id: 13,
+    title: '방앗간 창고 지키기',
+    giverNpcName: '방앗간지기',
+    villageName: '황금이삭',
+    targetMonsterId: 11,
+    targetMonsterName: '코볼트',
+    targetCount: 5,
+    requiredLevel: 8,
+    rewardXp: 130,
+    rewardGold: 90,
+    rewardItemId: 7,
+    rewardItemName: '체력 물약',
+    repeatable: false,
+    hookText: '코볼트 놈들이 요즘 방앗간 창고를 노리는지 자꾸 얼쩡거려. 밀가루 한 톨이라도 뺏기면 이번 겨울은 정말 힘들어져. 부탁 좀 하세.',
+    completionText: '고맙네, 이제 좀 발 뻗고 자겠어. 이 방앗간, 자네 덕에 한 해 더 돌아가겠군.',
+  },
+  {
+    id: 14,
+    title: '사막 대상의 손실',
+    giverNpcName: '사막 상인',
+    villageName: '북녘등불',
+    targetMonsterId: 10,
+    targetMonsterName: '사구 웜',
+    targetCount: 5,
+    requiredLevel: 6,
+    rewardXp: 100,
+    rewardGold: 80,
+    rewardItemId: null,
+    rewardItemName: null,
+    repeatable: false,
+    hookText: '사막을 건너오다 대상 짐수레를 반이나 잃었어. 그놈의 웜들이 모래 밑에서 튀어나와서... 다음 대상이 무사히 건너오려면 그 수를 좀 줄여야 할 텐데.',
+    completionText: '이 정도면 다음 대상은 무사히 건너오겠군. 고맙네, 다음에 오면 좋은 물건을 보여주지.',
+  },
+  {
+    id: 15,
+    title: '빨래터 순찰',
+    giverNpcName: '빨래하는 아낙',
+    villageName: '새벽여울',
+    targetMonsterId: 1,
+    targetMonsterName: '슬라임',
+    targetCount: 3,
+    requiredLevel: 2,
+    rewardXp: 20,
+    rewardGold: 15,
+    rewardItemId: null,
+    rewardItemName: null,
+    repeatable: true,
+    hookText: '고맙네, 그날 이후로 한결 나아졌어. 그래도 아직 가끔 꼬이더군. 몇 마리만 더 부탁해도 될까?',
+    completionText: '고맙네, 오늘은 빨래가 뽀얗게 마르겠어.',
+  },
+  {
+    id: 16,
+    title: '창고 재점검',
+    giverNpcName: '방앗간지기',
+    villageName: '황금이삭',
+    targetMonsterId: 11,
+    targetMonsterName: '코볼트',
+    targetCount: 3,
+    requiredLevel: 8,
+    rewardXp: 55,
+    rewardGold: 40,
+    rewardItemId: null,
+    rewardItemName: null,
+    repeatable: true,
+    hookText: '그때 이후로 한결 조용해졌지. 그래도 가끔 또 얼쩡거리는 놈들이 있어서 말이야, 좀 더 살펴봐 주겠나?',
+    completionText: '역시 자네야. 이 밀가루 포대는 오늘 밤 안전하겠군.',
+  },
+  {
+    id: 17,
+    title: '대상로 정찰',
+    giverNpcName: '사막 상인',
+    villageName: '북녘등불',
+    targetMonsterId: 10,
+    targetMonsterName: '사구 웜',
+    targetCount: 3,
+    requiredLevel: 6,
+    rewardXp: 45,
+    rewardGold: 35,
+    rewardItemId: null,
+    rewardItemName: null,
+    repeatable: true,
+    hookText: '그 뒤로 대상이 훨씬 편해졌다더군. 그래도 다음 무리가 오기 전에 한 번 더 길을 봐주면 고맙겠네.',
+    completionText: '고맙네, 다음 대상도 무사히 지나가겠어.',
+  },
 ];
 
 /** Whether every one of the 5 NPC story quests has been turned in — the single gate the main
@@ -284,13 +389,13 @@ export function findQuestDef(questId: number): QuestDef | undefined {
 
 // One-line flavor for the purely decorative NPCs (see Village.tsx's flavorNpcs) that have no
 // quest of their own — QuestPanel's own no-quest fallback used to say the same generic line
-// for every nameless NPC in the game; giving each of these four its own voice is the cheap
-// half of "NPC 스토리도 늘리고" that doesn't need a whole new quest_templates row per NPC.
+// for every nameless NPC in the game. 빨래하는 아낙/방앗간지기/사막 상인 graduated out of this
+// list once they got real quests (ids 12-17 above) — findQuestByGiver always resolves to
+// something for them now (story until done, then their own repeatable), so this fallback
+// would never actually be reached for those three anymore. 여관 주인 is the one flavor NPC
+// still genuinely quest-less.
 export const NPC_FLAVOR_TEXT: Record<string, string> = {
   '여관 주인': '여긴 뜨내기가 별로 없어... 그래도 방은 늘 비워두고 있으니, 지친 다리 쉬어가게.',
-  '빨래하는 아낙': '이 강물이 참 맑지... 매일 새벽 여기서 빨래를 하다 보면 이 마을 사정을 다 알게 된다네. 저 위에 촌장님, 아직도 그 자리에 꽃을 놓으시더군.',
-  '방앗간지기': '이 방앗간, 할아버지 때부터 돌아가고 있지. 풍년이든 흉년이든 밀은 갈아야 하니까 말이야.',
-  '사막 상인': '사막 너머에서 왔네. 요즘 그쪽 길이 흉흉해져서... 무사히 온 것만도 다행이지.',
 };
 
 interface QuestState {
