@@ -75,6 +75,9 @@ function useNearbyFieldMonsterIds(monsters: MonsterInstanceSummary[]): Set<numbe
 // MonsterMesh itself falls back to), 3 = skeleton, 4 = 가시선인장 (desert-only), 5 = Giant —
 // reused here for 태고의 거인, the field's own world boss (see buildWorldBoss), the same
 // "share a template_id, override name/level/hp client-side" trick 고블린 대장/오크 대장 use.
+// 9-13 are the expand_monster_catalog_v1 additions (see that migration) — all reuse an
+// existing rigged body (no new GLB assets sourced for them) and get their own species
+// identity purely from monsterTint below, the same trick 대장/군주 already relies on.
 function fieldMonsterVariant(templateId: number) {
   if (templateId === 3) return SKELETON_VARIANT;
   if (templateId === 4) return CACTORO_VARIANT;
@@ -82,6 +85,11 @@ function fieldMonsterVariant(templateId: number) {
   if (templateId === 6) return ORC_VARIANT;
   if (templateId === 7) return GHOUL_VARIANT;
   if (templateId === 8) return MUSHROOM_KING_VARIANT;
+  if (templateId === 9) return MUSHROOM_KING_VARIANT;
+  if (templateId === 10) return CACTORO_VARIANT;
+  if (templateId === 11) return GOBLIN_VARIANT;
+  if (templateId === 12) return ORC_VARIANT;
+  if (templateId === 13) return SKELETON_VARIANT;
   return undefined;
 }
 
@@ -105,15 +113,26 @@ function monsterScale(name: string): number {
   if (name.includes('거인')) return 1.0;
   if (name.includes('군주')) return 1.7;
   if (name.includes('대장')) return 1.3;
+  // 죽음의 기사 (see FieldMonsters.ts's buildBoneFieldMonsters) — a field elite well above the
+  // regular 해골 전사 it's reskinned from (Lv16 vs Lv5), sized to read as a real threat without
+  // going all the way to a 군주-scale boss.
+  if (name === '죽음의 기사') return 1.4;
   return 1;
 }
 
 // Elites get a color tint (multiplied onto the base material) instead of a separate model —
 // darker/redder the higher-ranked the monster, so a 군주 reads as visually tougher than a
-// 대장 at a glance even before its bigger scale/health bar register.
+// 대장 at a glance even before its bigger scale/health bar register. The expand_monster_catalog_v1
+// additions (9-13) reuse this same mechanism for their own species identity — see
+// fieldMonsterVariant's comment above.
 function monsterTint(name: string): THREE.ColorRepresentation | undefined {
   if (name.includes('군주')) return '#8a1f2b';
   if (name.includes('대장')) return '#c4553a';
+  if (name === '버섯 정령') return '#e6a8d0';
+  if (name === '사구 웜') return '#c9a15a';
+  if (name === '코볼트') return '#7a92a8';
+  if (name === '오크 궁수') return '#3f6b3a';
+  if (name === '죽음의 기사') return '#4a2d5c';
   return undefined;
 }
 

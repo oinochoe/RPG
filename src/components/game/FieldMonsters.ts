@@ -42,6 +42,13 @@ const DESERT_MONSTER_COUNT = 35;
 const DESERT_SCATTER_SEED = 21;
 const DESERT_MONSTER_LEVEL = 3;
 const DESERT_MONSTER_HP = 75;
+// 사구 웜 (expand_monster_catalog_v1, monster_template_id 10) — the deeper 40% of the desert
+// band (closer to DESERT_X_END, farther from the river crossing) gets this tougher variant
+// instead of more 가시선인장, so wandering further into the dunes actually escalates rather
+// than staying flat at the same difficulty the whole width of the zone.
+const DUNE_WORM_LEVEL = 6;
+const DUNE_WORM_HP = 130;
+const DUNE_DEEP_THRESHOLD = 0.6;
 
 function buildDesertMonsters(idBaseStart: number): MonsterInstanceSummary[] {
   const rng = mulberry32(DESERT_SCATTER_SEED);
@@ -53,13 +60,15 @@ function buildDesertMonsters(idBaseStart: number): MonsterInstanceSummary[] {
     const x = DESERT_X_START + rng() * (DESERT_X_END - DESERT_X_START);
     const z = (rng() - 0.5) * FIELD_EXTENT;
     if (Math.hypot(x, z) > DESERT_X_END) continue;
+    const depthRatio = (x - DESERT_X_START) / (DESERT_X_END - DESERT_X_START);
+    const isDeep = depthRatio >= DUNE_DEEP_THRESHOLD;
     monsters.push({
       instance_id: idBase++,
-      monster_template_id: 4,
-      name: '가시선인장',
-      level: DESERT_MONSTER_LEVEL,
-      current_hp: DESERT_MONSTER_HP,
-      max_hp: DESERT_MONSTER_HP,
+      monster_template_id: isDeep ? 10 : 4,
+      name: isDeep ? '사구 웜' : '가시선인장',
+      level: isDeep ? DUNE_WORM_LEVEL : DESERT_MONSTER_LEVEL,
+      current_hp: isDeep ? DUNE_WORM_HP : DESERT_MONSTER_HP,
+      max_hp: isDeep ? DUNE_WORM_HP : DESERT_MONSTER_HP,
       position_x: Math.round(x * 10) / 10,
       position_y: 0,
       position_z: Math.round(z * 10) / 10,
@@ -79,6 +88,12 @@ const OUTER_MONSTER_HP = 110;
 const GHOUL_MONSTER_LEVEL = 7;
 const GHOUL_MONSTER_HP = 150;
 
+// 버섯 정령 (expand_monster_catalog_v1, monster_template_id 9) — a weaker, more common sibling
+// of 버섯왕 filling out 요정의 숲 so it's not one species at one flat level; two spawns in three
+// are the sprite, same "regular vs. named-tier" ratio the dungeon captain rooms use.
+const MUSHROOM_SPRITE_LEVEL = 4;
+const MUSHROOM_SPRITE_HP = 65;
+
 function buildFairyForestMonsters(idBaseStart: number): MonsterInstanceSummary[] {
   const rng = mulberry32(31);
   const monsters: MonsterInstanceSummary[] = [];
@@ -89,13 +104,14 @@ function buildFairyForestMonsters(idBaseStart: number): MonsterInstanceSummary[]
     const x = -FIELD_HALF + rng() * (DESERT_X_END + FIELD_HALF);
     const z = OUTER_ZONE_BOUND + rng() * (FIELD_HALF - OUTER_ZONE_BOUND);
     if (!inFairyForestZone(x, z)) continue;
+    const isKing = monsters.length % 3 === 0;
     monsters.push({
       instance_id: idBase++,
-      monster_template_id: 8,
-      name: '버섯왕',
-      level: OUTER_MONSTER_LEVEL,
-      current_hp: OUTER_MONSTER_HP,
-      max_hp: OUTER_MONSTER_HP,
+      monster_template_id: isKing ? 8 : 9,
+      name: isKing ? '버섯왕' : '버섯 정령',
+      level: isKing ? OUTER_MONSTER_LEVEL : MUSHROOM_SPRITE_LEVEL,
+      current_hp: isKing ? OUTER_MONSTER_HP : MUSHROOM_SPRITE_HP,
+      max_hp: isKing ? OUTER_MONSTER_HP : MUSHROOM_SPRITE_HP,
       position_x: Math.round(x * 10) / 10,
       position_y: 0,
       position_z: Math.round(z * 10) / 10,
@@ -103,6 +119,14 @@ function buildFairyForestMonsters(idBaseStart: number): MonsterInstanceSummary[]
   }
   return monsters;
 }
+
+// 코볼트/오크 궁수 (expand_monster_catalog_v1, monster_template_ids 11/12) — mixed into 오크
+// 마을 alongside the regular 오크 so the zone has more than one silhouette in it; both reuse an
+// existing rigged body via Scene.tsx's fieldMonsterVariant/monsterTint, same as 버섯 정령/사구 웜.
+const KOBOLD_LEVEL = 8;
+const KOBOLD_HP = 170;
+const ORC_ARCHER_LEVEL = 9;
+const ORC_ARCHER_HP = 190;
 
 function buildOrcVillageMonsters(idBaseStart: number): MonsterInstanceSummary[] {
   const rng = mulberry32(32);
@@ -117,13 +141,18 @@ function buildOrcVillageMonsters(idBaseStart: number): MonsterInstanceSummary[] 
     // 오크 소굴's entrance sits inside this zone (see worldColliders.ts's DUNGEON_ENTRANCES) —
     // keep monsters off the cave mouth same as the field's own inCaveClearZone use.
     if (inCaveClearZone(x, z)) continue;
+    const slot = monsters.length % 4;
+    const templateId = slot === 0 ? 11 : slot === 1 ? 12 : 6;
+    const name = slot === 0 ? '코볼트' : slot === 1 ? '오크 궁수' : '오크';
+    const level = slot === 0 ? KOBOLD_LEVEL : slot === 1 ? ORC_ARCHER_LEVEL : OUTER_MONSTER_LEVEL;
+    const hp = slot === 0 ? KOBOLD_HP : slot === 1 ? ORC_ARCHER_HP : OUTER_MONSTER_HP;
     monsters.push({
       instance_id: idBase++,
-      monster_template_id: 6,
-      name: '오크',
-      level: OUTER_MONSTER_LEVEL,
-      current_hp: OUTER_MONSTER_HP,
-      max_hp: OUTER_MONSTER_HP,
+      monster_template_id: templateId,
+      name,
+      level,
+      current_hp: hp,
+      max_hp: hp,
       position_x: Math.round(x * 10) / 10,
       position_y: 0,
       position_z: Math.round(z * 10) / 10,
@@ -131,6 +160,13 @@ function buildOrcVillageMonsters(idBaseStart: number): MonsterInstanceSummary[] 
   }
   return monsters;
 }
+
+// 죽음의 기사 (expand_monster_catalog_v1, monster_template_id 13) — one guaranteed field elite
+// per session, well above the zone's regular 해골 전사 (Lv16 vs Lv5). Converted from the last
+// scattered position the rejection-sampling loop below already produced, rather than a second
+// hardcoded coordinate, so it's always a valid in-zone spot with no extra bounds-checking.
+const DEATH_KNIGHT_LEVEL = 16;
+const DEATH_KNIGHT_HP = 670;
 
 function buildBoneFieldMonsters(idBaseStart: number): MonsterInstanceSummary[] {
   const rng = mulberry32(33);
@@ -153,6 +189,14 @@ function buildBoneFieldMonsters(idBaseStart: number): MonsterInstanceSummary[] {
       position_y: 0,
       position_z: Math.round(z * 10) / 10,
     });
+  }
+  const elite = monsters[monsters.length - 1];
+  if (elite) {
+    elite.monster_template_id = 13;
+    elite.name = '죽음의 기사';
+    elite.level = DEATH_KNIGHT_LEVEL;
+    elite.current_hp = DEATH_KNIGHT_HP;
+    elite.max_hp = DEATH_KNIGHT_HP;
   }
   return monsters;
 }

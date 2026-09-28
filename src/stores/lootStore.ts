@@ -25,7 +25,8 @@ interface DropTableEntry {
 // monster_drop_templates table exists in the schema but was never populated (nothing reads
 // it either), so this is the actual source of truth for what a kill can drop. Keyed by
 // monster_template_id (see FieldMonsters.ts/Dungeon.tsx's own comments for that convention:
-// 1=슬라임, 2=고블린, 3=스켈레톤, 4=가시선인장, 5=거인 군주, 6=오크, 7=구울, 8=버섯왕). Weights
+// 1=슬라임, 2=고블린, 3=스켈레톤, 4=가시선인장, 5=거인 군주, 6=오크, 7=구울, 8=버섯왕, 9=버섯 정령,
+// 10=사구 웜, 11=코볼트, 12=오크 궁수, 13=죽음의 기사). Weights
 // are relative, not percentages — rollDropEntry below divides by their sum (plus each table's
 // own "nothing" weight) to get real probabilities, so they don't need to add up to 100.
 const DROP_TABLE: Record<number, DropTableEntry[]> = {
@@ -113,12 +114,76 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 67, itemName: '에메랄드', itemType: 'misc', weight: 5 },
     { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 8 },
   ],
+  // 버섯 정령 (expand_monster_catalog_v1) — 버섯왕(8)'s weaker sibling gets a thinned-down
+  // version of the same table, no weapon chance.
+  9: [
+    { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 30 },
+    { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 10 },
+    { itemTemplateId: 67, itemName: '에메랄드', itemType: 'misc', weight: 4 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 5 },
+  ],
+  // 사구 웜 (expand_monster_catalog_v1) — the desert's deeper-band monster, one tier up from
+  // 가시선인장(4)'s own table.
+  10: [
+    { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 45 },
+    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 25 },
+    { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 12 },
+    { itemTemplateId: 64, itemName: '사파이어', itemType: 'misc', weight: 6 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 7 },
+  ],
+  // 코볼트 (expand_monster_catalog_v1) — mixed into 오크 마을; a lighter version of 오크(6)'s
+  // table without the weapon chance.
+  11: [
+    { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 35 },
+    { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 20 },
+    { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 12 },
+    { itemTemplateId: 75, itemName: '철 덩어리', itemType: 'misc', weight: 10 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 7 },
+  ],
+  // 오크 궁수 (expand_monster_catalog_v1) — the other 오크 마을 mix-in, keeps 오크(6)'s own
+  // weapon chance since it's the same rough power tier.
+  12: [
+    { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 35 },
+    { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 20 },
+    { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 12 },
+    { itemTemplateId: 11, itemName: '사냥꾼의 장궁', itemType: 'weapon', weight: 6 },
+    { itemTemplateId: 75, itemName: '철 덩어리', itemType: 'misc', weight: 10 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 7 },
+  ],
+  // 죽음의 기사 (expand_monster_catalog_v1) — a real field elite (Lv16/670hp, see
+  // FieldMonsters.ts's buildBoneFieldMonsters), so its table sits a clear step above every
+  // other DROP_TABLE entry: always drops (see NOTHING_WEIGHT below), decent shot at the
+  // premium consumables/materials, and a real (if modest) chance at the rare scroll.
+  13: [
+    { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 40 },
+    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
+    { itemTemplateId: 60, itemName: '강화 초록 물약', itemType: 'consumable', weight: 10 },
+    { itemTemplateId: 76, itemName: '미스릴', itemType: 'misc', weight: 8 },
+    { itemTemplateId: 65, itemName: '상급 사파이어', itemType: 'misc', weight: 8 },
+    { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 12 },
+  ],
 };
 
 // The remaining share of each table's total roll that means "no drop" — e.g. slime's 40
 // against its own 60 (45+15) of real entries means a 40% chance of nothing, 45% health
 // potion, 15% mana potion. The boss (5) always drops something.
-const NOTHING_WEIGHT: Record<number, number> = { 1: 40, 2: 35, 3: 35, 4: 40, 5: 0, 6: 40, 7: 35, 8: 40 };
+const NOTHING_WEIGHT: Record<number, number> = {
+  1: 40,
+  2: 35,
+  3: 35,
+  4: 40,
+  5: 0,
+  6: 40,
+  7: 35,
+  8: 40,
+  9: 45,
+  10: 35,
+  11: 35,
+  12: 35,
+  // 죽음의 기사 — a field elite always drops something, same as the tracked bosses' 0.
+  13: 0,
+};
 
 // The 6 boss-exclusive weapon/armor items (see the boss_exclusive_gear migration) — never
 // sold in the shop (buy_price 0), only reachable through this pool. Low weight each so a
