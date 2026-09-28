@@ -240,16 +240,22 @@ export const SKILLS_BY_CLASS: Record<CharacterProfile['character_class'], SkillD
     { id: 1, name: '강타', mpCost: 15, cooldownMs: 4000, baseDamageMultiplier: 2.5, requiredLevel: 1, type: 'single', fxColor: '#ffcf5c' },
     { id: 4, name: '연속베기', mpCost: 8, cooldownMs: 2000, baseDamageMultiplier: 1.3, requiredLevel: 1, type: 'single', fxColor: '#ff9f4a' },
     { id: 5, name: '대지진동', mpCost: 25, cooldownMs: 8000, baseDamageMultiplier: 1.6, requiredLevel: 5, type: 'aoe', aoeRadius: 3.5, fxColor: '#c26a2b' },
+    // Awakening skill (add_tier3_awakening_skills) — unlocks at the same Lv30 milestone the
+    // "royal" gear tier does, so the two land together as one real power spike instead of
+    // gear and skills advancing on separate, disconnected schedules.
+    { id: 10, name: '필살의 일격', mpCost: 35, cooldownMs: 12000, baseDamageMultiplier: 3.5, requiredLevel: 30, type: 'single', fxColor: '#ff3c3c' },
   ],
   archer: [
     { id: 2, name: '관통사격', mpCost: 15, cooldownMs: 4000, baseDamageMultiplier: 2.0, requiredLevel: 1, type: 'single', fxColor: '#eaffb0' },
     { id: 6, name: '속사', mpCost: 8, cooldownMs: 2000, baseDamageMultiplier: 1.2, requiredLevel: 1, type: 'single', fxColor: '#bfffd8' },
     { id: 7, name: '산탄사격', mpCost: 22, cooldownMs: 7000, baseDamageMultiplier: 1.4, requiredLevel: 5, type: 'aoe', aoeRadius: 3, fxColor: '#7be08a' },
+    { id: 11, name: '폭풍의 화살', mpCost: 32, cooldownMs: 11000, baseDamageMultiplier: 2.0, requiredLevel: 30, type: 'aoe', aoeRadius: 4, fxColor: '#3cffb0' },
   ],
   mage: [
     { id: 3, name: '파이어볼', mpCost: 20, cooldownMs: 5000, baseDamageMultiplier: 2.2, requiredLevel: 1, type: 'single', fxColor: '#ff6a2b' },
     { id: 8, name: '매직미사일', mpCost: 10, cooldownMs: 2000, baseDamageMultiplier: 1.3, requiredLevel: 1, type: 'single', fxColor: '#c084fc' },
     { id: 9, name: '블리자드', mpCost: 30, cooldownMs: 9000, baseDamageMultiplier: 1.7, requiredLevel: 5, type: 'aoe', aoeRadius: 3.5, fxColor: '#7ec8ff' },
+    { id: 12, name: '메테오', mpCost: 40, cooldownMs: 13000, baseDamageMultiplier: 2.5, requiredLevel: 30, type: 'aoe', aoeRadius: 4.5, fxColor: '#ff3c00' },
   ],
 };
 
