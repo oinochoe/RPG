@@ -226,12 +226,16 @@ export function inVillageClearZone(x: number, z: number): boolean {
 // before; the 2 new ones sit inside their matching outer-ring zone (오크 소굴 in 오크 마을,
 // 저주받은 묘지 in 구울 평원) so reaching them is itself part of that zone's danger. A clear
 // zone around each keeps rocks/trees/monsters from spawning on top of the entrance decoration.
-export type DungeonId = 'ruined_catacombs' | 'orc_stronghold' | 'ghoul_crypt';
+export type DungeonId = 'ruined_catacombs' | 'orc_stronghold' | 'ghoul_crypt' | 'mushroom_den';
 
 export const DUNGEON_ENTRANCES: Record<DungeonId, { point: [number, number]; radius: number }> = {
   ruined_catacombs: { point: [34, 22], radius: 1.8 },
   orc_stronghold: { point: [50, -270], radius: 1.8 },
   ghoul_crypt: { point: [270, 90], radius: 1.8 },
+  // 요정의 숲 (the one outer zone that previously had no dungeon of its own) — z=260 clears
+  // fairyForestEdgeAt's own meander (200 ± 30, see ZONE_MEANDER_AMPLITUDE) at every x, and
+  // x=0 stays well under DESERT_X_END so it's never mistaken for being in the desert band.
+  mushroom_den: { point: [0, 260], radius: 1.8 },
 };
 
 // Kept for existing single-entrance callers (characterStore's blink-scroll clear check,

@@ -824,7 +824,7 @@ charactersRoutes.get("/me", async (c) => {
 // Boss keys the client may report a kill for — mirrors boss_respawn_hours in the boss_kill_state
 // migration. Kept in sync manually since there's no shared-constants import between the DB and
 // this edge function.
-const VALID_BOSS_KEYS = ["world_boss", "ruined_catacombs", "orc_stronghold", "ghoul_crypt"];
+const VALID_BOSS_KEYS = ["world_boss", "ruined_catacombs", "orc_stronghold", "ghoul_crypt", "mushroom_den"];
 
 function mapBossKillRpcError(message: string | undefined): ApiError {
   if (message?.includes("character_not_found")) {

@@ -29,7 +29,7 @@ export const CELL_SIZE = 4;
 
 /** Name + floor count per dungeon (see worldColliders.ts's DUNGEON_ENTRANCES for each one's
  * field position). Floor SHAPES (FLOOR_PLANS below) are a shared pool reused by every
- * dungeon via `planForFloor`'s modulo — the 3 dungeons never render side by side, so a
+ * dungeon via `planForFloor`'s modulo — the 4 dungeons never render side by side, so a
  * repeated shape between two different dungeons is invisible to the player. Only a given
  * dungeon's OWN maxFloor governs when ITS chain actually ends (getFloorRects/getExitTrigger
  * both take maxFloor explicitly instead of assuming one dungeon-wide constant). */
@@ -37,6 +37,7 @@ export const DUNGEON_META: Record<DungeonId, { name: string; maxFloor: number }>
   ruined_catacombs: { name: '무너진 유적', maxFloor: 6 },
   orc_stronghold: { name: '오크 소굴', maxFloor: 4 },
   ghoul_crypt: { name: '저주받은 묘지', maxFloor: 5 },
+  mushroom_den: { name: '요정의 버섯굴', maxFloor: 4 },
 };
 
 // The size of the shared floor-SHAPE pool (see FLOOR_PLANS below) — NOT any one dungeon's own
@@ -309,7 +310,7 @@ interface DungeonRosterConfig {
   bossName: string;
 }
 
-// 3 dungeons' rosters — see DUNGEON_META for names/floor counts. Boss/captain both reuse the
+// 4 dungeons' rosters — see DUNGEON_META for names/floor counts. Boss/captain both reuse the
 // same field monster model at higher stats (same "거인 군주 aside, the strong one is just a
 // tougher version of the regular" pattern the original dungeon already used for 고블린 대장),
 // so orc_stronghold/ghoul_crypt need no new assets beyond the field monsters already sourced.
@@ -343,6 +344,20 @@ const DUNGEON_ROSTERS: Record<DungeonId, DungeonRosterConfig> = {
     captainName: '구울 대장',
     bossTemplateId: 7,
     bossName: '구울 군주',
+  },
+  // 요정의 버섯굴 — reuses 버섯 정령/버섯왕 (monster_template_ids 9/8, see
+  // expand_monster_catalog_v1), the same two templates FieldMonsters.ts's own
+  // buildFairyForestMonsters mixes for 요정의 숲, so this dungeon needed no new assets either.
+  mushroom_den: {
+    regularTemplateId: 9,
+    regularName: '버섯 정령',
+    secondaryTemplateId: 8,
+    secondaryName: '버섯왕',
+    secondaryFromFloor: 2,
+    captainTemplateId: 9,
+    captainName: '버섯 대장',
+    bossTemplateId: 9,
+    bossName: '버섯 군주',
   },
 };
 
@@ -447,6 +462,7 @@ const DUNGEON_ID_OFFSET: Record<DungeonId, number> = {
   ruined_catacombs: 0,
   orc_stronghold: 10_000,
   ghoul_crypt: 20_000,
+  mushroom_den: 30_000,
 };
 
 const COLLIDER_RADIUS = 1.3;
@@ -578,7 +594,7 @@ function FloorMarker({ position, color }: { position: [number, number]; color: s
 /**
  * A self-contained dungeon floor — a genuinely separate instance (unlike the village), so it
  * reuses near-origin coordinates freely for every floor, even across different dungeons (see
- * DUNGEON_META/worldColliders.ts's DUNGEON_ENTRANCES for the 3 dungeons this now renders — they
+ * DUNGEON_META/worldColliders.ts's DUNGEON_ENTRANCES for the 4 dungeons this now renders — they
  * never load at once, so sharing coordinate space is invisible). A chain of rooms (3-5, see
  * FLOOR_PLANS, a shared shape pool every dungeon draws from) linked by winding corridors, a
  * different shape per floor; the entry doorway always leads back toward the field (floor 1) or

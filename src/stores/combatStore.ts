@@ -218,7 +218,7 @@ export function skillDamageMultiplier(baseDamageMultiplier: number, skillLevel: 
   return baseDamageMultiplier * (1 + (skillLevel - 1) * 0.1);
 }
 
-// The 4 tracked unique bosses (see boss_kill_state migration's boss_respawn_hours) — matched
+// The 5 tracked unique bosses (see boss_kill_state migration's boss_respawn_hours) — matched
 // by name since monster instances have no stable "is a tracked boss" flag of their own.
 // Shared by: this file (suppressing the plain 8s local respawn below for boss kills, since
 // their real comeback is server-gated), FieldMonsters.ts/Dungeon.tsx (skip spawning one that's
@@ -228,6 +228,7 @@ export const BOSS_KEY_BY_NAME: Record<string, string> = {
   '거인 군주': 'ruined_catacombs',
   '오크 군주': 'orc_stronghold',
   '구울 군주': 'ghoul_crypt',
+  '버섯 군주': 'mushroom_den',
 };
 
 export function isBossOnCooldown(name: string, cooldowns: { boss_key: string; available_at: string | null }[] | undefined): boolean {

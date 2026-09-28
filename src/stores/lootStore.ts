@@ -188,7 +188,7 @@ const NOTHING_WEIGHT: Record<number, number> = {
 // The 6 boss-exclusive weapon/armor items (see the boss_exclusive_gear migration) — never
 // sold in the shop (buy_price 0), only reachable through this pool. Low weight each so a
 // single boss kill only has a modest chance at any specific one; shared verbatim across all
-// 4 boss tables below so every boss can drop any class's gear (a warrior who only ever fights
+// 5 boss tables below so every boss can drop any class's gear (a warrior who only ever fights
 // 오크 군주 shouldn't be locked out of 태고의 파쇄검 just because that's nominally a "different"
 // boss's table).
 const BOSS_EXCLUSIVE_GEAR_ENTRIES: DropTableEntry[] = [
@@ -200,7 +200,7 @@ const BOSS_EXCLUSIVE_GEAR_ENTRIES: DropTableEntry[] = [
   { itemTemplateId: 56, itemName: '그림자 군주의 은신 갑옷', itemType: 'armor', weight: 3 },
 ];
 
-// The top tier of each gem line plus 미스릴/강화 초록 물약 — same "shared across all 4 boss
+// The top tier of each gem line plus 미스릴/강화 초록 물약 — same "shared across all 5 boss
 // tables" reasoning as BOSS_EXCLUSIVE_GEAR_ENTRIES above, just for the catalog's premium
 // misc/consumable loot rather than the class gear.
 const BOSS_PREMIUM_LOOT_ENTRIES: DropTableEntry[] = [
@@ -212,10 +212,10 @@ const BOSS_PREMIUM_LOOT_ENTRIES: DropTableEntry[] = [
   { itemTemplateId: 76, itemName: '미스릴', itemType: 'misc', weight: 6 },
 ];
 
-// Keyed by monster NAME rather than monster_template_id — templates 5/6/7 are each shared
+// Keyed by monster NAME rather than monster_template_id — templates 5/6/7/9 are each shared
 // between a boss and a regular/captain-tier monster (see FieldMonsters.ts/Dungeon.tsx's own
 // comments on this), so a template-keyed table would leak the boss-exclusive gear pool to
-// every regular kill of that species too. Only the 4 tracked unique bosses (see combatStore's
+// every regular kill of that species too. Only the 5 tracked unique bosses (see combatStore's
 // BOSS_KEY_BY_NAME) get a table here; everything else still resolves through DROP_TABLE by
 // monster_template_id as before.
 const BOSS_DROP_TABLE: Record<string, DropTableEntry[]> = {
@@ -252,6 +252,17 @@ const BOSS_DROP_TABLE: Record<string, DropTableEntry[]> = {
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
     { itemTemplateId: 15, itemName: '순간이동 주문서', itemType: 'scroll', weight: 12 },
     { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 5 },
+    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    ...BOSS_EXCLUSIVE_GEAR_ENTRIES,
+    ...BOSS_PREMIUM_LOOT_ENTRIES,
+  ],
+  // 버섯 군주 — 요정의 버섯굴's final boss, a magic-leaning table matching 버섯왕(8)'s own field
+  // table (mana potions + a rare staff) rather than 구울 군주's grimmer one.
+  '버섯 군주': [
+    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 50 },
+    { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 25 },
+    { itemTemplateId: 10, itemName: '대현자의 지팡이', itemType: 'weapon', weight: 8 },
+    { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 10 },
     { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
     ...BOSS_EXCLUSIVE_GEAR_ENTRIES,
     ...BOSS_PREMIUM_LOOT_ENTRIES,
@@ -297,7 +308,7 @@ interface LootState {
   drops: WorldDrop[];
   nextId: number;
   /** No-op if the roll comes up empty — see DROP_TABLE/NOTHING_WEIGHT (or BOSS_DROP_TABLE for
-   * one of the 4 tracked unique bosses, matched by name). Called once per kill (see
+   * one of the 5 tracked unique bosses, matched by name). Called once per kill (see
    * CharacterMesh's handleAttackResult) with that monster's own death position. */
   rollDrop: (monsterTemplateId: number, monsterName: string, position: [number, number, number]) => void;
   /** Called on a successful pickup (see CharacterMesh's F4 handler) or by ItemDropMesh once

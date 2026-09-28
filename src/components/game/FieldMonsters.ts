@@ -104,6 +104,9 @@ function buildFairyForestMonsters(idBaseStart: number): MonsterInstanceSummary[]
     const x = -FIELD_HALF + rng() * (DESERT_X_END + FIELD_HALF);
     const z = OUTER_ZONE_BOUND + rng() * (FIELD_HALF - OUTER_ZONE_BOUND);
     if (!inFairyForestZone(x, z)) continue;
+    // 요정의 버섯굴's entrance sits inside this zone (see worldColliders.ts's DUNGEON_ENTRANCES)
+    // — same cave-mouth clearance as the orc/ghoul zones already have for their own dungeons.
+    if (inCaveClearZone(x, z)) continue;
     const isKing = monsters.length % 3 === 0;
     monsters.push({
       instance_id: idBase++,

@@ -95,12 +95,14 @@ function fieldMonsterVariant(templateId: number) {
 
 // Dungeon monster_template_id convention (see Dungeon.tsx's DUNGEON_ROSTERS): 2 = goblin
 // (ruined_catacombs' default), 3 = skeleton, 5 = its final-floor Giant boss, 6 = orc
-// (orc_stronghold's whole roster), 7 = ghoul (ghoul_crypt's whole roster).
+// (orc_stronghold's whole roster), 7 = ghoul (ghoul_crypt's whole roster), 8/9 = mushroom king/
+// sprite (mushroom_den's whole roster).
 function dungeonMonsterVariant(templateId: number) {
   if (templateId === 3) return SKELETON_VARIANT;
   if (templateId === 5) return GIANT_VARIANT;
   if (templateId === 6) return ORC_VARIANT;
   if (templateId === 7) return GHOUL_VARIANT;
+  if (templateId === 8 || templateId === 9) return MUSHROOM_KING_VARIANT;
   return GOBLIN_VARIANT;
 }
 
