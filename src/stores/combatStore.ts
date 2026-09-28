@@ -65,6 +65,20 @@ const BOSS_SKILL_DAMAGE_MULTIPLIER = 2.2;
 // without launching them somewhere absurd.
 const BOSS_KNOCKBACK_DISTANCE = 2.5;
 
+// 구울 군주's own skill flavor — poison instead of a knockback (see monsterAttackTick's
+// useSkill branch), so not every boss reads as "the same shove with bigger numbers." Ticks
+// every second for 6 seconds; damage is a fixed fraction of the boss's own attackPower,
+// captured once at application time (see PlayerCombatState.poisonDamagePerTick) rather than
+// recomputed per tick. Deliberately never lethal on its own (tickPoison clamps at 1 HP) —
+// letting a passive DOT kill the player would mean duplicating PlayerCombatEffects.tsx's own
+// death/respawn handling in a second place; a boss's plain/skill hits are still the only way
+// to actually finish the player off.
+// Exported so PlayerCombatEffects.tsx's own ticker cadence stays tied to this instead of a
+// second, separately-maintained constant.
+export const POISON_TICK_MS = 1000;
+const POISON_DURATION_MS = 6000;
+const POISON_DAMAGE_FRACTION = 0.3;
+
 export interface MonsterCombatState {
   instanceId: number;
   // Carried straight from MonsterInstanceSummary — lets a kill site (see attackNearest/
@@ -133,6 +147,15 @@ interface PlayerCombatState {
   // the total duration, so a 90s 초록 물약 and a 1800s 강화 초록 물약 would otherwise be
   // indistinguishable at the same remaining-seconds count).
   hasteStartedAt: number;
+  // performance.now() timestamp 구울 군주's own poison skill hit wears off at — 0 means no
+  // active poison. Same session-local, never-synced shape as hasteUntil/hasteStartedAt, just
+  // a debuff instead of a buff (see POISON_TICK_MS's own PoisonTicker in Scene.tsx).
+  poisonUntil: number;
+  poisonStartedAt: number;
+  // Captured when the poison is applied (from the boss's own attackPower at that moment)
+  // rather than recomputed per tick — a mid-fight equipment change shouldn't retroactively
+  // change how hard an already-applied DOT bites.
+  poisonDamagePerTick: number;
 }
 
 // Stat points granted on each level-up, spent via allocateStat.
@@ -323,6 +346,12 @@ interface CombatState {
   tickRespawns: () => void;
   /** +1 MP, capped at maxMp — ticked once per elapsed second by MpRegenTicker. */
   tickMpRegen: () => void;
+  /** Applies one poison tick (see 구울 군주's own POISON_TICK_MS) if player.poisonUntil is
+   * still in the future — no-op otherwise. Clamped to a minimum of 1 HP; see POISON_DURATION_MS's
+   * own comment for why a passive DOT is never allowed to actually kill the player. Ticked once
+   * per elapsed second by PlayerCombatEffects, the same component that already turns any
+   * currentHp drop into a floating "-N" popup, so poison ticks get that for free. */
+  tickPoison: () => void;
   /**
    * Adjusts the player's attack/defense by the given deltas without touching anything
    * else (HP, level, etc.) — called right after a successful equip/unequip API call with
@@ -510,6 +539,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     skillCooldowns: {},
     hasteUntil: 0,
     hasteStartedAt: 0,
+    poisonUntil: 0,
+    poisonStartedAt: 0,
+    poisonDamagePerTick: 0,
   },
   lastAttackAt: 0,
   castRequestId: 0,
@@ -575,6 +607,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         skillCooldowns: {},
         hasteUntil: 0,
         hasteStartedAt: 0,
+        poisonUntil: 0,
+        poisonStartedAt: 0,
+        poisonDamagePerTick: 0,
       },
       lastAttackAt: 0,
       targetId: null,
@@ -736,6 +771,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     let nextMonsters: Record<number, MonsterCombatState> | null = null;
     let currentHp = player.currentHp;
     let knockback: { dx: number; dz: number } | null = null;
+    let poisonApplied: { until: number; damagePerTick: number } | null = null;
 
     for (const monster of Object.values(monsters)) {
       if (!monster.alive) continue;
@@ -762,18 +798,33 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         lastSkillAttackAt: useSkill ? now : monster.lastSkillAttackAt,
       };
       if (useSkill) {
-        // Shove the player directly away from the monster — a real positional effect, not
-        // just a bigger damage number, so the burst hit actually reads as a different attack.
-        const pdx = playerX - monster.position[0];
-        const pdz = playerZ - monster.position[2];
-        const dist = Math.hypot(pdx, pdz) || 1;
-        knockback = { dx: (pdx / dist) * BOSS_KNOCKBACK_DISTANCE, dz: (pdz / dist) * BOSS_KNOCKBACK_DISTANCE };
+        if (monster.name === '구울 군주') {
+          // Poison instead of a shove — see POISON_TICK_MS's own comment for why this reads
+          // as a distinct pattern rather than every boss doing "the same knockback."
+          poisonApplied = { until: now + POISON_DURATION_MS, damagePerTick: Math.max(1, Math.round(monster.attackPower * POISON_DAMAGE_FRACTION)) };
+        } else {
+          // Shove the player directly away from the monster — a real positional effect, not
+          // just a bigger damage number, so the burst hit actually reads as a different attack.
+          const pdx = playerX - monster.position[0];
+          const pdz = playerZ - monster.position[2];
+          const dist = Math.hypot(pdx, pdz) || 1;
+          knockback = { dx: (pdx / dist) * BOSS_KNOCKBACK_DISTANCE, dz: (pdz / dist) * BOSS_KNOCKBACK_DISTANCE };
+        }
       }
       if (currentHp <= 0) break;
     }
 
     if (!nextMonsters) return { died: false, knockback: null };
-    set({ monsters: nextMonsters, player: { ...player, currentHp } });
+    set({
+      monsters: nextMonsters,
+      player: {
+        ...player,
+        currentHp,
+        ...(poisonApplied
+          ? { poisonUntil: poisonApplied.until, poisonStartedAt: now, poisonDamagePerTick: poisonApplied.damagePerTick }
+          : {}),
+      },
+    });
     return { died: currentHp <= 0, knockback };
   },
 
@@ -936,7 +987,9 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
   respawnPlayer: () => {
     const { player } = get();
-    set({ player: { ...player, currentHp: player.maxHp } });
+    // Dying clears the poison debuff too — a fresh life shouldn't start already ticking down
+    // from whatever was left of a boss fight that just killed the player.
+    set({ player: { ...player, currentHp: player.maxHp, poisonUntil: 0 } });
   },
 
   applyEquipmentDelta: (attackDelta, defenseDelta) => {
@@ -1012,5 +1065,11 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     const { player } = get();
     if (player.currentMp >= player.maxMp) return;
     set({ player: { ...player, currentMp: Math.min(player.maxMp, player.currentMp + 1) } });
+  },
+
+  tickPoison: () => {
+    const { player } = get();
+    if (performance.now() >= player.poisonUntil || player.currentHp <= 1) return;
+    set({ player: { ...player, currentHp: Math.max(1, player.currentHp - player.poisonDamagePerTick) } });
   },
 }));

@@ -4,7 +4,7 @@ import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { playerPosition } from './playerTransform';
 import { VILLAGE_CENTER } from './Village';
-import { useCombatStore } from '../../stores/combatStore';
+import { useCombatStore, POISON_TICK_MS } from '../../stores/combatStore';
 import { useWorldStore } from '../../stores/worldStore';
 import { formatGold } from './itemLabels';
 import { playSound } from '../../lib/sound';
@@ -25,6 +25,9 @@ const RESPAWN_POINT: [number, number] = [VILLAGE_CENTER[0], VILLAGE_CENTER[1] + 
 // frame — smooth enough at these walking speeds, and cuts the re-render churn from N
 // monsters' positions changing 60 times a second down to 10.
 const MOVEMENT_TICK_SEC = 0.1;
+// 구울 군주's poison DOT (see combatStore's tickPoison) — cadence imported from combatStore's
+// own POISON_TICK_MS rather than a second, separately-maintained constant.
+const POISON_TICK_SEC = POISON_TICK_MS / 1000;
 
 /**
  * Runs the monster-vs-player side of combat (monsters standing near the player periodically
@@ -38,6 +41,7 @@ export function PlayerCombatEffects({ fieldMonsters }: { fieldMonsters: MonsterI
   const prevHpRef = useRef(useCombatStore.getState().player.currentHp);
   const prevGoldRef = useRef(useCombatStore.getState().player.gold);
   const movementAccumRef = useRef(0);
+  const poisonAccumRef = useRef(0);
 
   function pushPopup(text: string, color: string) {
     const popup: FloatPopup = { id: Date.now() + Math.random(), text, color };
@@ -75,6 +79,12 @@ export function PlayerCombatEffects({ fieldMonsters }: { fieldMonsters: MonsterI
       const step = movementAccumRef.current;
       movementAccumRef.current = 0;
       useCombatStore.getState().tickMonsterMovement(playerPosition.x, playerPosition.z, step);
+    }
+
+    poisonAccumRef.current += delta;
+    if (poisonAccumRef.current >= POISON_TICK_SEC) {
+      poisonAccumRef.current = 0;
+      useCombatStore.getState().tickPoison();
     }
 
     const { died, knockback } = useCombatStore.getState().monsterAttackTick(playerPosition.x, playerPosition.z);
