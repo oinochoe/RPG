@@ -135,10 +135,15 @@ const TIER_COLOR_STARTER = '#8a7458';
 const TIER_COLOR_BRONZE = '#a67c52';
 const TIER_COLOR_SILVER = '#c9d6e3';
 const TIER_COLOR_GOLD = '#e8c97a';
+// Lv30 "royal" tier (add_tier3_royal_gear) — sits between the shop's own top gold tier and
+// boss-exclusive drops, so it needs its own color rather than reusing gold/boss and reading as
+// either "the same as 용사의 대검" or "somehow already a boss drop."
+const TIER_COLOR_ROYAL = '#a8b8e8';
 const TIER_COLOR_BOSS = '#f4a83a';
 
 function tierColor(requiredLevel: number): string {
   if (requiredLevel >= 35) return TIER_COLOR_BOSS;
+  if (requiredLevel >= 30) return TIER_COLOR_ROYAL;
   if (requiredLevel >= 25) return TIER_COLOR_GOLD;
   if (requiredLevel >= 15) return TIER_COLOR_SILVER;
   if (requiredLevel >= 10) return TIER_COLOR_BRONZE;
@@ -148,31 +153,40 @@ function tierColor(requiredLevel: number): string {
 const TIER_ITEMS: [name: string, path: string, requiredLevel: number][] = [
   ['기사의 장검', SWORD_PATH, 15],
   ['용사의 대검', SWORD_PATH, 25],
+  ['근위기사단장의 대검', SWORD_PATH, 30],
   ['태고의 파쇄검', SWORD_PATH, 35],
   ['비전의 지팡이', STAFF_PATH, 15],
   ['대마도사의 지팡이', STAFF_PATH, 25],
+  ['왕실 마도사의 지팡이', STAFF_PATH, 30],
   ['태고의 심판 지팡이', STAFF_PATH, 35],
   ['정예 궁수의 활', BOW_PATH, 15],
   ['바람의 활', BOW_PATH, 25],
+  ['왕실 궁병대장의 활', BOW_PATH, 30],
   ['태고의 관통궁', BOW_PATH, 35],
   ['강철 방패', SHIELD_PATH, 10],
   ['기사단의 방패', SHIELD_PATH, 20],
+  ['왕실 근위의 방패', SHIELD_PATH, 30],
   ['가죽 갑옷', BREASTPLATE_PATH, 1],
   ['사슬 갑옷', BREASTPLATE_PATH, 10],
   ['판금 갑옷', BREASTPLATE_PATH, 20],
+  ['근위기사단의 판금갑주', BREASTPLATE_PATH, 30],
   ['거인 군주의 판금 갑주', BREASTPLATE_PATH, 35],
   ['현자의 로브', ROBE_PATH, 10],
   ['대마도사의 로브', ROBE_PATH, 20],
+  ['왕실 마도사의 로브', ROBE_PATH, 30],
   ['태고의 대현자 로브', ROBE_PATH, 35],
   ['정찰병의 갑옷', VEST_PATH, 10],
   ['그림자 가죽 갑옷', VEST_PATH, 20],
+  ['왕실 정찰대의 경갑', VEST_PATH, 30],
   ['그림자 군주의 은신 갑옷', VEST_PATH, 35],
   ['가죽 모자', HELMET_PATH, 1],
   ['강철 투구', HELMET_PATH, 10],
   ['용맹의 투구', HELMET_PATH, 20],
+  ['왕실 근위의 투구', HELMET_PATH, 30],
   ['가죽 신발', BOOTS_PATH, 1],
   ['여행자의 장화', BOOTS_PATH, 10],
   ['바람의 장화', BOOTS_PATH, 20],
+  ['왕실 근위의 장화', BOOTS_PATH, 30],
 ];
 for (const [name, path, requiredLevel] of TIER_ITEMS) {
   ITEM_ICON[name] = { path, color: tierColor(requiredLevel) };
