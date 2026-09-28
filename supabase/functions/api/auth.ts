@@ -4,6 +4,15 @@ import { ApiError, readJsonBody } from "./errors.ts";
 
 export const authRoutes = new Hono();
 
+// Set REQUIRE_EMAIL_VERIFICATION=false (supabase secrets set ...) to let people sign up
+// and play right away without a mail service. Supabase's built-in mailer only delivers
+// to the project's own team members and is rate-limited to a few emails per hour, so
+// opening signups to strangers otherwise means configuring custom SMTP first
+// (Dashboard → Authentication → SMTP Settings). Defaults to true (verification on).
+function requireEmailVerification(): boolean {
+  return Deno.env.get("REQUIRE_EMAIL_VERIFICATION") !== "false";
+}
+
 authRoutes.post("/register", async (c) => {
   const { email, password } = await readJsonBody(c);
   if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
@@ -32,13 +41,14 @@ authRoutes.post("/register", async (c) => {
   }
 
   // Create the auth user via the admin API so we control `email_confirm`
-  // (left false/unconfirmed). NOTE: admin.createUser does NOT send any
+  // (left unconfirmed unless verification is switched off). NOTE: admin.createUser does NOT send any
   // email on its own — confirmed via Step 1 docs lookup — so we trigger
   // the confirmation email separately below via auth.resend().
+  const requiresVerification = requireEmailVerification();
   const { data: signUpData, error: signUpError } = await admin.auth.admin.createUser({
     email,
     password,
-    email_confirm: false,
+    email_confirm: !requiresVerification,
   });
   if (signUpError || !signUpData.user) {
     // Don't leak raw GoTrue error text to the client (schema/internals
@@ -76,12 +86,14 @@ authRoutes.post("/register", async (c) => {
   // is the documented way to (re)send a signup confirmation for an existing,
   // unconfirmed user). Don't fail registration if this errors — the user
   // row already exists; just log for observability.
-  const { error: resendError } = await admin.auth.resend({ type: "signup", email });
-  if (resendError) {
-    console.error("Failed to send signup confirmation email:", resendError.message);
+  if (requiresVerification) {
+    const { error: resendError } = await admin.auth.resend({ type: "signup", email });
+    if (resendError) {
+      console.error("Failed to send signup confirmation email:", resendError.message);
+    }
   }
 
-  return c.json({}, 201);
+  return c.json({ requires_verification: requiresVerification }, 201);
 });
 
 // Lets a user who never received (or lost) the signup confirmation email trigger

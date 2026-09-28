@@ -17,7 +17,17 @@ function loadStoredTokens(): StoredTokens | null {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as StoredTokens;
+    const parsed = JSON.parse(raw) as Partial<StoredTokens> | null;
+    // Valid JSON of the wrong shape (e.g. `{}` from an older build) would otherwise mark
+    // the session authenticated with no tokens at all.
+    if (
+      typeof parsed?.accessToken !== 'string' ||
+      typeof parsed.refreshToken !== 'string' ||
+      typeof parsed.email !== 'string'
+    ) {
+      return null;
+    }
+    return parsed as StoredTokens;
   } catch {
     return null;
   }

@@ -2,6 +2,25 @@
 
 마지막 업데이트: 2026-09-15
 
+## 다른 사람이 가입할 수 있게 하려면 (2026-09-28)
+
+Supabase 기본 메일 발송기는 **프로젝트 팀원 이메일로만** 발송되고 시간당 몇 통으로
+제한됨 → 지금 상태로는 외부인이 가입해도 인증 메일을 못 받아 로그인 불가.
+
+두 가지 방법 중 선택:
+
+1. **메일 인증 끄기 (추가 서비스 없음, 바로 가능)**
+   `supabase secrets set REQUIRE_EMAIL_VERIFICATION=false` 후 `supabase functions deploy api`.
+   가입 즉시 계정이 확인 상태로 생성되고 클라이언트가 자동 로그인 → `/characters`로 이동.
+   단점: 가짜 이메일로도 가입 가능, 비밀번호 찾기 메일도 못 보냄.
+2. **커스텀 SMTP 연결 (정식)** — Resend(무료 월 3,000통/일 100통)나 Brevo(무료 일 300통) 가입 →
+   도메인 인증 → Supabase Dashboard → Authentication → SMTP Settings에 입력.
+   Rate limit(Authentication → Rate Limits → email sent)도 올려야 함. 코드 변경 없음.
+   아래 site_url/이메일 템플릿 조치도 함께 필요.
+
+어느 쪽이든 **클라이언트를 공개 URL로 배포**(Vercel/Netlify/Cloudflare Pages 정적 배포,
+`VITE_API_BASE_URL`만 설정)해야 남이 접속 가능.
+
 ## Supabase Auth site_url / 이메일 확인 링크 — 수동 조치 필요 (2026-09-15)
 
 Phase 1 최종 전체 브랜치 리뷰에서 발견: `supabase/config.toml`의 `[auth]` 블록에

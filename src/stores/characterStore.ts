@@ -226,8 +226,13 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
   fetchCharacters: async () => {
     set({ isLoading: true });
-    const page = await charactersApi.listCharacters();
-    set({ characters: page.items, isLoading: false });
+    try {
+      const page = await charactersApi.listCharacters();
+      set({ characters: page.items });
+    } finally {
+      // Otherwise a failed fetch leaves the loading text up next to the error message.
+      set({ isLoading: false });
+    }
   },
 
   createCharacter: async (name, characterClass) => {
