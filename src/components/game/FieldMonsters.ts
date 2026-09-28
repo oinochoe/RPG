@@ -286,11 +286,15 @@ function buildRuinsGuardian(): MonsterInstanceSummary[] {
 }
 
 // The field's regular monsters are all passive (retaliate once hit — Scene.tsx/worldStore.ts
-// used to pass a flat `false` for the whole field roster) — only the world boss aggros on
-// sight, same "the one strong one is the exception" pattern the dungeon's
-// isDungeonEscortAggressive uses for its own captains/bosses.
+// used to pass a flat `false` for the whole field roster) — the world boss and the two field
+// elites (죽음의 기사/유적의 파수병) aggro on sight instead, same "the one strong one is the
+// exception" pattern the dungeon's own isDungeonEscortAggressive uses for its captains/bosses
+// (which catches theirs by a shared 대장/군주 substring — these two don't use that naming
+// convention, so they need their own explicit check). Without this, a "guardian" standing
+// exactly where AncientRuins.tsx renders its landmark would just watch the player walk past
+// it, which undercuts the "the ruins have a guardian" point of adding it at all.
 export function isFieldBossAggressive(monster: MonsterInstanceSummary): boolean {
-  return monster.name.includes('태고');
+  return monster.name.includes('태고') || monster.name === '죽음의 기사' || monster.name === '유적의 파수병';
 }
 
 /** Scattered field monsters — a level/species range that gently rewards wandering farther
