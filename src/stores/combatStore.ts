@@ -28,11 +28,23 @@ const SLOW_DURATION_MS = 4000;
 
 // Monsters notice the player (and, if already engaged, keep chasing) within this range, but
 // have to actually close to MONSTER_ATTACK_REACH before a hit can land — otherwise they'd
-// attack from a standstill without ever moving.
-const MONSTER_DETECT_RANGE = 6;
+// attack from a standstill without ever moving. Was 6, which sat BELOW archer's own attack
+// range (7, see ATTACK_RANGE_BY_CLASS) — an archer attacking from anywhere past 6 units had a
+// monster that could never even notice it was being hit, let alone retaliate, since
+// tickMonsterMovement's own chase condition requires distToPlayer <= this value. Bumped past
+// every class's attack range (archer's 7 is the largest) with a real margin, so no ranged
+// class can ever attack from a position monsters are mechanically unable to react to.
+const MONSTER_DETECT_RANGE = 8;
 const MONSTER_ATTACK_REACH = 1.3;
 const MONSTER_ATTACK_COOLDOWN_MS = 1200;
-const MONSTER_CHASE_SPEED = 2.4;
+// Was 2.4 against the player's own 6 (see CharacterMesh's MOVE_SPEED) — a monster moving at
+// 40% of the player's speed can never close distance on a player who just walks away between
+// attacks, so a ranged class (or honestly anyone willing to hit-and-retreat) could kite
+// forever and take zero retaliation. Bumped to a real fraction of player speed so sustained
+// kiting actually costs distance over time, while staying below MOVE_SPEED so a player who
+// commits to disengaging outright can still walk away — this raises the skill/positioning
+// floor for kiting rather than making it flatly impossible.
+const MONSTER_CHASE_SPEED = 4.2;
 const MONSTER_WANDER_SPEED = 1;
 // How far a PASSIVE monster will chase from its spawn point before giving up and walking
 // back. Aggressive monsters (대장/군주) skip this check entirely and chase as long as the

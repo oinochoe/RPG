@@ -538,6 +538,57 @@ describe('combatStore monsterAttackTick boss skill patterns', () => {
   });
 });
 
+// Regression coverage for the ranged-kiting balance fix: archer's own attack range (7, see
+// ATTACK_RANGE_BY_CLASS) used to exceed MONSTER_DETECT_RANGE (was 6), so a monster being shot
+// from past 6 units away could never even notice, let alone chase. tickMonsterMovement itself
+// had zero test coverage before this.
+describe('combatStore tickMonsterMovement', () => {
+  function provokedMonster(x: number): MonsterInstanceSummary {
+    return {
+      instance_id: 1,
+      monster_template_id: 1,
+      name: '슬라임',
+      level: 1,
+      current_hp: 100,
+      max_hp: 100,
+      position_x: x,
+      position_y: 0,
+      position_z: 0,
+    };
+  }
+
+  function provoke() {
+    useCombatStore.setState((s) => ({
+      monsters: { ...s.monsters, 1: { ...s.monsters[1], lastHitAt: performance.now() } },
+    }));
+  }
+
+  it('a provoked monster at archer range (7) now chases — it used to sit just past the old detect range', () => {
+    useCombatStore.getState().init(baseCharacter, [provokedMonster(7)], false);
+    provoke();
+    useCombatStore.getState().tickMonsterMovement(0, 0, 1);
+    expect(useCombatStore.getState().monsters[1].position[0]).toBeLessThan(7);
+  });
+
+  it('a provoked monster well outside detect range does not chase (only wanders near its spawn)', () => {
+    useCombatStore.getState().init(baseCharacter, [provokedMonster(50)], false);
+    provoke();
+    useCombatStore.getState().tickMonsterMovement(0, 0, 1);
+    // Wander movement is capped by MONSTER_WANDER_RADIUS/MONSTER_WANDER_SPEED — nowhere near
+    // the several units a real chase step covers in one second.
+    expect(Math.abs(useCombatStore.getState().monsters[1].position[0] - 50)).toBeLessThan(2);
+  });
+
+  it('chases at the bumped speed, not the old easily-outrun rate', () => {
+    useCombatStore.getState().init(baseCharacter, [provokedMonster(5)], false);
+    provoke();
+    useCombatStore.getState().tickMonsterMovement(0, 0, 1);
+    // At the old MONSTER_CHASE_SPEED (2.4) a 1-second tick could only close to x=2.6; the
+    // bumped speed should close meaningfully further than that in the same second.
+    expect(useCombatStore.getState().monsters[1].position[0]).toBeLessThan(2.6);
+  });
+});
+
 describe('combatStore tickPoison', () => {
   beforeEach(() => {
     useCombatStore.getState().init(baseCharacter, [], false);
