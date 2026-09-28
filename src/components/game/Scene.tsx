@@ -90,6 +90,7 @@ function fieldMonsterVariant(templateId: number) {
   if (templateId === 11) return GOBLIN_VARIANT;
   if (templateId === 12) return ORC_VARIANT;
   if (templateId === 13) return SKELETON_VARIANT;
+  if (templateId === 14) return SKELETON_VARIANT;
   return undefined;
 }
 
@@ -119,6 +120,9 @@ function monsterScale(name: string): number {
   // regular 해골 전사 it's reskinned from (Lv16 vs Lv5), sized to read as a real threat without
   // going all the way to a 군주-scale boss.
   if (name === '죽음의 기사') return 1.4;
+  // 유적의 파수병 (see FieldMonsters.ts's buildRuinsGuardian) — stands guard at AncientRuins.tsx's
+  // own landmark, sized similarly to 죽음의 기사 since it's the same rough power tier (Lv18).
+  if (name === '유적의 파수병') return 1.4;
   return 1;
 }
 
@@ -135,6 +139,9 @@ function monsterTint(name: string): THREE.ColorRepresentation | undefined {
   if (name === '코볼트') return '#7a92a8';
   if (name === '오크 궁수') return '#3f6b3a';
   if (name === '죽음의 기사') return '#4a2d5c';
+  // Cold stone-grey, matching AncientRuins.tsx's own column color rather than any of the
+  // other elites' warmer tones — this one reads as "carved from the ruins," not undead.
+  if (name === '유적의 파수병') return '#8a8578';
   return undefined;
 }
 

@@ -13,6 +13,7 @@ import {
   inBoneFieldZone,
   inGhoulFieldZone,
 } from './worldColliders';
+import { RUINS_POSITION } from './AncientRuins';
 import type { BossCooldown, MonsterInstanceSummary } from '../../types/api';
 import { isBossOnCooldown } from '../../stores/combatStore';
 
@@ -258,6 +259,31 @@ function buildWorldBoss(): MonsterInstanceSummary[] {
   ];
 }
 
+// 유적의 파수병 (expand_monster_catalog_v1 follow-up) — a fixed-position field elite guarding
+// AncientRuins.tsx's own landmark, at the exact same coordinate (imported, not duplicated) so
+// it always stands where the ruins actually render. Not a tracked boss (see combatStore's
+// BOSS_KEY_BY_NAME) — it respawns on every map load like 죽음의 기사, not gated by a server
+// cooldown, since this is meant to be "the ruins have a guardian," not a rare raid target.
+const RUINS_GUARDIAN_LEVEL = 18;
+const RUINS_GUARDIAN_HP = 900;
+const RUINS_GUARDIAN_ID = 8998;
+
+function buildRuinsGuardian(): MonsterInstanceSummary[] {
+  return [
+    {
+      instance_id: RUINS_GUARDIAN_ID,
+      monster_template_id: 14,
+      name: '유적의 파수병',
+      level: RUINS_GUARDIAN_LEVEL,
+      current_hp: RUINS_GUARDIAN_HP,
+      max_hp: RUINS_GUARDIAN_HP,
+      position_x: RUINS_POSITION[0],
+      position_y: 0,
+      position_z: RUINS_POSITION[1],
+    },
+  ];
+}
+
 // The field's regular monsters are all passive (retaliate once hit — Scene.tsx/worldStore.ts
 // used to pass a flat `false` for the whole field roster) — only the world boss aggros on
 // sight, same "the one strong one is the exception" pattern the dungeon's
@@ -317,6 +343,7 @@ export function buildFieldMonsters(bossCooldowns?: BossCooldown[]): MonsterInsta
   monsters.push(...buildBoneFieldMonsters(idBase));
   idBase += OUTER_MONSTER_COUNT;
   monsters.push(...buildGhoulFieldMonsters(idBase));
+  monsters.push(...buildRuinsGuardian());
   if (!isBossOnCooldown('태고의 거인', bossCooldowns)) {
     monsters.push(...buildWorldBoss());
   }

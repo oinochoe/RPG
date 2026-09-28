@@ -7,7 +7,10 @@ import { NameTag } from './NameTag';
 // 떴다더군", see questStore's 잊혀진 재앙). Built from primitive geometry, same choice
 // CaveEntrance.tsx already made for its own rock piles, rather than sourcing a new ruins GLB —
 // no new asset risk, and broken/tilted columns read fine as procedural shapes.
-const RUINS_POSITION: [number, number] = [285, -240];
+// Exported so FieldMonsters.ts's buildRuinsGuardian can spawn 유적의 파수병 exactly here,
+// rather than duplicating this coordinate as a second magic number that could drift out of
+// sync with where the landmark actually renders.
+export const RUINS_POSITION: [number, number] = [285, -240];
 
 interface ColumnDef {
   offset: [number, number];
