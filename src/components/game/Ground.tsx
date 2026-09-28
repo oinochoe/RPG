@@ -37,6 +37,7 @@ import {
 } from './worldColliders';
 import { Village, villageColliders } from './Village';
 import { CaveEntrance } from './CaveEntrance';
+import { AncientRuins } from './AncientRuins';
 import { FieldNpcs } from './FieldNpcs';
 
 // A bit larger than worldColliders.ts's FIELD_EXTENT (400) so the visible grass plane
@@ -458,6 +459,7 @@ export function Ground() {
 
       <Village />
       <CaveEntrance />
+      <AncientRuins />
       <FieldNpcs />
     </group>
   );
