@@ -16,9 +16,14 @@ interface UIState {
   isSystemMenuOpen: boolean;
   // Which shop NPC's catalog is currently open (null while the panel is closed).
   shopKind: ShopNpcKind | null;
+  // Which of the 3 villages that open shop belongs to (see Village.tsx's SHOP_NPCS) — all 3
+  // villages reuse the same NPC names, so ShopPanel needs this (not shopKind alone) to know
+  // which VILLAGE_BLACKSMITH_LEVEL_RANGE band to show.
+  shopVillageIndex: number | null;
   // Which shop NPC the player is currently standing close enough to talk to (null if
   // none) — set every frame by ShopProximity.tsx, read by CharacterMesh's Space handler.
   nearShopKind: ShopNpcKind | null;
+  nearShopVillageIndex: number | null;
   isQuestOpen: boolean;
   // Which flavor NPC's quest dialogue is currently open (null while the panel is closed) —
   // an NPC display name (see questStore's findQuestByGiver), same "no numeric NPC id exists
@@ -47,7 +52,7 @@ interface UIState {
   closeCharacterPanel: () => void;
   toggleInventory: () => void;
   closeInventory: () => void;
-  openShop: (kind: ShopNpcKind) => void;
+  openShop: (kind: ShopNpcKind, villageIndex: number | null) => void;
   closeShop: () => void;
   openQuest: (npcName: string) => void;
   closeQuest: () => void;
@@ -55,7 +60,7 @@ interface UIState {
   closeQuestLog: () => void;
   toggleSystemMenu: () => void;
   closeSystemMenu: () => void;
-  setNearShopKind: (kind: ShopNpcKind | null) => void;
+  setNearShopKind: (kind: ShopNpcKind | null, villageIndex: number | null) => void;
   setNearQuestNpcName: (npcName: string | null) => void;
   /** Closes the most-recently-opened panel (bound to Escape). No-op if nothing is open. */
   closeTopPanel: () => void;
@@ -118,7 +123,9 @@ export const useUIStore = create<UIState>((set) => ({
   isShopOpen: false,
   isSystemMenuOpen: false,
   shopKind: null,
+  shopVillageIndex: null,
   nearShopKind: null,
+  nearShopVillageIndex: null,
   isQuestOpen: false,
   questNpcName: null,
   nearQuestNpcName: null,
@@ -174,7 +181,8 @@ export const useUIStore = create<UIState>((set) => ({
   closeInventory: () =>
     set((s) => ({ isInventoryOpen: false, openPanelStack: popPanel(s.openPanelStack, 'inventory') })),
 
-  openShop: (kind) => set({ ...allPanelsClosedPatch(), isShopOpen: true, shopKind: kind, openPanelStack: ['shop'] }),
+  openShop: (kind, villageIndex) =>
+    set({ ...allPanelsClosedPatch(), isShopOpen: true, shopKind: kind, shopVillageIndex: villageIndex, openPanelStack: ['shop'] }),
   closeShop: () => set((s) => ({ isShopOpen: false, openPanelStack: popPanel(s.openPanelStack, 'shop') })),
 
   openQuest: (npcName) =>
@@ -209,7 +217,7 @@ export const useUIStore = create<UIState>((set) => ({
   closeSystemMenu: () =>
     set((s) => ({ isSystemMenuOpen: false, openPanelStack: popPanel(s.openPanelStack, 'systemMenu') })),
 
-  setNearShopKind: (kind) => set({ nearShopKind: kind }),
+  setNearShopKind: (kind, villageIndex) => set({ nearShopKind: kind, nearShopVillageIndex: villageIndex }),
   setNearQuestNpcName: (npcName) => set({ nearQuestNpcName: npcName }),
   setNearDropId: (dropId) => set({ nearDropId: dropId }),
 

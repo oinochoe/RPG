@@ -17,7 +17,7 @@ export function ShopProximity() {
     // Shop NPCs only exist in the village (part of the field map) — skip the check
     // entirely in the dungeon rather than risk a coincidental coordinate overlap.
     if (currentArea === 'dungeon') {
-      if (useUIStore.getState().nearShopKind !== null) useUIStore.getState().setNearShopKind(null);
+      if (useUIStore.getState().nearShopKind !== null) useUIStore.getState().setNearShopKind(null, null);
       return;
     }
 
@@ -27,7 +27,10 @@ export function ShopProximity() {
       return Math.hypot(dx, dz) < SHOP_INTERACT_RADIUS;
     });
     const kind = near?.kind ?? null;
-    if (kind !== useUIStore.getState().nearShopKind) useUIStore.getState().setNearShopKind(kind);
+    const villageIndex = near?.villageIndex ?? null;
+    if (kind !== useUIStore.getState().nearShopKind || villageIndex !== useUIStore.getState().nearShopVillageIndex) {
+      useUIStore.getState().setNearShopKind(kind, villageIndex);
+    }
   });
 
   return null;

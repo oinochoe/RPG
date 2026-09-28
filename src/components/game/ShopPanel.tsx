@@ -5,6 +5,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useDraggablePanel } from './useDraggablePanel';
 import { formatGold } from './itemLabels';
 import { ItemIcon } from './itemIcons';
+import { VILLAGE_BLACKSMITH_LEVEL_RANGE } from './Village';
 import type { CharacterProfile } from '../../types/api';
 
 const PANEL_WIDTH = 340;
@@ -156,6 +157,7 @@ function ShopRow({
 export function ShopPanel({ character }: { character: CharacterProfile }) {
   const isOpen = useUIStore((s) => s.isShopOpen);
   const shopKind = useUIStore((s) => s.shopKind);
+  const shopVillageIndex = useUIStore((s) => s.shopVillageIndex);
   const closeShop = useUIStore((s) => s.closeShop);
   const player = useCombatStore((s) => s.player);
   const shop = useCharacterStore((s) => s.shop);
@@ -191,14 +193,24 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
   // required_level) surfaces what they can actually use instead of making them scroll past
   // irrelevant-class gear to find it — a pure display reorder, buy/sell/gating logic below is
   // unchanged.
+  //
+  // Real user request: "마을마다 파는 품목도 달라야겠지?" — 대장장이 additionally filters down
+  // to this village's own VILLAGE_BLACKSMITH_LEVEL_RANGE band (see Village.tsx for why the
+  // bands overlap and why 상인 is deliberately excluded from this: 상인 sells consumables/
+  // scrolls, and gating basic potions behind a specific village would just be annoying rather
+  // than giving leveling up a reason to travel, which is the actual point for gear). Falls
+  // back to the full catalog if shopVillageIndex is somehow missing (e.g. a stale dev reload)
+  // rather than showing an empty list.
   const sortedShop = useMemo(() => {
-    return [...shop].sort((a, b) => {
+    const range = shopKind === 'blacksmith' && shopVillageIndex !== null ? VILLAGE_BLACKSMITH_LEVEL_RANGE[shopVillageIndex] : null;
+    const inRange = range ? shop.filter((item) => item.required_level >= range[0] && item.required_level <= range[1]) : shop;
+    return [...inRange].sort((a, b) => {
       const aOk = !a.required_class || a.required_class === 'all' || a.required_class === character.character_class;
       const bOk = !b.required_class || b.required_class === 'all' || b.required_class === character.character_class;
       if (aOk !== bOk) return aOk ? -1 : 1;
       return a.required_level - b.required_level;
     });
-  }, [shop, character.character_class]);
+  }, [shop, character.character_class, shopKind, shopVillageIndex]);
 
   if (!isOpen || !shopKind) return null;
 

@@ -172,16 +172,35 @@ export const villageColliders: Collider[] = VILLAGES.flatMap((zone) => [
   })),
 ]);
 
-export const SHOP_NPCS: { kind: ShopNpcKind; name: string; position: [number, number] }[] = VILLAGES.flatMap(
-  (zone, i) =>
+// villageIndex lets ShopPanel.tsx tell which village's 대장장이 the player actually walked up
+// to — all 3 villages reuse the exact same NPC names ("상인"/"대장장이"), so name alone can't
+// distinguish them the way it does for the quest-giving flavor NPCs (each of those has a
+// unique name).
+export const SHOP_NPCS: { kind: ShopNpcKind; name: string; position: [number, number]; villageIndex: number }[] =
+  VILLAGES.flatMap((zone, i) =>
     VILLAGE_CONFIGS[i].shopNpcs.map((npc) => ({
       kind: npc.kind,
       name: npc.name,
       position: [zone.center[0] + npc.offset[0], zone.center[1] + npc.offset[1]] as [number, number],
+      villageIndex: i,
     })),
-);
+  );
 
 export const SHOP_INTERACT_RADIUS = 2.5;
+
+// Real user request: "마을마다 파는 품목도 달라야겠지?" — each village's 대장장이 carries a
+// different band of the gear catalog's own required_level tiers (see ShopPanel.tsx), so
+// leveling up gives a real reason to visit the other two villages instead of every blacksmith
+// selling the identical full catalog. Bands overlap at their edges (10-15, 20-25) rather than
+// cutting hard at each tier breakpoint, so a character isn't stranded with literally nothing
+// to buy while between two villages' ranges. 새벽여울 is the starting village (lowest band);
+// 상인 (potions/scrolls) is deliberately NOT tiered this way — see ShopPanel's own comment for
+// why consumables stay available everywhere.
+export const VILLAGE_BLACKSMITH_LEVEL_RANGE: [number, number][] = [
+  [1, 15], // 새벽여울
+  [10, 25], // 황금이삭
+  [20, 30], // 북녘등불 — 30 is the top of the purchasable catalog; Lv35 is boss-exclusive drop-only
+];
 
 // Flavor NPCs that double as quest givers (see questStore's findQuestByGiver, matched by
 // name) — same flat-list shape as SHOP_NPCS, for QuestProximity.tsx to scan without knowing

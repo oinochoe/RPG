@@ -571,7 +571,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
         // as a skill now requires an explicit clicked target instead of firing at whatever's
         // nearest.
         if (ui.nearShopKind) {
-          useUIStore.getState().openShop(ui.nearShopKind);
+          useUIStore.getState().openShop(ui.nearShopKind, ui.nearShopVillageIndex);
         } else if (ui.nearQuestNpcName) {
           useUIStore.getState().openQuest(ui.nearQuestNpcName);
         }
