@@ -20,6 +20,10 @@ import { getFloorRooms, getDungeonColliders, getEntrySpawn, DUNGEON_META } from 
 import { buildFieldMonsters } from '../components/game/FieldMonsters';
 import type { BossCooldown, CharacterClass, CharacterProfile, CharacterSummary, EnchantOutcome, InventorySlot, ShopItem } from '../types/api';
 
+// See fetchShop's own comment — bumped on every call, checked after the await resolves so a
+// stale response from an already-superseded fetch can never overwrite newer shop data.
+let shopFetchRequestId = 0;
+
 // Shared by useHotbarSlot's teleport_target handling below — 'village' works from anywhere
 // (leaves the dungeon first if needed, same as walking out through its exit would, so
 // playerPosition reflects a real field position before picking the nearest village).
@@ -274,7 +278,20 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   },
 
   fetchShop: async (kind) => {
+    // Real user report: switching shop NPCs (e.g. 상인 -> 대장장이, or blacksmith -> a
+    // different village's blacksmith) flashed the PREVIOUS shop's items for a moment before
+    // the new fetch resolved — `shop` is one shared slot, so the old array just sat there
+    // rendering until this overwrote it. Clearing immediately means ShopPanel's own existing
+    // empty state shows during that window instead of the wrong shop's stock.
+    //
+    // shopFetchRequestId also guards against the (rarer, but real with real network latency)
+    // case where the player switches shops again before this call resolves — without it, an
+    // older in-flight response landing after a newer one would clobber `shop` back to the
+    // shop the player already isn't looking at anymore.
+    const requestId = ++shopFetchRequestId;
+    set({ shop: [] });
     const { items } = await charactersApi.getShop(kind);
+    if (requestId !== shopFetchRequestId) return;
     set({ shop: items });
   },
 
