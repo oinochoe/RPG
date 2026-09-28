@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
-import { Html, useAnimations, useGLTF } from '@react-three/drei';
+import { Html, Sparkles, useAnimations, useGLTF } from '@react-three/drei';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
 import { NameTag } from './NameTag';
@@ -530,6 +530,11 @@ export function MonsterMesh({
   const wasAliveRef = useRef(true);
   const facingRef = useRef(0);
   const facingGroupRef = useRef<THREE.Group>(null);
+  // 오크 군주's own warcry self-buff (see combatStore's RAGE_DURATION_MS) — toggled
+  // imperatively rather than via React state, same "ref write, no re-render" shape this
+  // file's own facing logic already uses below, since it only needs to flip rarely but must
+  // still turn back off exactly when the buff window ends, not just when rageUntil changes.
+  const rageGroupRef = useRef<THREE.Group>(null);
   const prevPosRef = useRef<[number, number, number]>([
     monster.position_x,
     monster.position_y,
@@ -569,6 +574,9 @@ export function MonsterMesh({
     }
     prevPosRef.current = live.position;
     if (facingGroupRef.current) facingGroupRef.current.rotation.y = facingRef.current;
+    if (rageGroupRef.current) {
+      rageGroupRef.current.visible = live.rageUntil !== null && performance.now() < live.rageUntil;
+    }
   });
 
   useEffect(() => {
@@ -668,6 +676,11 @@ export function MonsterMesh({
       ) : (
         <RiggedMonsterBody combat={combat} config={MONSTER_CONFIG[variant.model]} tint={tint} />
       )}
+      {/* 오크 군주's warcry aura — visibility toggled imperatively above, always mounted so
+          there's no mount/unmount hitch right as the buff window starts or ends. */}
+      <group ref={rageGroupRef} visible={false} position={[0, labelHeight / 2, 0]}>
+        <Sparkles color="#ff6a3c" count={18} scale={0.9} speed={0.5} size={3} noise={0.3} />
+      </group>
       {!dying && (
         <>
           <NameTag

@@ -11,6 +11,7 @@ import { LevelUpToast } from '../components/game/LevelUpToast';
 import { BossRespawnToast } from '../components/game/BossRespawnToast';
 import { BuffIndicator } from '../components/game/BuffIndicator';
 import { PoisonIndicator } from '../components/game/PoisonIndicator';
+import { SlowIndicator } from '../components/game/SlowIndicator';
 import { WorldMap } from '../components/game/WorldMap';
 import { MiniMap } from '../components/game/MiniMap';
 import { CharacterPanel } from '../components/game/CharacterPanel';
@@ -129,6 +130,7 @@ export function GamePage() {
       <BossRespawnToast />
       <BuffIndicator />
       <PoisonIndicator />
+      <SlowIndicator />
       <MiniMap />
       <WorldMap />
       <CharacterPanel character={activeCharacter} />

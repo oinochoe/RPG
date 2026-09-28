@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Html } from '@react-three/drei';
+import { Html, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 import { playerPosition } from './playerTransform';
 import { VILLAGE_CENTER } from './Village';
@@ -15,6 +15,24 @@ interface FloatPopup {
   id: number;
   text: string;
   color: string;
+}
+
+// One-shot VFX for each boss skill pattern that actually lands on the player (poison/slow/
+// knockback — rage is a monster self-buff, see MonsterMesh's own aura for that one instead).
+// drei's Sparkles (already a project dependency via @react-three/drei, no new asset download
+// needed — see this component's own doc comment) reads as a believable burst even though it's
+// built for continuous use, the same "borrow a library primitive instead of sourcing a real
+// VFX sprite sheet" call this project already made for Bloom/Vignette post-processing.
+const SKILL_VFX_MS = 800;
+const SKILL_VFX_CONFIG: Record<'poison' | 'slow' | 'knockback', { color: string; count: number; scale: number; speed: number }> = {
+  poison: { color: '#a8d94a', count: 30, scale: 1.2, speed: 0.4 },
+  slow: { color: '#e6a8d0', count: 26, scale: 1.1, speed: 0.3 },
+  knockback: { color: '#9a8f7a', count: 22, scale: 1.6, speed: 0.6 },
+};
+
+interface SkillBurst {
+  id: number;
+  kind: 'poison' | 'slow' | 'knockback';
 }
 
 /** A safe respawn point inside the village — dying anywhere (field or dungeon) sends the
@@ -38,6 +56,7 @@ const POISON_TICK_SEC = POISON_TICK_MS / 1000;
 export function PlayerCombatEffects({ fieldMonsters }: { fieldMonsters: MonsterInstanceSummary[] }) {
   const groupRef = useRef<THREE.Group>(null);
   const [popups, setPopups] = useState<FloatPopup[]>([]);
+  const [bursts, setBursts] = useState<SkillBurst[]>([]);
   const prevHpRef = useRef(useCombatStore.getState().player.currentHp);
   const prevGoldRef = useRef(useCombatStore.getState().player.gold);
   const movementAccumRef = useRef(0);
@@ -49,6 +68,14 @@ export function PlayerCombatEffects({ fieldMonsters }: { fieldMonsters: MonsterI
     setTimeout(() => {
       setPopups((prev) => prev.filter((p) => p.id !== popup.id));
     }, 700);
+  }
+
+  function pushSkillBurst(kind: SkillBurst['kind']) {
+    const burst: SkillBurst = { id: Date.now() + Math.random(), kind };
+    setBursts((prev) => [...prev, burst]);
+    setTimeout(() => {
+      setBursts((prev) => prev.filter((b) => b.id !== burst.id));
+    }, SKILL_VFX_MS);
   }
 
   useEffect(
@@ -87,11 +114,16 @@ export function PlayerCombatEffects({ fieldMonsters }: { fieldMonsters: MonsterI
       useCombatStore.getState().tickPoison();
     }
 
-    const { died, knockback } = useCombatStore.getState().monsterAttackTick(playerPosition.x, playerPosition.z);
+    const { died, knockback, skillEffect } = useCombatStore.getState().monsterAttackTick(playerPosition.x, playerPosition.z);
     if (knockback && !died) {
       playSound('hitHeavy', 0.55);
       const resolved = resolveMovement(playerPosition.x, playerPosition.z, knockback.dx, knockback.dz, PLAYER_COLLISION_RADIUS);
       playerPosition.set(resolved.x, 0, resolved.z);
+    }
+    // Rage has no burst here — it's a monster self-buff with no impact on the player, see
+    // MonsterMesh's own persistent aura for that one instead.
+    if (skillEffect && skillEffect !== 'rage' && !died) {
+      pushSkillBurst(skillEffect);
     }
     if (died) {
       if (useWorldStore.getState().currentArea === 'dungeon') {
@@ -104,6 +136,21 @@ export function PlayerCombatEffects({ fieldMonsters }: { fieldMonsters: MonsterI
 
   return (
     <group ref={groupRef}>
+      {bursts.map((burst) => {
+        const config = SKILL_VFX_CONFIG[burst.kind];
+        return (
+          <Sparkles
+            key={burst.id}
+            position={[0, 1, 0]}
+            color={config.color}
+            count={config.count}
+            scale={config.scale}
+            speed={config.speed}
+            size={4}
+            noise={0.4}
+          />
+        );
+      })}
       {popups.map((popup) => (
         <Html key={popup.id} position={[0, 2.1, 0]} center>
           <div

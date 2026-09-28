@@ -19,6 +19,13 @@ const RESPAWN_DELAY_MS = 8000;
 export const HASTE_MOVE_SPEED_MULTIPLIER = 1.3;
 const HASTE_ATTACK_COOLDOWN_MULTIPLIER = 0.75;
 
+// 버섯 군주's own skill flavor — a spore cloud that slows the player instead of a knockback or
+// a DOT (see POISON_TICK_MS's own comment for the same "not every boss should feel the same"
+// reasoning). Read directly off player.slowUntil by CharacterMesh's own MOVE_SPEED calc, same
+// shape as HASTE_MOVE_SPEED_MULTIPLIER above just working the other direction.
+export const SLOW_MOVE_SPEED_MULTIPLIER = 0.5;
+const SLOW_DURATION_MS = 4000;
+
 // Monsters notice the player (and, if already engaged, keep chasing) within this range, but
 // have to actually close to MONSTER_ATTACK_REACH before a hit can land — otherwise they'd
 // attack from a standstill without ever moving.
@@ -79,6 +86,13 @@ export const POISON_TICK_MS = 1000;
 const POISON_DURATION_MS = 6000;
 const POISON_DAMAGE_FRACTION = 0.3;
 
+// 오크 군주's own skill flavor — a warcry that enrages it (harder normal hits for a window)
+// instead of hitting the player with anything extra at all. The one boss pattern that's a
+// self-buff rather than a player debuff, so a fight against it reads as "burn it down before
+// the rage window" rather than another thing landing on the player.
+const RAGE_DURATION_MS = 5000;
+const RAGE_DAMAGE_MULTIPLIER = 1.4;
+
 export interface MonsterCombatState {
   instanceId: number;
   // Carried straight from MonsterInstanceSummary — lets a kill site (see attackNearest/
@@ -101,6 +115,9 @@ export interface MonsterCombatState {
   // plain one — this is when they last did, so monsterAttackTick knows when the cooldown is
   // back up. Stays null forever for a non-boss monster.
   lastSkillAttackAt: number | null;
+  // 오크 군주's own self-buff (see RAGE_DURATION_MS) — performance.now() timestamp its warcry
+  // wears off at. Stays null forever for every other monster.
+  rageUntil: number | null;
   // Aggressive monsters attack on sight (within MONSTER_DETECT_RANGE); passive ones only
   // fight back once the player has hit them first (see monsterAttackTick).
   aggressive: boolean;
@@ -156,6 +173,11 @@ interface PlayerCombatState {
   // rather than recomputed per tick — a mid-fight equipment change shouldn't retroactively
   // change how hard an already-applied DOT bites.
   poisonDamagePerTick: number;
+  // performance.now() timestamp 버섯 군주's own spore-cloud skill hit wears off at — 0 means no
+  // active slow. Same shape as hasteUntil/hasteStartedAt, just working the other direction
+  // (see SLOW_MOVE_SPEED_MULTIPLIER, read by CharacterMesh's own MOVE_SPEED calc).
+  slowUntil: number;
+  slowStartedAt: number;
 }
 
 // Stat points granted on each level-up, spent via allocateStat.
@@ -281,6 +303,10 @@ interface MonsterAttackResult {
   // position, plus a distinct sound cue, so the burst hit reads as a real attack pattern
   // instead of just a bigger number on the same plain hit.
   knockback: { dx: number; dz: number } | null;
+  // Which boss pattern (if any) just landed — lets the caller (PlayerCombatEffects) fire the
+  // matching one-shot VFX burst. The mechanical effect itself (poison/rage/slow) is already
+  // applied to state inside monsterAttackTick; this is purely "what should I show."
+  skillEffect: 'poison' | 'rage' | 'slow' | 'knockback' | null;
 }
 
 interface CombatState {
@@ -411,6 +437,7 @@ function toMonsterCombatState(
       attackPower: monsterAttackPower(monster.level, monster.name in BOSS_KEY_BY_NAME),
       lastAttackAt: null,
       lastSkillAttackAt: null,
+      rageUntil: null,
       aggressive: resolveAggressive(aggressive, monster),
       wanderTarget: null,
       nextWanderAt: null,
@@ -542,6 +569,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     poisonUntil: 0,
     poisonStartedAt: 0,
     poisonDamagePerTick: 0,
+    slowUntil: 0,
+    slowStartedAt: 0,
   },
   lastAttackAt: 0,
   castRequestId: 0,
@@ -610,6 +639,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         poisonUntil: 0,
         poisonStartedAt: 0,
         poisonDamagePerTick: 0,
+        slowUntil: 0,
+        slowStartedAt: 0,
       },
       lastAttackAt: 0,
       targetId: null,
@@ -766,12 +797,14 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     const { monsters, player } = get();
     // Player is already at 0 HP waiting for the respawn effect to run — ignore further hits
     // until respawnPlayer() heals them back up, so we don't double-trigger death handling.
-    if (player.currentHp <= 0) return { died: false, knockback: null };
+    if (player.currentHp <= 0) return { died: false, knockback: null, skillEffect: null };
 
     let nextMonsters: Record<number, MonsterCombatState> | null = null;
     let currentHp = player.currentHp;
     let knockback: { dx: number; dz: number } | null = null;
     let poisonApplied: { until: number; damagePerTick: number } | null = null;
+    let slowApplied: number | null = null;
+    let skillEffect: 'poison' | 'rage' | 'slow' | 'knockback' | null = null;
 
     for (const monster of Object.values(monsters)) {
       if (!monster.alive) continue;
@@ -788,21 +821,31 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       const isBoss = monster.name in BOSS_KEY_BY_NAME;
       const useSkill = isBoss && now - (monster.lastSkillAttackAt ?? -Infinity) >= BOSS_SKILL_COOLDOWN_MS;
       const skillMultiplier = useSkill ? BOSS_SKILL_DAMAGE_MULTIPLIER : 1;
-      const rawDamage = Math.round(monster.attackPower * skillMultiplier * (0.7 + Math.random() * 0.5));
+      // 오크 군주's own warcry (see RAGE_DURATION_MS) boosts every hit for its duration, not
+      // just the skill hit that triggered it — this is what makes "burn it down before the
+      // rage window" a real consideration rather than a one-off bigger number.
+      const raged = monster.rageUntil !== null && now < monster.rageUntil;
+      const rageMultiplier = raged ? RAGE_DAMAGE_MULTIPLIER : 1;
+      const rawDamage = Math.round(monster.attackPower * skillMultiplier * rageMultiplier * (0.7 + Math.random() * 0.5));
       const damage = Math.max(1, rawDamage - player.defensePower);
       currentHp = Math.max(0, currentHp - damage);
       if (!nextMonsters) nextMonsters = { ...monsters };
-      nextMonsters[monster.instanceId] = {
-        ...monster,
-        lastAttackAt: now,
-        lastSkillAttackAt: useSkill ? now : monster.lastSkillAttackAt,
-      };
+      let rageUntil = monster.rageUntil;
       if (useSkill) {
+        // Each tracked boss gets its own signature pattern instead of every one of them doing
+        // the same knockback — see POISON_TICK_MS/RAGE_DURATION_MS/SLOW_MOVE_SPEED_MULTIPLIER's
+        // own comments for why each reads as genuinely distinct.
         if (monster.name === '구울 군주') {
-          // Poison instead of a shove — see POISON_TICK_MS's own comment for why this reads
-          // as a distinct pattern rather than every boss doing "the same knockback."
+          skillEffect = 'poison';
           poisonApplied = { until: now + POISON_DURATION_MS, damagePerTick: Math.max(1, Math.round(monster.attackPower * POISON_DAMAGE_FRACTION)) };
+        } else if (monster.name === '오크 군주') {
+          skillEffect = 'rage';
+          rageUntil = now + RAGE_DURATION_MS;
+        } else if (monster.name === '버섯 군주') {
+          skillEffect = 'slow';
+          slowApplied = now + SLOW_DURATION_MS;
         } else {
+          skillEffect = 'knockback';
           // Shove the player directly away from the monster — a real positional effect, not
           // just a bigger damage number, so the burst hit actually reads as a different attack.
           const pdx = playerX - monster.position[0];
@@ -811,10 +854,16 @@ export const useCombatStore = create<CombatState>((set, get) => ({
           knockback = { dx: (pdx / dist) * BOSS_KNOCKBACK_DISTANCE, dz: (pdz / dist) * BOSS_KNOCKBACK_DISTANCE };
         }
       }
+      nextMonsters[monster.instanceId] = {
+        ...monster,
+        lastAttackAt: now,
+        lastSkillAttackAt: useSkill ? now : monster.lastSkillAttackAt,
+        rageUntil,
+      };
       if (currentHp <= 0) break;
     }
 
-    if (!nextMonsters) return { died: false, knockback: null };
+    if (!nextMonsters) return { died: false, knockback: null, skillEffect: null };
     set({
       monsters: nextMonsters,
       player: {
@@ -823,9 +872,10 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         ...(poisonApplied
           ? { poisonUntil: poisonApplied.until, poisonStartedAt: now, poisonDamagePerTick: poisonApplied.damagePerTick }
           : {}),
+        ...(slowApplied ? { slowUntil: slowApplied, slowStartedAt: now } : {}),
       },
     });
-    return { died: currentHp <= 0, knockback };
+    return { died: currentHp <= 0, knockback, skillEffect };
   },
 
   tickMonsterMovement: (playerX, playerZ, delta) => {
@@ -987,9 +1037,10 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
   respawnPlayer: () => {
     const { player } = get();
-    // Dying clears the poison debuff too — a fresh life shouldn't start already ticking down
-    // from whatever was left of a boss fight that just killed the player.
-    set({ player: { ...player, currentHp: player.maxHp, poisonUntil: 0 } });
+    // Dying clears the poison/slow debuffs too — a fresh life shouldn't start already ticking
+    // down (or crawling at half speed) from whatever was left of a boss fight that just killed
+    // the player.
+    set({ player: { ...player, currentHp: player.maxHp, poisonUntil: 0, slowUntil: 0 } });
   },
 
   applyEquipmentDelta: (attackDelta, defenseDelta) => {
@@ -1052,6 +1103,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
           position: monster.spawnPosition,
           respawnAt: null,
           lastHitAt: null,
+          rageUntil: null,
           wanderTarget: null,
           nextWanderAt: null,
         };
