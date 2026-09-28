@@ -1,7 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
 import { useCharacterStore } from '../../stores/characterStore';
-import { useQuestStore, findQuestByGiver } from '../../stores/questStore';
+import { useQuestStore, findQuestByGiver, NPC_FLAVOR_TEXT } from '../../stores/questStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useDraggablePanel } from './useDraggablePanel';
 
@@ -109,7 +109,9 @@ export function QuestPanel() {
       {error && <p style={{ color: '#e0538a', fontSize: 12, marginBottom: 8 }}>{error}</p>}
 
       {!quest ? (
-        <p style={{ color: '#9aa08f', fontSize: 13 }}>지금은 특별히 부탁할 일이 없네.</p>
+        <p style={{ color: '#9aa08f', fontSize: 13, fontStyle: 'italic' }}>
+          "{NPC_FLAVOR_TEXT[npcName] ?? '지금은 특별히 부탁할 일이 없네.'}"
+        </p>
       ) : !state ? (
         <>
           <p style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{quest.title}</p>

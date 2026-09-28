@@ -282,6 +282,17 @@ export function findQuestDef(questId: number): QuestDef | undefined {
   return QUEST_DEFS.find((q) => q.id === questId);
 }
 
+// One-line flavor for the purely decorative NPCs (see Village.tsx's flavorNpcs) that have no
+// quest of their own — QuestPanel's own no-quest fallback used to say the same generic line
+// for every nameless NPC in the game; giving each of these four its own voice is the cheap
+// half of "NPC 스토리도 늘리고" that doesn't need a whole new quest_templates row per NPC.
+export const NPC_FLAVOR_TEXT: Record<string, string> = {
+  '여관 주인': '여긴 뜨내기가 별로 없어... 그래도 방은 늘 비워두고 있으니, 지친 다리 쉬어가게.',
+  '빨래하는 아낙': '이 강물이 참 맑지... 매일 새벽 여기서 빨래를 하다 보면 이 마을 사정을 다 알게 된다네. 저 위에 촌장님, 아직도 그 자리에 꽃을 놓으시더군.',
+  '방앗간지기': '이 방앗간, 할아버지 때부터 돌아가고 있지. 풍년이든 흉년이든 밀은 갈아야 하니까 말이야.',
+  '사막 상인': '사막 너머에서 왔네. 요즘 그쪽 길이 흉흉해져서... 무사히 온 것만도 다행이지.',
+};
+
 interface QuestState {
   ready: boolean;
   // Keyed by quest_template_id — only ever holds quests this character has accepted at
