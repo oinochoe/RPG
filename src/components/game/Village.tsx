@@ -105,6 +105,14 @@ export const VILLAGE_CONFIGS: VillageConfig[] = [
       // gracefully with "지금은 특별히 부탁할 일이 없네") — every other village already had 2
       // flavor NPCs, this one only had 1.
       { kind: 'townsman', name: '여관 주인', offset: [-4, 3] },
+      // Ties into quest 1's own hookText ("매일 새벽 강가에 꽃을 놓고 오네") — a washerwoman by
+      // the river fits 새벽여울's own dawn-river theme better than another generic villager.
+      { kind: 'elder', name: '빨래하는 아낙', offset: [4, 3], facingY: Math.PI / 4 },
+    ],
+    props: [
+      { model: `${KENNEY_TOWN}/lantern.glb`, offset: [-9.5, -9], scale: 1.1 },
+      { model: `${KENNEY_TOWN}/lantern.glb`, offset: [9.5, -9], scale: 1.1 },
+      { model: `${KENNEY_TOWN}/stall.glb`, offset: [-9, 6], scale: 1.1, rotationY: Math.PI / 2 },
     ],
   },
   {
@@ -119,6 +127,9 @@ export const VILLAGE_CONFIGS: VillageConfig[] = [
     flavorNpcs: [
       { kind: 'villager', name: '농부', offset: [-4, 3] },
       { kind: 'townsman', name: '경비병', offset: [4, 3], facingY: Math.PI },
+      // Stands by the windmill prop below — gives it someone tending it rather than just
+      // sitting there as scenery.
+      { kind: 'elder', name: '방앗간지기', offset: [10, 3], facingY: -Math.PI / 3 },
     ],
     props: [
       { model: `${KENNEY_TOWN}/stall.glb`, offset: [3, 2], scale: 1.1 },
@@ -140,6 +151,9 @@ export const VILLAGE_CONFIGS: VillageConfig[] = [
     flavorNpcs: [
       { kind: 'elder', name: '파수꾼', offset: [0, -10], facingY: Math.PI },
       { kind: 'townsman', name: '노인', offset: [-4, 4] },
+      // Decorative — 북녘등불 sits closest to the desert crossing, so a trader passing through
+      // fits better than another watch-themed NPC.
+      { kind: 'villager', name: '사막 상인', offset: [4, 4], facingY: -Math.PI / 4 },
     ],
     props: [
       { model: `${KENNEY_TOWN}/lantern.glb`, offset: [-3, -9.5], scale: 1.1 },

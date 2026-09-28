@@ -203,10 +203,12 @@ export interface VillageZone {
 // box around numbers that used to live only in Village.tsx (which is how the old single-
 // village version of this worked, and exactly the kind of duplication that goes stale the
 // next time a village moves).
+// 새벽여울/북녘등불 bumped from 22 to match 황금이삭's own 26 — real user feedback ("마을도 더
+// 넓히고 말야") plus each village picking up its own extra prop/NPC below needed the room.
 export const VILLAGES: VillageZone[] = [
-  { center: [-32, 0], size: 22 },
+  { center: [-32, 0], size: 26 },
   { center: [0, -100], size: 26 },
-  { center: [-30, 110], size: 22 },
+  { center: [-30, 110], size: 26 },
 ];
 
 // The villages sit inside this same field, not a separate scene — this keeps rocks/tufts/
