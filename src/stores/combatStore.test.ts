@@ -464,3 +464,111 @@ describe('combatStore tickMpRegen', () => {
     expect(useCombatStore.getState().player.currentMp).toBe(20);
   });
 });
+
+// Each tracked boss's periodic "skill" hit applies a different pattern (see combatStore's own
+// BOSS_KEY_BY_NAME/monsterAttackTick comments) — these were added across two commits this
+// session with no test coverage at all, so this locks in "the right boss name produces the
+// right effect and nothing else" for all four branches.
+describe('combatStore monsterAttackTick boss skill patterns', () => {
+  function bossMonster(name: string): MonsterInstanceSummary {
+    return {
+      instance_id: 1,
+      monster_template_id: 99,
+      name,
+      level: 30,
+      current_hp: 100_000,
+      max_hp: 100_000,
+      position_x: 0,
+      position_y: 0,
+      position_z: 0,
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('구울 군주 poisons the player instead of knocking back', () => {
+    useCombatStore.getState().init(baseCharacter, [bossMonster('구울 군주')], true);
+    const result = useCombatStore.getState().monsterAttackTick(0, 0);
+    expect(result.skillEffect).toBe('poison');
+    expect(result.knockback).toBeNull();
+    const { player } = useCombatStore.getState();
+    expect(player.poisonUntil).toBeGreaterThan(performance.now());
+    expect(player.poisonDamagePerTick).toBeGreaterThan(0);
+    expect(player.slowUntil).toBe(0);
+  });
+
+  it('오크 군주 enrages itself instead of touching the player', () => {
+    useCombatStore.getState().init(baseCharacter, [bossMonster('오크 군주')], true);
+    const result = useCombatStore.getState().monsterAttackTick(0, 0);
+    expect(result.skillEffect).toBe('rage');
+    expect(result.knockback).toBeNull();
+    const { player, monsters } = useCombatStore.getState();
+    expect(player.poisonUntil).toBe(0);
+    expect(player.slowUntil).toBe(0);
+    expect(monsters[1].rageUntil).not.toBeNull();
+    expect(monsters[1].rageUntil as number).toBeGreaterThan(performance.now());
+  });
+
+  it('버섯 군주 slows the player instead of knocking back', () => {
+    useCombatStore.getState().init(baseCharacter, [bossMonster('버섯 군주')], true);
+    const result = useCombatStore.getState().monsterAttackTick(0, 0);
+    expect(result.skillEffect).toBe('slow');
+    expect(result.knockback).toBeNull();
+    expect(useCombatStore.getState().player.slowUntil).toBeGreaterThan(performance.now());
+  });
+
+  it('거인 군주 (and any other tracked boss) still knocks back, with no poison/rage/slow', () => {
+    useCombatStore.getState().init(baseCharacter, [bossMonster('거인 군주')], true);
+    const result = useCombatStore.getState().monsterAttackTick(0, 0);
+    expect(result.skillEffect).toBe('knockback');
+    expect(result.knockback).not.toBeNull();
+    const { player } = useCombatStore.getState();
+    expect(player.poisonUntil).toBe(0);
+    expect(player.slowUntil).toBe(0);
+  });
+
+  it('a non-boss monster never triggers a skill effect', () => {
+    const grunt: MonsterInstanceSummary = { ...bossMonster('슬라임'), monster_template_id: 1 };
+    useCombatStore.getState().init(baseCharacter, [grunt], true);
+    const result = useCombatStore.getState().monsterAttackTick(0, 0);
+    expect(result.skillEffect).toBeNull();
+    expect(result.knockback).toBeNull();
+  });
+});
+
+describe('combatStore tickPoison', () => {
+  beforeEach(() => {
+    useCombatStore.getState().init(baseCharacter, [], false);
+  });
+
+  it('does nothing when there is no active poison', () => {
+    useCombatStore.getState().tickPoison();
+    expect(useCombatStore.getState().player.currentHp).toBe(baseCharacter.current_hp);
+  });
+
+  it('reduces currentHp by poisonDamagePerTick while active', () => {
+    useCombatStore.setState((s) => ({
+      player: { ...s.player, currentHp: 50, poisonUntil: performance.now() + 5000, poisonDamagePerTick: 7 },
+    }));
+    useCombatStore.getState().tickPoison();
+    expect(useCombatStore.getState().player.currentHp).toBe(43);
+  });
+
+  it('never drops the player below 1 HP on its own', () => {
+    useCombatStore.setState((s) => ({
+      player: { ...s.player, currentHp: 3, poisonUntil: performance.now() + 5000, poisonDamagePerTick: 50 },
+    }));
+    useCombatStore.getState().tickPoison();
+    expect(useCombatStore.getState().player.currentHp).toBe(1);
+  });
+
+  it('does nothing once poisonUntil has passed', () => {
+    useCombatStore.setState((s) => ({
+      player: { ...s.player, currentHp: 50, poisonUntil: performance.now() - 1, poisonDamagePerTick: 7 },
+    }));
+    useCombatStore.getState().tickPoison();
+    expect(useCombatStore.getState().player.currentHp).toBe(50);
+  });
+});

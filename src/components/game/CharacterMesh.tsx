@@ -82,10 +82,16 @@ const DEFAULT_SHIELD_MODEL = SHIELD_MODEL_BY_NAME['가죽 방패'];
 
 // Bucketed by required_level rather than a per-item-name map (like WEAPON_MODEL_BY_NAME/
 // SHIELD_MODEL_BY_NAME) so new body_armor tiers automatically pick up a tint with no client
-// change — every item catalog tier lines up on 1/10/20/30-35 already (see the item_templates
-// migrations). Starter gear (level 1) stays untinted.
+// change — every item catalog tier lines up on 1/10/20/30/35 already (see the item_templates
+// migrations). Starter gear (level 1) stays untinted. Colors mirror itemIcons.tsx's own
+// TIER_COLOR_* buckets — Lv30 "royal" gear (add_tier3_royal_gear) used to fall into the same
+// >=30 bucket as Lv35 boss-exclusive gear and render with an identical gold tint in-world,
+// even though its inventory icon already read as a visually distinct tier; this splits them
+// so a boss kill's gear actually looks like a step up on the character model too, not just in
+// the inventory.
 function armorTintForLevel(requiredLevel: number): THREE.ColorRepresentation | undefined {
-  if (requiredLevel >= 30) return '#e8c97a'; // boss-exclusive tier — gold
+  if (requiredLevel >= 35) return '#f4a83a'; // boss-exclusive tier — amber
+  if (requiredLevel >= 30) return '#a8b8e8'; // royal tier — soft royal blue
   if (requiredLevel >= 20) return '#c9d6e3'; // silver
   if (requiredLevel >= 10) return '#a67c52'; // bronze/leather
   return undefined;
