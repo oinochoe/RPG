@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -185,6 +185,21 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
     Promise.all([fetchShop(shopKind), fetchInventory()]).catch(() => setError('상점 정보를 불러오지 못했습니다.'));
   }, [isOpen, shopKind, fetchShop, fetchInventory]);
 
+  // Server order is plain id ascending (see /me/shop) — fine at the original ~15-item
+  // catalog, but the blacksmith list alone is now 30+ weapon/armor rows across all 3 classes
+  // and every tier, all mixed together. Sorting the player's own class first (then by
+  // required_level) surfaces what they can actually use instead of making them scroll past
+  // irrelevant-class gear to find it — a pure display reorder, buy/sell/gating logic below is
+  // unchanged.
+  const sortedShop = useMemo(() => {
+    return [...shop].sort((a, b) => {
+      const aOk = !a.required_class || a.required_class === 'all' || a.required_class === character.character_class;
+      const bOk = !b.required_class || b.required_class === 'all' || b.required_class === character.character_class;
+      if (aOk !== bOk) return aOk ? -1 : 1;
+      return a.required_level - b.required_level;
+    });
+  }, [shop, character.character_class]);
+
   if (!isOpen || !shopKind) return null;
 
   async function handleBuy(itemTemplateId: number, price: number, quantity: number) {
@@ -294,10 +309,10 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
 
         <div className="custom-scroll" style={{ maxHeight: 280, overflowY: 'auto' }}>
           {tab === 'buy' ? (
-            shop.length === 0 ? (
+            sortedShop.length === 0 ? (
               <p style={{ color: '#9aa08f', fontSize: 13, padding: '12px 4px' }}>판매 중인 아이템이 없습니다.</p>
             ) : (
-              shop.map((item) => {
+              sortedShop.map((item) => {
                 const classOk =
                   !item.required_class || item.required_class === 'all' || item.required_class === character.character_class;
                 const levelOk = character.level >= item.required_level;
