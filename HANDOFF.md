@@ -2,24 +2,42 @@
 
 마지막 업데이트: 2026-09-15
 
-## 다른 사람이 가입할 수 있게 하려면 (2026-09-28)
+## 공개 배포 체크리스트 (2026-09-28) — Vercel + 정식 메일(SMTP)
 
 Supabase 기본 메일 발송기는 **프로젝트 팀원 이메일로만** 발송되고 시간당 몇 통으로
-제한됨 → 지금 상태로는 외부인이 가입해도 인증 메일을 못 받아 로그인 불가.
+제한됨 → 외부인 가입을 받으려면 아래 순서대로 진행.
 
-두 가지 방법 중 선택:
+### 1. 클라이언트 Vercel 배포
+1. vercel.com → Add New Project → GitHub `oinochoe/RPG` import (Framework: Vite, 저장소의
+   `vercel.json`이 빌드 명령/SPA rewrite 설정을 갖고 있음).
+2. Environment Variables: `VITE_API_BASE_URL` = `https://<project-ref>.supabase.co/functions/v1/api/api/v1`
+   처럼 로컬 `.env`에 쓰던 **실서버 값 그대로**. (빌드 타임에 주입되므로 바꾸면 재배포 필요)
+3. Deploy → 발급된 도메인(예: `https://rpg-xxx.vercel.app`)을 기록.
 
-1. **메일 인증 끄기 (추가 서비스 없음, 바로 가능)**
-   `supabase secrets set REQUIRE_EMAIL_VERIFICATION=false` 후 `supabase functions deploy api`.
-   가입 즉시 계정이 확인 상태로 생성되고 클라이언트가 자동 로그인 → `/characters`로 이동.
-   단점: 가짜 이메일로도 가입 가능, 비밀번호 찾기 메일도 못 보냄.
-2. **커스텀 SMTP 연결 (정식)** — Resend(무료 월 3,000통/일 100통)나 Brevo(무료 일 300통) 가입 →
-   도메인 인증 → Supabase Dashboard → Authentication → SMTP Settings에 입력.
-   Rate limit(Authentication → Rate Limits → email sent)도 올려야 함. 코드 변경 없음.
-   아래 site_url/이메일 템플릿 조치도 함께 필요.
+### 2. Supabase Auth URL
+Dashboard → Authentication → URL Configuration
+- Site URL: `https://<vercel 도메인>`
+- Redirect URLs: `https://<vercel 도메인>/**` (로컬 개발용 `http://localhost:5173/**`도 유지)
 
-어느 쪽이든 **클라이언트를 공개 URL로 배포**(Vercel/Netlify/Cloudflare Pages 정적 배포,
-`VITE_API_BASE_URL`만 설정)해야 남이 접속 가능.
+### 3. 메일 발송(SMTP) 설정 — Resend 기준
+1. resend.com 가입(무료: 일 100통/월 3,000통) → Domains에서 본인 도메인 추가 → 안내된
+   DNS 레코드(SPF/DKIM) 등록 → Verified 확인. (도메인이 없으면 먼저 구매 필요 —
+   `resend.dev` 테스트 발신 주소는 본인에게만 발송됨)
+2. API Keys → 키 생성.
+3. Supabase Dashboard → Authentication → SMTP Settings → Enable custom SMTP:
+   host `smtp.resend.com`, port `465`, user `resend`, password = API 키,
+   sender email `no-reply@<도메인>`, sender name `RPG`.
+4. Authentication → Rate Limits → "Emails sent per hour"를 30 이상으로.
+5. Authentication → Email Templates → Confirm signup: 제목/본문을
+   `supabase/templates/confirmation.html` 내용으로 교체 (링크가
+   `{{ .SiteURL }}/verify-email?token={{ .TokenHash }}` 형태여야 클라이언트 인증 페이지로 감).
+6. 새 이메일로 실제 가입 → 메일 수신 → 링크 클릭 → 로그인까지 확인.
+
+(메일 서비스 없이 급하게 열어야 하면 `supabase secrets set REQUIRE_EMAIL_VERIFICATION=false`
+후 함수 재배포 — 가입 즉시 로그인됨. 정식 SMTP 연결 후에는 이 secret을 지울 것.)
+
+### 4. 서버 반영
+`supabase db push` (강화 주문서 개편 마이그레이션 포함) → `supabase functions deploy api`.
 
 ## Supabase Auth site_url / 이메일 확인 링크 — 수동 조치 필요 (2026-09-15)
 
