@@ -242,7 +242,7 @@ otp_expiry = 3600
 # port = 465
 # user = "resend"
 # pass = "env(RESEND_API_KEY)"
-# admin_email = "no-reply@<your-domain>"
+# admin_email = "no-reply@roleplaying.kr"
 # sender_name = "RPG"
 
 # Sends the confirmation link straight to the client's /verify-email route (token hash in

@@ -16,8 +16,8 @@ Supabase 기본 메일 발송기는 **프로젝트 팀원 이메일로만** 발�
 
 ### 2. Supabase Auth URL
 Dashboard → Authentication → URL Configuration
-- Site URL: `https://<vercel 도메인>`
-- Redirect URLs: `https://<vercel 도메인>/**` (로컬 개발용 `http://localhost:5173/**`도 유지)
+- Site URL: `https://roleplaying.kr` (끝에 `/` 붙이지 말 것)
+- Redirect URLs: `https://roleplaying.kr/**`, `https://rpg-noel.vercel.app/**` (로컬 개발용 `http://localhost:5173/**`도 유지)
 
 ### 3. 메일 발송(SMTP) 설정 — Resend 기준
 1. resend.com 가입(무료: 일 100통/월 3,000통) → Domains에서 본인 도메인 추가 → 안내된
@@ -26,7 +26,7 @@ Dashboard → Authentication → URL Configuration
 2. API Keys → 키 생성.
 3. Supabase Dashboard → Authentication → SMTP Settings → Enable custom SMTP:
    host `smtp.resend.com`, port `465`, user `resend`, password = API 키,
-   sender email `no-reply@<도메인>`, sender name `RPG`.
+   sender email `no-reply@roleplaying.kr`, sender name `RPG`.
 4. Authentication → Rate Limits → "Emails sent per hour"를 30 이상으로.
 5. Authentication → Email Templates → Confirm signup: 제목/본문을
    `supabase/templates/confirmation.html` 내용으로 교체 (링크가
