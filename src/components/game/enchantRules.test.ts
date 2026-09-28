@@ -27,10 +27,8 @@ describe('scrollIneligibleReason', () => {
     expect(scrollIneligibleReason(armor(0), scroll('armor'))).toBeNull();
     expect(scrollIneligibleReason(weapon(0), scroll('armor'))).not.toBeNull();
   });
-  it('blessed works from +1 on weapons and +3 on armor', () => {
-    expect(scrollIneligibleReason(weapon(0), scroll('blessed'))).not.toBeNull();
-    expect(scrollIneligibleReason(weapon(1), scroll('blessed'))).toBeNull();
-    expect(scrollIneligibleReason(armor(2), scroll('blessed'))).not.toBeNull();
-    expect(scrollIneligibleReason(armor(3), scroll('blessed'))).toBeNull();
+  it('blessed works from +0 on both weapons and armor', () => {
+    expect(scrollIneligibleReason(weapon(0), scroll('blessed'))).toBeNull();
+    expect(scrollIneligibleReason(armor(0), scroll('blessed'))).toBeNull();
   });
 });

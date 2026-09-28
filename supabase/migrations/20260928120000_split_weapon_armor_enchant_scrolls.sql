@@ -6,8 +6,9 @@ DROP FUNCTION IF EXISTS public.enchant_item(INT, INT, INT, INT);
 --     happens" outcome any more).
 --   * 방어구 강화 주문서 (new, 30,000) — every non-weapon slot. +0..+3 always succeeds
 --     (safe +4); from +4 on, a failed roll destroys the piece.
---   * 축복의 강화 주문서 — usable from +1 on weapons and +3 on armor (was +5 for both). Always
---     succeeds, never destroys, jumps +1~+3 with a very rare +4.
+--   * 축복의 강화 주문서 — Lineage-style, usable from +0 on both. Below the safe level it
+--     always succeeds with a +1~+3 jump (1% +4) that can carry past the safe level; at or
+--     above the safe level it behaves exactly like a normal scroll (+1 or destroyed).
 --   * 저주의 강화 주문서 — unchanged (-1, from +1).
 ALTER TABLE public.item_templates DROP CONSTRAINT IF EXISTS item_templates_enchant_scroll_type_check;
 -- Matched by type, not id: the client's lootStore uses id 50, but a fresh local DB can number
@@ -46,7 +47,6 @@ DECLARE
   v_scroll_item public.item_templates;
   v_is_weapon BOOLEAN;
   v_safe_level INT;
-  v_blessed_min INT;
   v_success_chance NUMERIC;
   v_roll NUMERIC;
   v_outcome TEXT;
@@ -105,16 +105,12 @@ BEGIN
 
   v_is_weapon := (v_item.equip_slot = 'weapon');
   v_safe_level := CASE WHEN v_is_weapon THEN 6 ELSE 4 END;
-  v_blessed_min := CASE WHEN v_is_weapon THEN 1 ELSE 3 END;
 
   IF v_scroll_item.enchant_scroll_type = 'weapon' AND NOT v_is_weapon THEN
     RAISE EXCEPTION 'weapon_scroll_on_armor' USING ERRCODE = 'P0001';
   END IF;
   IF v_scroll_item.enchant_scroll_type = 'armor' AND v_is_weapon THEN
     RAISE EXCEPTION 'armor_scroll_on_weapon' USING ERRCODE = 'P0001';
-  END IF;
-  IF v_scroll_item.enchant_scroll_type = 'blessed' AND v_row.enchant_level < v_blessed_min THEN
-    RAISE EXCEPTION 'blessed_requires_plus%', v_blessed_min USING ERRCODE = 'P0001';
   END IF;
   IF v_scroll_item.enchant_scroll_type = 'cursed' AND v_row.enchant_level < 1 THEN
     RAISE EXCEPTION 'cursed_requires_plus1' USING ERRCODE = 'P0001';
@@ -131,8 +127,9 @@ BEGIN
     UPDATE public.character_inventory AS ci
     SET enchant_level = GREATEST(0, ci.enchant_level - 1)
     WHERE ci.id = p_inventory_id;
-  ELSIF v_scroll_item.enchant_scroll_type = 'blessed' THEN
-    -- +1 50% / +2 30% / +3 19% / +4 1% — never fails, never destroys.
+  ELSIF v_scroll_item.enchant_scroll_type = 'blessed' AND v_row.enchant_level < v_safe_level THEN
+    -- Lineage-style blessed inside the safe range: +1 50% / +2 30% / +3 19% / +4 1%, never
+    -- fails — and the jump may carry past the safe level (the classic "+5 에 축 발라 +8").
     v_roll := random();
     v_jump := CASE WHEN v_roll < 0.50 THEN 1 WHEN v_roll < 0.80 THEN 2 WHEN v_roll < 0.99 THEN 3 ELSE 4 END;
     v_outcome := 'success';
@@ -140,7 +137,8 @@ BEGIN
     SET enchant_level = LEAST(v_max_level, ci.enchant_level + v_jump)
     WHERE ci.id = p_inventory_id;
   ELSE
-    -- weapon/armor scroll: guaranteed below the safe level, otherwise success-or-destroyed.
+    -- weapon/armor scroll (and blessed at/over the safe level, which behaves exactly like a
+    -- normal scroll there): guaranteed below the safe level, otherwise +1 or destroyed.
     IF v_row.enchant_level < v_safe_level THEN
       v_success_chance := 1.0;
     ELSIF v_is_weapon THEN

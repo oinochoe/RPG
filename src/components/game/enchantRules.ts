@@ -8,7 +8,7 @@ export const ENCHANT_MAX_LEVEL = 10;
 // Below the safe level a weapon/armor scroll always succeeds; at or above it a failed roll
 // destroys the item.
 const SAFE_LEVEL = { weapon: 6, armor: 4 };
-const BLESSED_MIN_LEVEL = { weapon: 1, armor: 3 };
+// Blessed scrolls work on any level (+0 included) for both weapons and armor.
 export const CURSED_MIN_LEVEL = 1;
 
 const WEAPON_RISKY_SUCCESS: Record<number, number> = { 6: 0.5, 7: 0.4, 8: 0.3 };
@@ -20,10 +20,6 @@ function kind(target: InventorySlot): 'weapon' | 'armor' {
 
 export function safeEnchantLevel(target: InventorySlot): number {
   return SAFE_LEVEL[kind(target)];
-}
-
-export function blessedMinLevel(target: InventorySlot): number {
-  return BLESSED_MIN_LEVEL[kind(target)];
 }
 
 // Chance a weapon/armor scroll succeeds at the target's current level; the rest destroys it.
@@ -44,9 +40,6 @@ export function scrollIneligibleReason(target: InventorySlot, scroll: InventoryS
   }
   if (scroll.enchant_scroll_type === 'armor' && targetKind !== 'armor') {
     return '방어구 강화 주문서는 방어구에만 사용할 수 있습니다.';
-  }
-  if (scroll.enchant_scroll_type === 'blessed' && target.enchant_level < blessedMinLevel(target)) {
-    return `${targetKind === 'weapon' ? '무기' : '방어구'}는 +${blessedMinLevel(target)} 이상부터 축복 주문서를 사용할 수 있습니다.`;
   }
   if (scroll.enchant_scroll_type === 'cursed' && target.enchant_level < CURSED_MIN_LEVEL) {
     return `+${CURSED_MIN_LEVEL} 이상부터 사용할 수 있는 주문서입니다.`;

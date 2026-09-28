@@ -406,8 +406,8 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                     )}
                     {selected.enchant_scroll_type === 'blessed' && (
                       <>
-                        <div>무기 +1, 방어구 +3 이상부터 사용 가능.</div>
-                        <div>파괴 위험 없이 무작위로 +1~+3 상승합니다 (극히 드물게 +4).</div>
+                        <div>안전 구간(무기 +6 / 방어구 +4 미만)에서는 무작위로 +1~+3 상승 (극히 드물게 +4).</div>
+                        <div>안전 구간 이상에서는 일반 주문서와 같습니다 (+1, 실패 시 파괴).</div>
                       </>
                     )}
                     {selected.enchant_scroll_type === 'cursed' && (

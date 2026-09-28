@@ -1,9 +1,9 @@
-import * as THREE from 'three';
+import { Vec3 } from './playerTransform';
 
 /** Mutated by ground/monster clicks, read every frame by CharacterMesh. Same
  * out-of-React-state pattern as playerTransform, for the same reason. */
 interface MoveTargetState {
-  point: THREE.Vector3 | null;
+  point: Vec3 | null;
   attackTargetId: number | null;
   // Set when an aimed skill's clicked monster was out of range — walk to the standoff point
   // like a basic-attack move-target, but fire one castSkill on arrival instead of repeated
@@ -27,14 +27,14 @@ export const moveTarget: MoveTargetState = {
 };
 
 export function setMoveTarget(x: number, z: number): void {
-  moveTarget.point = new THREE.Vector3(x, 0, z);
+  moveTarget.point = new Vec3(x, 0, z);
   moveTarget.attackTargetId = null;
   moveTarget.pendingSkillCastId = null;
   moveTarget.lootTargetId = null;
 }
 
 export function setAttackMoveTarget(x: number, z: number, instanceId: number): void {
-  moveTarget.point = new THREE.Vector3(x, 0, z);
+  moveTarget.point = new Vec3(x, 0, z);
   moveTarget.attackTargetId = instanceId;
   moveTarget.pendingSkillCastId = null;
   moveTarget.lootTargetId = null;
@@ -48,14 +48,14 @@ export function setAttackTargetOnly(instanceId: number): void {
 }
 
 export function setSkillMoveTarget(x: number, z: number, skillId: number): void {
-  moveTarget.point = new THREE.Vector3(x, 0, z);
+  moveTarget.point = new Vec3(x, 0, z);
   moveTarget.attackTargetId = null;
   moveTarget.pendingSkillCastId = skillId;
   moveTarget.lootTargetId = null;
 }
 
 export function setLootMoveTarget(x: number, z: number, dropId: number): void {
-  moveTarget.point = new THREE.Vector3(x, 0, z);
+  moveTarget.point = new Vec3(x, 0, z);
   moveTarget.attackTargetId = null;
   moveTarget.pendingSkillCastId = null;
   moveTarget.lootTargetId = dropId;
