@@ -16,24 +16,26 @@ const PANEL_WIDTH = 580;
 
 // Enchanting is scroll-based, not gold-based — the player finds these as monster drops (see
 // lootStore.ts's DROP_TABLE) and applies them by double-clicking the scroll, then
-// double-clicking the target weapon/armor (see handleCellDoubleClick below). These tables
-// mirror the 'normal' scroll's own risk curve on the server exactly (see
-// supabase/migrations/20260923043517_enchant_scrolls_drop_only.sql) — kept as a separate
+// double-clicking the target weapon/armor (see handleCellDoubleClick below). These mirror the
+// 'normal' scroll's own risk curve on the server exactly (see
+// supabase/migrations/20260928142627_enchant_fail_means_destroy.sql) — kept as a separate
 // client-side copy purely for display, the server is still the one actually rolling the
-// outcome. +0..+5 -> +1..+6 is always safe; beyond that a failed roll can destroy the item,
-// weapons more often than armor/accessories.
+// outcome. +0..+5 -> +1..+6 is always safe; beyond that every non-success roll destroys the
+// item outright (real user report: "강화 실패하면 장비 날라가야하는데 안날라가네" — there used to
+// be a 3rd "safe fail, nothing happens" outcome eating into the destroy odds, which is exactly
+// what confused a "실패" message into looking like it should have destroyed the item but
+// didn't; now destroy chance is just 1 - success chance, no separate fail case).
 const ENCHANT_MAX_LEVEL = 10;
 const ENCHANT_SUCCESS_CHANCE = [1, 1, 1, 1, 1, 1, 0.5, 0.4, 0.3, 0.2];
-const ENCHANT_DESTROY_CHANCE_WEAPON = [0, 0, 0, 0, 0, 0, 0.3, 0.4, 0.5, 0.6];
-const ENCHANT_DESTROY_CHANCE_ARMOR = [0, 0, 0, 0, 0, 0, 0.15, 0.2, 0.25, 0.3];
+
+function enchantDestroyChance(level: number): number {
+  return 1 - ENCHANT_SUCCESS_CHANCE[level];
+}
+
 // blessed/cursed's own preconditions, mirroring the RPC's blessed_requires_plus5/
 // cursed_requires_plus1 guards.
 const BLESSED_MIN_LEVEL = 5;
 const CURSED_MIN_LEVEL = 1;
-
-function enchantDestroyChance(level: number, isWeapon: boolean): number {
-  return (isWeapon ? ENCHANT_DESTROY_CHANCE_WEAPON : ENCHANT_DESTROY_CHANCE_ARMOR)[level];
-}
 
 // Why a given scroll can't be applied to a given target right now — null means it's a valid
 // application. Shared by the double-click handler (blocks + shows the reason as an error) and
@@ -350,6 +352,9 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
             }}
           >
             {enchantResult.outcome === 'success' && `${enchantResult.itemName} 강화에 성공했습니다!`}
+            {/* Not reachable via a 'normal' scroll anymore (see enchant_fail_means_destroy —
+                every non-success roll past +5 is now 'destroyed' outright), kept only in case
+                a future scroll type reintroduces a genuinely safe-fail outcome. */}
             {enchantResult.outcome === 'fail' && `${enchantResult.itemName} 강화에 실패했습니다.`}
             {enchantResult.outcome === 'destroyed' && `${enchantResult.itemName}이(가) 강화에 실패하여 파괴되었습니다.`}
             {enchantResult.outcome === 'cursed' && `${enchantResult.itemName}의 강화 수치가 1 낮아졌습니다.`}
@@ -467,19 +472,14 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                       <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(232, 201, 122, 0.15)' }}>
                         {(() => {
                           const level = selected.enchant_level;
-                          const isWeapon = selected.equip_slot === 'weapon';
-                          const destroyChance = enchantDestroyChance(level, isWeapon);
+                          const destroyChance = enchantDestroyChance(level);
                           const successChance = ENCHANT_SUCCESS_CHANCE[level];
-                          const failChance = 1 - successChance - destroyChance;
                           return (
                             <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.6 }}>
                               <div>
                                 일반 강화 주문서 사용 시: 성공 {Math.round(successChance * 100)}%
                                 {destroyChance > 0 && (
-                                  <span style={{ color: '#e0538a' }}>
-                                    {' '}
-                                    · 실패 {Math.round(failChance * 100)}% · 파괴 {Math.round(destroyChance * 100)}%
-                                  </span>
+                                  <span style={{ color: '#e0538a' }}> · 실패 시 파괴 {Math.round(destroyChance * 100)}%</span>
                                 )}
                               </div>
                               <div style={{ marginTop: 2 }}>인벤토리에서 강화 주문서를 더블클릭해 사용하세요.</div>
