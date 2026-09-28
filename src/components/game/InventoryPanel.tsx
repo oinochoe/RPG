@@ -7,6 +7,7 @@ import { HOTBAR_DRAG_MIME } from './Hotbar';
 import { useDraggablePanel } from './useDraggablePanel';
 import { ItemIcon } from './itemIcons';
 import { useTooltip } from './Tooltip';
+import { ENCHANT_MAX_LEVEL, CURSED_MIN_LEVEL, enchantSuccessChance, safeEnchantLevel, scrollIneligibleReason } from './enchantRules';
 import type { CharacterProfile, EnchantOutcome, InventorySlot } from '../../types/api';
 
 const GRID_COLUMNS = 6;
@@ -14,41 +15,9 @@ const GRID_ROWS = 4;
 const GRID_SLOT_COUNT = GRID_COLUMNS * GRID_ROWS;
 const PANEL_WIDTH = 580;
 
-// Enchanting is scroll-based, not gold-based — the player finds these as monster drops (see
-// lootStore.ts's DROP_TABLE) and applies them by double-clicking the scroll, then
-// double-clicking the target weapon/armor (see handleCellDoubleClick below). These tables
-// mirror the 'normal' scroll's own risk curve on the server exactly (see
-// supabase/migrations/20260923043517_enchant_scrolls_drop_only.sql) — kept as a separate
-// client-side copy purely for display, the server is still the one actually rolling the
-// outcome. +0..+5 -> +1..+6 is always safe; beyond that a failed roll can destroy the item,
-// weapons more often than armor/accessories.
-const ENCHANT_MAX_LEVEL = 10;
-const ENCHANT_SUCCESS_CHANCE = [1, 1, 1, 1, 1, 1, 0.5, 0.4, 0.3, 0.2];
-const ENCHANT_DESTROY_CHANCE_WEAPON = [0, 0, 0, 0, 0, 0, 0.3, 0.4, 0.5, 0.6];
-const ENCHANT_DESTROY_CHANCE_ARMOR = [0, 0, 0, 0, 0, 0, 0.15, 0.2, 0.25, 0.3];
-// blessed/cursed's own preconditions, mirroring the RPC's blessed_requires_plus5/
-// cursed_requires_plus1 guards.
-const BLESSED_MIN_LEVEL = 5;
-const CURSED_MIN_LEVEL = 1;
-
-function enchantDestroyChance(level: number, isWeapon: boolean): number {
-  return (isWeapon ? ENCHANT_DESTROY_CHANCE_WEAPON : ENCHANT_DESTROY_CHANCE_ARMOR)[level];
-}
-
-// Why a given scroll can't be applied to a given target right now — null means it's a valid
-// application. Shared by the double-click handler (blocks + shows the reason as an error) and
-// the grid's eligibility highlight while a scroll is armed.
-function scrollIneligibleReason(target: InventorySlot, scroll: InventorySlot): string | null {
-  if (target.equip_slot === null) return '장비 아이템에만 사용할 수 있습니다.';
-  if (target.enchant_level >= ENCHANT_MAX_LEVEL) return '이미 최대 강화 수치입니다.';
-  if (scroll.enchant_scroll_type === 'blessed' && target.enchant_level < BLESSED_MIN_LEVEL) {
-    return `+${BLESSED_MIN_LEVEL} 이상부터 사용할 수 있는 주문서입니다.`;
-  }
-  if (scroll.enchant_scroll_type === 'cursed' && target.enchant_level < CURSED_MIN_LEVEL) {
-    return `+${CURSED_MIN_LEVEL} 이상부터 사용할 수 있는 주문서입니다.`;
-  }
-  return null;
-}
+// Enchanting is scroll-based, not gold-based — the player applies a scroll by
+// double-clicking it, then double-clicking the target weapon/armor (see
+// handleCellDoubleClick below). The rules themselves live in enchantRules.ts.
 
 const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
   warrior: '#f4c430',
@@ -423,15 +392,22 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
 
                 {selected.enchant_scroll_type && (
                   <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.6, marginBottom: 10 }}>
-                    {selected.enchant_scroll_type === 'normal' && (
+                    {selected.enchant_scroll_type === 'weapon' && (
                       <>
-                        <div>더블클릭 후 강화할 무기/방어구를 더블클릭하세요.</div>
-                        <div>+0~+6은 100% 안전, +6 이상부터 실패 시 파괴 위험이 있습니다 (무기가 더 위험).</div>
+                        <div>더블클릭 후 강화할 무기를 더블클릭하세요.</div>
+                        <div>+6까지는 100% 안전, +6 이상에서 실패하면 무기가 파괴됩니다.</div>
+                      </>
+                    )}
+                    {selected.enchant_scroll_type === 'armor' && (
+                      <>
+                        <div>더블클릭 후 강화할 방어구를 더블클릭하세요.</div>
+                        <div>+4까지는 100% 안전, +4 이상에서 실패하면 방어구가 파괴됩니다.</div>
                       </>
                     )}
                     {selected.enchant_scroll_type === 'blessed' && (
                       <>
-                        <div>+{BLESSED_MIN_LEVEL} 이상부터 사용 가능. 파괴 위험 없이 무작위로 +1~+3 상승합니다.</div>
+                        <div>무기 +1, 방어구 +3 이상부터 사용 가능.</div>
+                        <div>파괴 위험 없이 무작위로 +1~+3 상승합니다 (극히 드물게 +4).</div>
                       </>
                     )}
                     {selected.enchant_scroll_type === 'cursed' && (
@@ -466,20 +442,17 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                     {selected.enchant_level < ENCHANT_MAX_LEVEL && (
                       <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(232, 201, 122, 0.15)' }}>
                         {(() => {
-                          const level = selected.enchant_level;
                           const isWeapon = selected.equip_slot === 'weapon';
-                          const destroyChance = enchantDestroyChance(level, isWeapon);
-                          const successChance = ENCHANT_SUCCESS_CHANCE[level];
-                          const failChance = 1 - successChance - destroyChance;
+                          const successChance = enchantSuccessChance(selected);
+                          const destroyChance = 1 - successChance;
                           return (
                             <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.6 }}>
                               <div>
-                                일반 강화 주문서 사용 시: 성공 {Math.round(successChance * 100)}%
-                                {destroyChance > 0 && (
-                                  <span style={{ color: '#e0538a' }}>
-                                    {' '}
-                                    · 실패 {Math.round(failChance * 100)}% · 파괴 {Math.round(destroyChance * 100)}%
-                                  </span>
+                                {isWeapon ? '무기' : '방어구'} 강화 주문서 사용 시: 성공 {Math.round(successChance * 100)}%
+                                {destroyChance > 0 ? (
+                                  <span style={{ color: '#e0538a' }}> · 실패 시 파괴 {Math.round(destroyChance * 100)}%</span>
+                                ) : (
+                                  <span> (안전 +{safeEnchantLevel(selected)})</span>
                                 )}
                               </div>
                               <div style={{ marginTop: 2 }}>인벤토리에서 강화 주문서를 더블클릭해 사용하세요.</div>

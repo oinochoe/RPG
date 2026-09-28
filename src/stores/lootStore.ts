@@ -35,7 +35,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 15 },
     { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 12 },
     { itemTemplateId: 73, itemName: '동물 가죽', itemType: 'misc', weight: 10 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 5 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 5 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 5 },
   ],
   // 늑대 — a real animal, so 동물 가죽 (Animal Hide) is its own signature drop at a much
   // higher weight than the other species that only nominally carry it.
@@ -44,7 +45,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 15 },
     { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 10 },
     { itemTemplateId: 73, itemName: '동물 가죽', itemType: 'misc', weight: 20 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 5 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 5 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 5 },
   ],
   2: [
     { itemTemplateId: 7, itemName: '체력 물약', itemType: 'consumable', weight: 35 },
@@ -53,7 +55,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 2, itemName: '가죽 방패', itemType: 'armor', weight: 10 },
     { itemTemplateId: 73, itemName: '동물 가죽', itemType: 'misc', weight: 8 },
     { itemTemplateId: 61, itemName: '루비', itemType: 'misc', weight: 4 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 8 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 8 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 8 },
   ],
   3: [
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 30 },
@@ -63,7 +66,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     // higher weight than the other misc drops since this is the thematically "right" loot.
     { itemTemplateId: 74, itemName: '뼛조각', itemType: 'misc', weight: 14 },
     { itemTemplateId: 15, itemName: '순간이동 주문서', itemType: 'scroll', weight: 10 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 8 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 8 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 8 },
     { itemTemplateId: 48, itemName: '저주의 강화 주문서', itemType: 'scroll', weight: 3 },
   ],
   4: [
@@ -71,7 +75,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 20 },
     { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 12 },
     { itemTemplateId: 64, itemName: '사파이어', itemType: 'misc', weight: 4 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 6 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 6 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 6 },
   ],
   5: [
     { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 50 },
@@ -85,7 +90,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     // boss (see FieldMonsters.ts's buildWorldBoss) both use this template, so both get a real
     // chance at the rarest scroll in the game.
     { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 15 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 10 },
   ],
   // 오크 마을's field monster — a real weapon drop (강철 검) alongside the usual potions, since
   // orcs are tougher than anything in the original field short of the dungeon boss. 철 덩어리
@@ -96,7 +102,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 12 },
     { itemTemplateId: 9, itemName: '강철 검', itemType: 'weapon', weight: 8 },
     { itemTemplateId: 75, itemName: '철 덩어리', itemType: 'misc', weight: 12 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 8 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 8 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 8 },
     { itemTemplateId: 48, itemName: '저주의 강화 주문서', itemType: 'scroll', weight: 4 },
   ],
   // 구울 평원's field monster — the hardest of the 4 new zones, so its table leans toward the
@@ -109,7 +116,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 74, itemName: '뼛조각', itemType: 'misc', weight: 10 },
     { itemTemplateId: 65, itemName: '상급 사파이어', itemType: 'misc', weight: 4 },
     { itemTemplateId: 15, itemName: '순간이동 주문서', itemType: 'scroll', weight: 12 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 10 },
     { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 5 },
   ],
   // 요정의 숲's field monster (버섯왕/Mushroom King) — a magic-leaning table (mana potions plus
@@ -121,7 +129,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 12 },
     { itemTemplateId: 10, itemName: '대현자의 지팡이', itemType: 'weapon', weight: 5 },
     { itemTemplateId: 67, itemName: '에메랄드', itemType: 'misc', weight: 5 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 8 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 8 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 8 },
   ],
   // 버섯 정령 (expand_monster_catalog_v1) — 버섯왕(8)'s weaker sibling gets a thinned-down
   // version of the same table, no weapon chance.
@@ -129,7 +138,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 30 },
     { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 10 },
     { itemTemplateId: 67, itemName: '에메랄드', itemType: 'misc', weight: 4 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 5 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 5 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 5 },
   ],
   // 사구 웜 (expand_monster_catalog_v1) — the desert's deeper-band monster, one tier up from
   // 가시선인장(4)'s own table.
@@ -138,7 +148,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 25 },
     { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 12 },
     { itemTemplateId: 64, itemName: '사파이어', itemType: 'misc', weight: 6 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 7 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 7 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 7 },
   ],
   // 코볼트 (expand_monster_catalog_v1) — mixed into 오크 마을; a lighter version of 오크(6)'s
   // table without the weapon chance.
@@ -147,7 +158,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 20 },
     { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 12 },
     { itemTemplateId: 75, itemName: '철 덩어리', itemType: 'misc', weight: 10 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 7 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 7 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 7 },
   ],
   // 오크 궁수 (expand_monster_catalog_v1) — the other 오크 마을 mix-in, keeps 오크(6)'s own
   // weapon chance since it's the same rough power tier.
@@ -157,7 +169,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 12 },
     { itemTemplateId: 11, itemName: '사냥꾼의 장궁', itemType: 'weapon', weight: 6 },
     { itemTemplateId: 75, itemName: '철 덩어리', itemType: 'misc', weight: 10 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 7 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 7 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 7 },
   ],
   // 죽음의 기사 (expand_monster_catalog_v1) — a real field elite (Lv16/670hp, see
   // FieldMonsters.ts's buildBoneFieldMonsters), so its table sits a clear step above every
@@ -170,7 +183,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 76, itemName: '미스릴', itemType: 'misc', weight: 8 },
     { itemTemplateId: 65, itemName: '상급 사파이어', itemType: 'misc', weight: 8 },
     { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 10 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 12 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 12 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 12 },
   ],
   // 유적의 파수병 (see FieldMonsters.ts's buildRuinsGuardian) — another Lv18 field elite, so a
   // similarly strong table to 죽음의 기사's own, minus the boss-exclusive gear pool (that stays
@@ -182,7 +196,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
     { itemTemplateId: 76, itemName: '미스릴', itemType: 'misc', weight: 6 },
     { itemTemplateId: 63, itemName: '최상급 루비', itemType: 'misc', weight: 5 },
     { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 8 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 10 },
   ],
 };
 
@@ -247,7 +262,8 @@ const BOSS_DROP_TABLE: Record<string, DropTableEntry[]> = {
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
     { itemTemplateId: 14, itemName: '마을 귀환 주문서', itemType: 'scroll', weight: 20 },
     { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 15 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 10 },
     ...BOSS_EXCLUSIVE_GEAR_ENTRIES,
     ...BOSS_PREMIUM_LOOT_ENTRIES,
   ],
@@ -256,7 +272,8 @@ const BOSS_DROP_TABLE: Record<string, DropTableEntry[]> = {
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
     { itemTemplateId: 14, itemName: '마을 귀환 주문서', itemType: 'scroll', weight: 20 },
     { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 15 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 10 },
     ...BOSS_EXCLUSIVE_GEAR_ENTRIES,
     ...BOSS_PREMIUM_LOOT_ENTRIES,
   ],
@@ -265,7 +282,8 @@ const BOSS_DROP_TABLE: Record<string, DropTableEntry[]> = {
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 30 },
     { itemTemplateId: 9, itemName: '강철 검', itemType: 'weapon', weight: 8 },
     { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 8 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 10 },
     { itemTemplateId: 48, itemName: '저주의 강화 주문서', itemType: 'scroll', weight: 5 },
     ...BOSS_EXCLUSIVE_GEAR_ENTRIES,
     ...BOSS_PREMIUM_LOOT_ENTRIES,
@@ -275,7 +293,8 @@ const BOSS_DROP_TABLE: Record<string, DropTableEntry[]> = {
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
     { itemTemplateId: 15, itemName: '순간이동 주문서', itemType: 'scroll', weight: 12 },
     { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 5 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 10 },
     ...BOSS_EXCLUSIVE_GEAR_ENTRIES,
     ...BOSS_PREMIUM_LOOT_ENTRIES,
   ],
@@ -286,7 +305,8 @@ const BOSS_DROP_TABLE: Record<string, DropTableEntry[]> = {
     { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 25 },
     { itemTemplateId: 10, itemName: '대현자의 지팡이', itemType: 'weapon', weight: 8 },
     { itemTemplateId: 47, itemName: '축복의 강화 주문서', itemType: 'scroll', weight: 10 },
-    { itemTemplateId: 50, itemName: '일반 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 50, itemName: '무기 강화 주문서', itemType: 'scroll', weight: 10 },
+    { itemTemplateId: 86, itemName: '방어구 강화 주문서', itemType: 'scroll', weight: 10 },
     ...BOSS_EXCLUSIVE_GEAR_ENTRIES,
     ...BOSS_PREMIUM_LOOT_ENTRIES,
   ],

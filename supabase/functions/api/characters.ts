@@ -40,7 +40,7 @@ interface InventoryItemRow {
   restore_mp: number;
   teleport_target: string | null;
   haste_duration_sec: number;
-  enchant_scroll_type: "normal" | "blessed" | "cursed" | null;
+  enchant_scroll_type: "weapon" | "armor" | "blessed" | "cursed" | null;
 }
 
 // Flat bonus per enchant_level, added to whichever of attack_bonus/defense_bonus is the
@@ -84,7 +84,7 @@ async function fetchInventory(
       restore_mp: number;
       teleport_target: string | null;
       haste_duration_sec: number;
-      enchant_scroll_type: "normal" | "blessed" | "cursed" | null;
+      enchant_scroll_type: "weapon" | "armor" | "blessed" | "cursed" | null;
     };
     const enchantBonus = row.enchant_level * ENCHANT_BONUS_PER_LEVEL;
     return {
@@ -282,8 +282,15 @@ function mapEnchantRpcError(message: string | undefined): ApiError {
   if (message?.includes("not_a_scroll")) {
     return new ApiError(400, "validation_failed", "not_a_scroll", "강화 주문서가 아닙니다.", "scroll_inventory_id");
   }
-  if (message?.includes("blessed_requires_plus5")) {
-    return new ApiError(400, "validation_failed", "blessed_requires_plus5", "+5 이상부터 사용할 수 있는 주문서입니다.", "scroll_inventory_id");
+  const blessedMin = message?.match(/blessed_requires_plus(\d+)/);
+  if (blessedMin) {
+    return new ApiError(400, "validation_failed", "blessed_requires_min_level", `+${blessedMin[1]} 이상부터 사용할 수 있는 주문서입니다.`, "scroll_inventory_id");
+  }
+  if (message?.includes("weapon_scroll_on_armor")) {
+    return new ApiError(400, "validation_failed", "wrong_scroll_target", "무기 강화 주문서는 무기에만 사용할 수 있습니다.", "scroll_inventory_id");
+  }
+  if (message?.includes("armor_scroll_on_weapon")) {
+    return new ApiError(400, "validation_failed", "wrong_scroll_target", "방어구 강화 주문서는 방어구에만 사용할 수 있습니다.", "scroll_inventory_id");
   }
   if (message?.includes("cursed_requires_plus1")) {
     return new ApiError(400, "validation_failed", "cursed_requires_plus1", "+1 이상부터 사용할 수 있는 주문서입니다.", "scroll_inventory_id");
@@ -1192,12 +1199,12 @@ charactersRoutes.post("/me/inventory/:id/unequip", async (c) => {
 });
 
 // Enchant an equipped-or-not weapon/armor row using a scroll from the caller's own inventory
-// (see enchant_item's own migration comment) — scroll_inventory_id is required, not gold:
-// 'normal' scrolls are safe through +6 then risk destroying the item beyond that (weapons
-// riskier than armor/accessories); 'blessed' scrolls always succeed with a random +1-3 jump
-// (usable from +5 on); 'cursed' scrolls always succeed and knock the item down by 1 (usable
-// from +1 on). `enchant_level` comes back null when the outcome is 'destroyed' — the row is
-// gone from `items` in that case.
+// (see enchant_item's latest migration, 20260928120000_split_weapon_armor_enchant_scrolls.sql):
+// 'weapon' scrolls are safe through +6 and destroy the weapon on a failed roll beyond that;
+// 'armor' scrolls the same with safe +4; 'blessed' always succeeds with a random +1~+3 jump
+// (rarely +4), usable from +1 on weapons / +3 on armor; 'cursed' knocks the item down by 1.
+// `enchant_level` comes back null when the outcome is 'destroyed' — the row is gone from
+// `items` in that case.
 charactersRoutes.post("/me/inventory/:id/enchant", async (c) => {
   const appUser = c.get("appUser");
   const inventoryId = Number(c.req.param("id"));
