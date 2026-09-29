@@ -3,7 +3,18 @@ import type {
   CharacterProfile,
   CharacterSummary,
   EnterMapResponse,
+  ProgressSnapshot,
 } from '../types/api';
+// The real server's game-economy rules (a pure module): the mock applies the SAME math so a dev
+// session behaves like production instead of inventing its own numbers.
+import {
+  BOSSES,
+  applyExperience,
+  killExp,
+  killGoldRange,
+  parseKillBatch,
+  statPointCost,
+} from '../../supabase/functions/api/economyRules';
 
 const BASE = 'http://localhost:8000/api/v1';
 
@@ -40,6 +51,22 @@ interface MockState {
   // identify "the calling user" from a request alone. For this single-session local mock,
   // the email of the most recently logged-in user stands in for that session.
   currentUserEmail: string | null;
+  // Server-owned economy state per character (what the real DB columns hold) — see mockProgress().
+  progress?: Record<number, MockProgress>;
+}
+
+interface MockProgress {
+  level: number;
+  experience: number;
+  gold: number;
+  skillPoints: number;
+  skillUpgradePoints: number;
+  maxHp: number;
+  maxMp: number;
+  attack: number;
+  defense: number;
+  stats: { str: number; dex: number; con: number; int: number; wis: number };
+  rev: number;
 }
 
 function defaultState(): MockState {
@@ -68,6 +95,7 @@ function loadState(): MockState {
 const state = loadState();
 // Backfill for state persisted by an older session shape that predates this field.
 state.characterPositions ??= {};
+state.progress ??= {};
 const users = new Map<string, StoredUser>(state.users);
 
 function persist(): void {
@@ -79,29 +107,71 @@ function persist(): void {
   }
 }
 
+function mockProgress(characterId: number): MockProgress {
+  const progress = (state.progress ??= {});
+  return (progress[characterId] ??= {
+    level: 1,
+    experience: 0,
+    gold: 100,
+    skillPoints: 0,
+    skillUpgradePoints: 0,
+    maxHp: 100,
+    maxMp: 20,
+    attack: 10,
+    defense: 5,
+    stats: { str: 5, dex: 5, con: 5, int: 5, wis: 5 },
+    rev: 0,
+  });
+}
+
+function toSnapshot(p: MockProgress, expGained = 0, goldGained = 0, leveledUp = false): ProgressSnapshot {
+  return {
+    level: p.level,
+    experience: p.experience,
+    gold: p.gold,
+    skill_points: p.skillPoints,
+    skill_upgrade_points: p.skillUpgradePoints,
+    max_hp: p.maxHp,
+    max_mp: p.maxMp,
+    attack_power: p.attack,
+    defense_power: p.defense,
+    stat_str: p.stats.str,
+    stat_dex: p.stats.dex,
+    stat_con: p.stats.con,
+    stat_int: p.stats.int,
+    stat_wis: p.stats.wis,
+    progress_rev: p.rev,
+    exp_gained: expGained,
+    gold_gained: goldGained,
+    leveled_up: leveledUp,
+  };
+}
+
 function toProfile(summary: CharacterSummary): CharacterProfile {
   const savedPosition = state.characterPositions[summary.id];
+  const progress = mockProgress(summary.id);
   return {
     id: summary.id,
     user_id: 1,
     name: summary.name,
     character_class: summary.character_class,
-    level: summary.level,
-    experience: 0,
-    current_hp: summary.current_hp,
-    max_hp: summary.max_hp,
-    current_mp: 20,
-    max_mp: 20,
-    attack_power: 10,
-    defense_power: 5,
-    gold: 100,
-    skill_points: 0,
-    skill_upgrade_points: 0,
-    stat_str: 5,
-    stat_dex: 5,
-    stat_con: 5,
-    stat_int: 5,
-    stat_wis: 5,
+    level: progress.level,
+    experience: progress.experience,
+    current_hp: Math.min(summary.current_hp, progress.maxHp),
+    max_hp: progress.maxHp,
+    current_mp: Math.min(20, progress.maxMp),
+    max_mp: progress.maxMp,
+    attack_power: progress.attack,
+    defense_power: progress.defense,
+    gold: progress.gold,
+    progress_rev: progress.rev,
+    skill_points: progress.skillPoints,
+    skill_upgrade_points: progress.skillUpgradePoints,
+    stat_str: progress.stats.str,
+    stat_dex: progress.stats.dex,
+    stat_con: progress.stats.con,
+    stat_int: progress.stats.int,
+    stat_wis: progress.stats.wis,
     skills: [],
     active_quests: [],
     boss_cooldowns: [],
@@ -284,6 +354,79 @@ export const handlers = [
       );
     }
     return HttpResponse.json(toProfile(active));
+  }),
+
+  // ---- the server-owned economy (mirrors supabase/functions/api/characters.ts) -------------------
+
+  // Only HP/MP are the client's to save; the mock just accepts them.
+  http.patch(`${BASE}/characters/me/progress`, () => HttpResponse.json({}, { status: 200 })),
+
+  http.post(`${BASE}/characters/me/kills`, async ({ request }) => {
+    const active = state.characters.find((c) => c.id === state.activeCharacterId);
+    if (!active) {
+      return HttpResponse.json({ error: 'not_found', reason: 'no_active_character', message: 'No active character.' }, { status: 404 });
+    }
+    const body = (await request.json()) as { kills?: unknown };
+    const parsed = parseKillBatch(body.kills);
+    if (!parsed.ok) {
+      return HttpResponse.json({ error: 'validation_failed', reason: 'invalid_kills', message: 'Invalid kills.' }, { status: 400 });
+    }
+    const p = mockProgress(active.id);
+    let exp = 0;
+    let gold = 0;
+    parsed.kills.forEach((k) => {
+      exp += killExp(k.level);
+      const [min, max] = killGoldRange(k.level);
+      gold += min + Math.floor(Math.random() * (max - min + 1));
+    });
+    const applied = applyExperience(
+      { level: p.level, experience: p.experience, maxHp: p.maxHp, attackPower: p.attack, statPoints: p.skillPoints, skillUpgradePoints: p.skillUpgradePoints },
+      exp,
+    );
+    p.level = applied.state.level;
+    p.experience = applied.state.experience;
+    p.maxHp = applied.state.maxHp;
+    p.attack = applied.state.attackPower;
+    p.skillPoints = applied.state.statPoints;
+    p.skillUpgradePoints = applied.state.skillUpgradePoints;
+    p.gold = Math.min(999_999_999, p.gold + gold);
+    p.rev += 1;
+    persist();
+    // The mock rolls no drops and tracks no boss cooldowns/quests — those need the real database.
+    return HttpResponse.json({
+      progress: toSnapshot(p, exp, gold, applied.leveledUp),
+      results: parsed.kills.map((_, index) => ({ index, accepted: true })),
+      quests_updated: [],
+      boss_cooldowns: parsed.kills.some((k) => k.boss_key && k.boss_key in BOSSES) ? [] : null,
+    });
+  }),
+
+  http.post(`${BASE}/characters/me/stats/allocate`, async ({ request }) => {
+    const active = state.characters.find((c) => c.id === state.activeCharacterId);
+    if (!active) {
+      return HttpResponse.json({ error: 'not_found', reason: 'no_active_character', message: 'No active character.' }, { status: 404 });
+    }
+    const { stat } = (await request.json()) as { stat: 'str' | 'dex' | 'con' | 'int' | 'wis' };
+    const p = mockProgress(active.id);
+    if (!(stat in p.stats)) {
+      return HttpResponse.json({ error: 'validation_failed', reason: 'invalid_stat', message: 'Bad stat.' }, { status: 400 });
+    }
+    const cost = statPointCost(p.stats[stat]);
+    if (p.skillPoints < cost) {
+      return HttpResponse.json({ error: 'validation_failed', reason: 'insufficient_points', message: 'Not enough points.' }, { status: 400 });
+    }
+    p.skillPoints -= cost;
+    p.stats[stat] += 1;
+    const primary = { warrior: 'str', archer: 'dex', mage: 'int' }[active.character_class];
+    if (stat === primary) p.attack += 1;
+    if (stat === 'con') {
+      p.maxHp += 8;
+      p.defense += 1;
+    }
+    if (stat === 'wis') p.maxMp += 4;
+    p.rev += 1;
+    persist();
+    return HttpResponse.json({ progress: toSnapshot(p) });
   }),
 
   http.patch(`${BASE}/characters/me/position`, async ({ request }) => {

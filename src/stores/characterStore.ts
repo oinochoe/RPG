@@ -18,6 +18,7 @@ import {
 } from '../components/game/worldColliders';
 import { getFloorRooms, getDungeonColliders, getEntrySpawn, DUNGEON_META } from '../components/game/dungeonLayout';
 import { buildFieldMonsters } from '../components/game/FieldMonsters';
+import { ApiError } from '../types/api';
 import type { BossCooldown, CharacterClass, CharacterProfile, CharacterSummary, EnchantOutcome, InventorySlot, ShopItem } from '../types/api';
 
 // See fetchShop's own comment — bumped on every call, checked after the await resolves so a
@@ -212,10 +213,11 @@ interface CharacterState {
   // Set right after a tracked boss dies (see CharacterMesh's handleAttackResult) so a toast
   // can announce when it'll be back — BossRespawnToast watches this and clears it once shown.
   bossKillNotice: { bossName: string; availableAt: string } | null;
-  /** Records a tracked boss's kill server-side (see boss_kill_state migration) and refreshes
-   * activeCharacter.boss_cooldowns so this session's own spawn checks (buildFieldMonsters/
-   * buildFloorMonsters) see it immediately, without waiting for a reload. */
-  reportBossKill: (bossKey: string, bossName: string) => Promise<void>;
+  /** The server recorded a tracked boss kill (see boss_kill_state migration; it comes back in the
+   * kill report's response). Refreshes activeCharacter.boss_cooldowns so this session's own spawn
+   * checks (buildFieldMonsters/buildFloorMonsters) see it immediately, without waiting for a
+   * reload, and queues the "back at ..." toast for the boss that died. */
+  applyBossCooldowns: (bossCooldowns: BossCooldown[], killedBossKey: string | null, killedBossName: string | null) => void;
   clearBossKillNotice: () => void;
 }
 
@@ -301,21 +303,31 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   },
 
   // price is passed in by the caller (already known from the ShopItem/InventorySlot the
-  // button was rendered from) rather than looked up here — the server doesn't touch gold
-  // at all (see characters.ts's shop routes), so this is purely a local wallet update.
+  // button was rendered from) only to update the wallet instantly. The server is the one that
+  // actually charges (from the item template's buy_price) and refuses if the gold isn't there;
+  // its `progress` snapshot then corrects the local wallet.
   buyItem: async (itemTemplateId, price, quantity = 1) => {
-    const { items } = await charactersApi.buyItem(itemTemplateId, quantity);
-    set({ inventory: items });
-    useCombatStore.getState().adjustGold(-price * quantity);
+    try {
+      const { items, progress } = await charactersApi.buyItem(itemTemplateId, quantity);
+      set({ inventory: items });
+      useCombatStore.getState().adjustGold(-price * quantity);
+      if (progress) useCombatStore.getState().adoptProgress(progress);
+    } catch (err) {
+      // The server said no on gold: our wallet was out of step with the truth — pull it.
+      if (err instanceof ApiError && err.reason === 'insufficient_gold') void useCombatStore.getState().resyncProgress();
+      throw err;
+    }
   },
 
   sellItem: async (inventoryId, price, quantity = 1) => {
     const before = sumEquippedBonus(get().inventory);
-    const { items } = await charactersApi.sellItem(inventoryId, quantity);
+    const { items, progress } = await charactersApi.sellItem(inventoryId, quantity);
     const after = sumEquippedBonus(items);
     set({ inventory: items });
     useCombatStore.getState().applyEquipmentDelta(after.attack - before.attack, after.defense - before.defense);
     useCombatStore.getState().adjustGold(price * quantity);
+    // The price above is only for instant feedback; the server credited the item's real sell_price.
+    if (progress) useCombatStore.getState().adoptProgress(progress);
   },
 
   // No gold involved at all — enchanting is scroll-based now (a dropped item consumed on the
@@ -401,12 +413,12 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
 
   bossKillNotice: null,
 
-  reportBossKill: async (bossKey, bossName) => {
-    const { boss_cooldowns } = await charactersApi.reportBossKill(bossKey);
+  applyBossCooldowns: (bossCooldowns, killedBossKey, killedBossName) => {
     const activeCharacter = get().activeCharacter;
-    if (activeCharacter) set({ activeCharacter: { ...activeCharacter, boss_cooldowns } });
-    const entry = boss_cooldowns.find((c: BossCooldown) => c.boss_key === bossKey);
-    set({ bossKillNotice: entry?.available_at ? { bossName, availableAt: entry.available_at } : null });
+    if (activeCharacter) set({ activeCharacter: { ...activeCharacter, boss_cooldowns: bossCooldowns } });
+    if (!killedBossKey || !killedBossName) return;
+    const entry = bossCooldowns.find((c: BossCooldown) => c.boss_key === killedBossKey);
+    set({ bossKillNotice: entry?.available_at ? { bossName: killedBossName, availableAt: entry.available_at } : null });
   },
 
   clearBossKillNotice: () => set({ bossKillNotice: null }),

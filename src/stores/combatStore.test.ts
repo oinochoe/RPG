@@ -3,11 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('../api/characters', () => ({
   syncProgress: vi.fn().mockResolvedValue(undefined),
   upgradeSkill: vi.fn(),
+  // Pending by default: the local-prediction tests below assert what allocateStat shows BEFORE the
+  // server answers. Tests of the server's answer set their own resolution.
+  allocateStatOnServer: vi.fn(() => new Promise(() => {})),
+  getActiveCharacterProfile: vi.fn(),
 }));
 
 import * as charactersApi from '../api/characters';
 import { useCombatStore, statPointCost } from './combatStore';
-import type { CharacterProfile, MonsterInstanceSummary } from '../types/api';
+import type { CharacterProfile, MonsterInstanceSummary, ProgressSnapshot } from '../types/api';
 
 const baseCharacter: CharacterProfile = {
   id: 1,
@@ -40,6 +44,14 @@ const baseCharacter: CharacterProfile = {
   created_at: '2026-09-16T00:00:00Z',
   equipped_items: [],
   inventory: [],
+};
+
+// What the server would answer for baseCharacter, before any change.
+const serverSnapshot: ProgressSnapshot = {
+  level: 1, experience: 0, gold: 100, skill_points: 3, skill_upgrade_points: 0,
+  max_hp: 100, max_mp: 20, attack_power: 10, defense_power: 5,
+  stat_str: 5, stat_dex: 5, stat_con: 5, stat_int: 5, stat_wis: 5,
+  progress_rev: 0, exp_gained: 0, gold_gained: 0, leveled_up: false,
 };
 
 // Carries non-zero attack/defense bonuses so payload-shape tests can actually
@@ -133,48 +145,116 @@ describe('combatStore allocateStat', () => {
   it('calls syncProgress with the correct payload shape after allocating', () => {
     useCombatStore.getState().allocateStat('str');
     const { player } = useCombatStore.getState();
+    // Only current HP/MP are still the client's to save — level/exp/gold/stats are server-owned.
     expect(charactersApi.syncProgress).toHaveBeenCalledWith({
-      level: player.level,
-      experience: player.experience,
-      skill_points: player.skillPoints,
-      attack_power: player.attackPower - player.equipAttackBonus,
-      defense_power: player.defensePower - player.equipDefenseBonus,
-      max_hp: player.maxHp,
       current_hp: player.currentHp,
-      max_mp: player.maxMp,
       current_mp: player.currentMp,
-      stat_str: player.statStr,
-      stat_dex: player.statDex,
-      stat_con: player.statCon,
-      stat_int: player.statInt,
-      stat_wis: player.statWis,
-      gold: player.gold,
-      skill_upgrade_points: player.skillUpgradePoints,
     });
   });
 
-  it('subtracts the equipment bonus out of the payload when items are equipped', () => {
+  it('asks the server to allocate the stat (it owns points and derived stats)', () => {
+    useCombatStore.getState().allocateStat('con');
+    expect(charactersApi.allocateStatOnServer).toHaveBeenCalledWith('con');
+  });
+
+  it("adopts the server's answer once it arrives", async () => {
+    vi.mocked(charactersApi.allocateStatOnServer).mockResolvedValueOnce({
+      progress: { ...serverSnapshot, skill_points: 2, stat_str: 6, attack_power: 11, progress_rev: 4 },
+    });
+    useCombatStore.getState().allocateStat('str');
+    await vi.waitFor(() => expect(useCombatStore.getState().progressRev).toBe(4));
+    expect(useCombatStore.getState().player.skillPoints).toBe(2);
+  });
+
+  it('pulls the server truth when it refuses the allocation (client out of step)', async () => {
+    vi.mocked(charactersApi.allocateStatOnServer).mockRejectedValueOnce(new Error('insufficient_points'));
+    vi.mocked(charactersApi.getActiveCharacterProfile).mockResolvedValueOnce({
+      ...baseCharacter,
+      skill_points: 0,
+      stat_str: 5,
+      progress_rev: 9,
+    });
+    useCombatStore.getState().allocateStat('str');
+    await vi.waitFor(() => expect(useCombatStore.getState().progressRev).toBe(9));
+    expect(useCombatStore.getState().player.skillPoints).toBe(0);
+    expect(useCombatStore.getState().player.statStr).toBe(5);
+  });
+
+  it('layers the equipment bonus back over the server\'s BASE attack when adopting', () => {
     useCombatStore.getState().init(equippedCharacter, [], false);
     const { player: initialized } = useCombatStore.getState();
-    // Sanity-check the fixture actually produced a non-zero equip bonus, or
-    // this test would silently degrade back into the gap it's meant to close.
+    // Sanity-check the fixture actually produced a non-zero equip bonus.
     expect(initialized.equipAttackBonus).toBe(3);
     expect(initialized.equipDefenseBonus).toBe(2);
     expect(initialized.attackPower).toBe(13); // base 10 + equip bonus 3
 
-    useCombatStore.getState().allocateStat('str');
+    // The DB columns are BASE values (pre-equipment): server says base attack 11, defense 5.
+    useCombatStore.getState().adoptProgress({ ...serverSnapshot, attack_power: 11, defense_power: 5, progress_rev: 1 });
     const { player } = useCombatStore.getState();
-    expect(player.attackPower).toBe(14); // 13 + 1 from the STR point
+    expect(player.attackPower).toBe(14); // 11 + 3 equip
+    expect(player.defensePower).toBe(7); // 5 + 2 equip
+  });
+});
 
-    // Base attack_power (10) + 1 from the STR allocation, with the +3 equip
-    // bonus stripped back out. If syncProgress() were reverted to send
-    // player.attackPower directly, this call would receive 14, not 11.
-    expect(charactersApi.syncProgress).toHaveBeenCalledWith(
-      expect.objectContaining({
-        attack_power: 11,
-        defense_power: 5, // base defense_power (5), equip's +2 stripped out; untouched by STR
-      })
-    );
+describe('combatStore adoptProgress', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useCombatStore.getState().init(baseCharacter, [], false);
+  });
+
+  it("overwrites the economy fields with the server's numbers", () => {
+    const adopted = useCombatStore.getState().adoptProgress({
+      ...serverSnapshot,
+      level: 7, experience: 40, gold: 1234, skill_points: 9, skill_upgrade_points: 3,
+      max_hp: 220, max_mp: 50, stat_con: 8, progress_rev: 5,
+    });
+    expect(adopted).toBe(true);
+    const { player, progressRev } = useCombatStore.getState();
+    expect(progressRev).toBe(5);
+    expect(player).toMatchObject({
+      level: 7, experience: 40, expToNext: 700, gold: 1234, skillPoints: 9, skillUpgradePoints: 3,
+      maxHp: 220, maxMp: 50, statCon: 8,
+    });
+  });
+
+  it('keeps current HP/MP as the client has them, only clamping to the new maximum', () => {
+    useCombatStore.setState((s) => ({ player: { ...s.player, currentHp: 60, currentMp: 15 } }));
+    useCombatStore.getState().adoptProgress({ ...serverSnapshot, max_hp: 100, max_mp: 20, progress_rev: 1 });
+    expect(useCombatStore.getState().player).toMatchObject({ currentHp: 60, currentMp: 15 });
+    useCombatStore.getState().adoptProgress({ ...serverSnapshot, max_hp: 40, max_mp: 10, progress_rev: 2 });
+    expect(useCombatStore.getState().player).toMatchObject({ currentHp: 40, currentMp: 10 });
+  });
+
+  it('ignores a stale snapshot (an older response arriving after a newer one)', () => {
+    useCombatStore.getState().adoptProgress({ ...serverSnapshot, gold: 500, progress_rev: 10 });
+    const adopted = useCombatStore.getState().adoptProgress({ ...serverSnapshot, gold: 100, progress_rev: 9 });
+    expect(adopted).toBe(false);
+    expect(useCombatStore.getState().player.gold).toBe(500);
+    expect(useCombatStore.getState().progressRev).toBe(10);
+  });
+
+  it('waits while local kills are still unconfirmed, then adopts', () => {
+    useCombatStore.getState().beginKillReports(2);
+    expect(useCombatStore.getState().adoptProgress({ ...serverSnapshot, gold: 1, progress_rev: 3 })).toBe(false);
+    expect(useCombatStore.getState().player.gold).toBe(100); // untouched
+    useCombatStore.getState().endKillReports(1);
+    expect(useCombatStore.getState().adoptProgress({ ...serverSnapshot, gold: 1, progress_rev: 3 })).toBe(false);
+    useCombatStore.getState().endKillReports(1);
+    expect(useCombatStore.getState().adoptProgress({ ...serverSnapshot, gold: 1, progress_rev: 3 })).toBe(true);
+    expect(useCombatStore.getState().player.gold).toBe(1);
+  });
+
+  it('a tampered local gold is overwritten by the server on the next adoption', () => {
+    useCombatStore.setState((s) => ({ player: { ...s.player, gold: 999_999_999, level: 99 } }));
+    useCombatStore.getState().adoptProgress({ ...serverSnapshot, gold: 100, level: 1, progress_rev: 1 });
+    expect(useCombatStore.getState().player).toMatchObject({ gold: 100, level: 1 });
+  });
+
+  it('init seeds progressRev from the profile and clears pending reports', () => {
+    useCombatStore.getState().beginKillReports(3);
+    useCombatStore.getState().init({ ...baseCharacter, progress_rev: 42 }, [], false);
+    expect(useCombatStore.getState().progressRev).toBe(42);
+    expect(useCombatStore.getState().pendingReports).toBe(0);
   });
 });
 
@@ -202,22 +282,8 @@ describe('combatStore attackNearest level-up sync', () => {
 
     const { player } = useCombatStore.getState();
     expect(charactersApi.syncProgress).toHaveBeenCalledWith({
-      level: player.level,
-      experience: player.experience,
-      skill_points: player.skillPoints,
-      attack_power: player.attackPower - player.equipAttackBonus,
-      defense_power: player.defensePower - player.equipDefenseBonus,
-      max_hp: player.maxHp,
       current_hp: player.currentHp,
-      max_mp: player.maxMp,
       current_mp: player.currentMp,
-      stat_str: player.statStr,
-      stat_dex: player.statDex,
-      stat_con: player.statCon,
-      stat_int: player.statInt,
-      stat_wis: player.statWis,
-      gold: player.gold,
-      skill_upgrade_points: player.skillUpgradePoints,
     });
   });
 });
