@@ -1,0 +1,8 @@
+{
+  "imports": {
+    "hono": "npm:hono@^4.6.0",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2.45.0",
+    "../../functions/api/supabaseAdmin.ts": "./fakeSupabaseAdmin.ts",
+    "../../functions/api/authMiddleware.ts": "./fakeAuthMiddleware.ts"
+  }
+}
