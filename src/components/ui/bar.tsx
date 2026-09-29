@@ -49,7 +49,10 @@ export function Bar({ ratio, kind = 'hp', color, label, height = 18, width = '10
       />
       {label && (
         <div
-          className="absolute inset-0 flex items-center justify-center text-[11px] font-bold leading-none text-ink"
+          className={cn(
+            'absolute inset-0 flex items-center justify-center font-bold leading-none text-ink',
+            height >= 16 ? 'text-[11px]' : 'text-[9px]',
+          )}
           style={{ textShadow: '0 0 3px var(--color-cream), 0 0 3px var(--color-cream)' }}
         >
           {label}

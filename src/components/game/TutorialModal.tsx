@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useIsTouch } from '../../lib/device';
 import { tutorialPages, useTutorialStore } from '../../lib/tutorial';
-
-const GOLD = '#e8c97a';
+import { cn } from '../../lib/utils';
+import { Button } from '../ui/button';
+import { Modal } from '../ui/modal';
 
 /**
  * How-to-play guide: opens automatically the first time someone enters the game, and again
@@ -47,106 +48,53 @@ export function TutorialModal() {
   }
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="게임 방법"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.6)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 12,
-        boxSizing: 'border-box',
-        // Above every panel and the drei nametags (see WorldMap.tsx's note on their z-index).
-        zIndex: 2147483647,
-        fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: 420,
-          maxHeight: '100%',
-          overflowY: 'auto',
-          boxSizing: 'border-box',
-          background: '#1a2a1c',
-          border: `2px solid ${GOLD}`,
-          borderRadius: 12,
-          padding: 18,
-          boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
-          <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 17 }}>{current.title}</span>
-          <span style={{ color: '#9aa08f', fontSize: 12 }}>
+    <Modal
+      open
+      // Above every panel and the drei nametags (see WorldMap.tsx's note on their z-index). Escape and
+      // dismissal are handled above, so the modal's own are switched off.
+      overlayClassName="z-[2147483647]"
+      dismissible={false}
+      title={
+        <span className="flex items-baseline justify-between gap-2">
+          <span>{current.title}</span>
+          <span className="font-body text-sm font-bold text-ink-soft">
             {index + 1} / {pages.length}
           </span>
-        </div>
-
-        <div>
-          {current.lines.map(([label, how]) => (
-            <div
-              key={label}
-              style={{
-                display: 'flex',
-                gap: 12,
-                padding: '8px 2px',
-                borderBottom: '1px solid rgba(232, 201, 122, 0.12)',
-                fontSize: 13,
-                lineHeight: 1.5,
-              }}
-            >
-              <span style={{ color: GOLD, fontWeight: 700, flex: '0 0 84px' }}>{label}</span>
-              <span style={{ color: '#cfe8d0' }}>{how}</span>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', margin: '14px 0 10px' }}>
-          {pages.map((p, i) => (
-            <span
-              key={p.title}
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                background: i === index ? GOLD : 'rgba(232, 201, 122, 0.25)',
-              }}
-            />
-          ))}
-        </div>
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={finish} style={{ ...buttonStyle, flex: 1, color: '#9aa08f', borderColor: 'rgba(154,160,143,0.4)' }}>
+        </span>
+      }
+      footer={
+        <>
+          <Button variant="ghost" className="flex-1" onClick={finish}>
             {isLast ? '닫기' : '건너뛰기'}
-          </button>
+          </Button>
           {index > 0 && (
-            <button onClick={() => setPage(index - 1)} style={{ ...buttonStyle, flex: 1 }}>
+            <Button variant="sky" className="flex-1" onClick={() => setPage(index - 1)}>
               이전
-            </button>
+            </Button>
           )}
-          <button
-            onClick={() => (isLast ? finish() : setPage(index + 1))}
-            style={{ ...buttonStyle, flex: 1.4, background: 'rgba(232, 201, 122, 0.25)', fontWeight: 700 }}
-          >
+          <Button className="flex-[1.4]" onClick={() => (isLast ? finish() : setPage(index + 1))}>
             {isLast ? '시작하기' : '다음'}
-          </button>
-        </div>
+          </Button>
+        </>
+      }
+    >
+      <div>
+        {current.lines.map(([label, how]) => (
+          <div key={label} className="flex gap-3 border-b-2 border-edge/15 py-2 text-sm leading-relaxed last:border-b-0">
+            <span className="w-[84px] shrink-0 font-bold text-gold-ink">{label}</span>
+            <span className="text-ink">{how}</span>
+          </div>
+        ))}
       </div>
-    </div>
+
+      <div className="mt-4 flex justify-center gap-1.5" aria-hidden="true">
+        {pages.map((p, i) => (
+          <span
+            key={p.title}
+            className={cn('size-2.5 rounded-full border-2 border-edge', i === index ? 'bg-gold' : 'bg-cream-deep')}
+          />
+        ))}
+      </div>
+    </Modal>
   );
 }
-
-const buttonStyle = {
-  padding: '10px 0',
-  borderRadius: 8,
-  border: `1px solid ${GOLD}`,
-  background: 'rgba(255,255,255,0.05)',
-  color: GOLD,
-  fontSize: 13,
-  cursor: 'pointer',
-  touchAction: 'manipulation',
-} as const;

@@ -166,10 +166,10 @@ export function MiniMap() {
         height: CORNER_SIZE,
         // Phones: same drawing, scaled down so it doesn't cover a third of the screen.
         ...(isTouch ? { top: 8, right: 8, transform: 'scale(0.55)', transformOrigin: 'top right' } : {}),
-        borderRadius: 14,
+        borderRadius: 18,
         overflow: 'hidden',
-        border: '2px solid #e8c97a',
-        boxShadow: '0 6px 18px rgba(0,0,0,0.45)',
+        border: '3px solid var(--color-edge)',
+        boxShadow: 'var(--shadow-panel)',
         // Never intercepts clicks — purely informational, sits above in-world Html tags
         // (nametags/health bars can spike their own z-index very high, see WorldMap.tsx's
         // note) without competing with any actual modal (menu/map/panels stay above this).
@@ -191,12 +191,10 @@ export function MiniMap() {
           textAlign: 'center',
           fontSize: 10,
           fontWeight: 700,
-          color: '#f4f1e8',
-          textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-          fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
+          color: 'var(--color-ink)',
         }}
       >
-        M
+        <span className="rounded-full border-2 border-edge bg-cream/95 px-2 leading-4">M</span>
       </div>
       {inDungeon && dungeonMeta && (
         <div
@@ -208,12 +206,12 @@ export function MiniMap() {
             textAlign: 'center',
             fontSize: 10,
             fontWeight: 700,
-            color: '#f4f1e8',
-            textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-            fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
+            color: 'var(--color-ink)',
           }}
         >
-          {dungeonMeta.name} 지하 {dungeonFloor}층
+          <span className="rounded-full border-2 border-edge bg-cream/95 px-2 leading-4">
+            {dungeonMeta.name} 지하 {dungeonFloor}층
+          </span>
         </div>
       )}
     </div>

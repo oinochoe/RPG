@@ -13,10 +13,21 @@ export interface ModalProps {
   /** Escape and a click on the dimmed backdrop close it (default true). */
   dismissible?: boolean;
   className?: string;
+  /** Classes for the dimmed full-screen layer, e.g. a higher z-index. */
+  overlayClassName?: string;
 }
 
 // A dialog centered over a dimmed backdrop — the tutorial, confirmations.
-export function Modal({ open, onClose, title, children, footer, dismissible = true, className }: ModalProps) {
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  dismissible = true,
+  className,
+  overlayClassName,
+}: ModalProps) {
   const titleId = useId();
 
   useEffect(() => {
@@ -32,7 +43,10 @@ export function Modal({ open, onClose, title, children, footer, dismissible = tr
 
   return (
     <div
-      className="fixed inset-0 z-[300] flex items-center justify-center bg-night/50 p-4 backdrop-blur-[2px]"
+      className={cn(
+        'fixed inset-0 z-[300] flex items-center justify-center bg-night/50 p-4 backdrop-blur-[2px]',
+        overlayClassName,
+      )}
       onPointerDown={(e) => {
         if (dismissible && onClose && e.target === e.currentTarget) onClose();
       }}

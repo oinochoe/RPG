@@ -1,16 +1,30 @@
+import type { ReactNode } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
 import { useQuestStore, findQuestByGiver } from '../../stores/questStore';
 import { useLootStore } from '../../stores/lootStore';
 import { useUIStore } from '../../stores/uiStore';
 import { Hotbar } from './Hotbar';
-import { Bar } from './StatusBar';
 import { TouchHud } from './TouchHud';
 import { useIsTouch } from '../../lib/device';
+import { Badge } from '../ui/badge';
+import { Bar } from '../ui/bar';
+import { Button } from '../ui/button';
 
 const SHOP_NPC_LABEL: Record<'merchant' | 'blacksmith', string> = {
   merchant: '상인',
   blacksmith: '대장장이',
 };
+
+/** The "press a key to interact" hint floating above the status bars. */
+function HudPrompt({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="absolute bottom-[96px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border-[3px] border-edge bg-cream/95 px-4 py-1 font-display text-base text-ink shadow-chunk-sm"
+    >
+      {children}
+    </div>
+  );
+}
 
 export function HUD() {
   const player = useCombatStore((s) => s.player);
@@ -38,115 +52,33 @@ export function HUD() {
   if (isTouch) return <TouchHud />;
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        pointerEvents: 'none',
-        fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
-      }}
-    >
-      {nearShopKind && (
-        <div
-          style={{
-            position: 'absolute',
-            left: '50%',
-            bottom: 96,
-            transform: 'translateX(-50%)',
-            color: '#e8c97a',
-            fontWeight: 700,
-            fontSize: 13,
-            textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-          }}
-        >
-          {SHOP_NPC_LABEL[nearShopKind]}에게 말 걸기: Space
-        </div>
-      )}
+    <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none' }}>
+      {nearShopKind && <HudPrompt>{SHOP_NPC_LABEL[nearShopKind]}에게 말 걸기: Space</HudPrompt>}
 
-      {!nearShopKind && nearQuestPrompt && (
-        <div
-          style={{
-            position: 'absolute',
-            left: '50%',
-            bottom: 96,
-            transform: 'translateX(-50%)',
-            color: '#e8c97a',
-            fontWeight: 700,
-            fontSize: 13,
-            textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-          }}
-        >
-          {nearQuestPrompt}
-        </div>
-      )}
+      {!nearShopKind && nearQuestPrompt && <HudPrompt>{nearQuestPrompt}</HudPrompt>}
 
-      {!nearShopKind && !nearQuestPrompt && nearDrop && (
-        <div
-          style={{
-            position: 'absolute',
-            left: '50%',
-            bottom: 96,
-            transform: 'translateX(-50%)',
-            color: '#e8c97a',
-            fontWeight: 700,
-            fontSize: 13,
-            textShadow: '0 1px 3px rgba(0,0,0,0.8)',
-          }}
-        >
-          {nearDrop.itemName} 줍기: F4 (클릭도 가능)
-        </div>
-      )}
+      {!nearShopKind && !nearQuestPrompt && nearDrop && <HudPrompt>{nearDrop.itemName} 줍기: F4 (클릭도 가능)</HudPrompt>}
 
       {/* Bottom-left: menu entry point (name/gold/keybinds now live behind it — name is
           already visible as the nametag above the character, and gold is visible in the
           inventory panel, so neither needs to be duplicated here). */}
-      <button
-        onClick={toggleSystemMenu}
-        style={{
-          pointerEvents: 'auto',
-          position: 'absolute',
-          left: 16,
-          bottom: 16,
-          padding: '8px 14px',
-          borderRadius: 8,
-          border: '1px solid rgba(232, 201, 122, 0.5)',
-          background: 'rgba(15, 17, 13, 0.65)',
-          color: '#e8c97a',
-          fontSize: 12,
-          fontWeight: 700,
-          cursor: 'pointer',
-        }}
-      >
+      <Button variant="ghost" size="sm" onClick={toggleSystemMenu} className="pointer-events-auto absolute bottom-4 left-4">
         메뉴 (F1)
-      </button>
+      </Button>
 
       {/* Lineage1-style status bars: level + HP/MP/EXP, centered — no name (already shown
           as the nametag above the character) or gold (visible in the inventory panel). */}
-      <div
-        style={{
-          position: 'absolute',
-          left: '50%',
-          bottom: 16,
-          transform: 'translateX(-50%)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 3,
-          padding: '8px 12px',
-          borderRadius: 10,
-          background: 'rgba(15, 17, 13, 0.65)',
-          border: '1px solid rgba(232, 201, 122, 0.4)',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
-        }}
-      >
-        <span style={{ color: '#e8c97a', fontWeight: 700, fontSize: 12 }}>Lv.{player.level}</span>
-        <Bar ratio={player.currentHp / player.maxHp} color="#57c25b" label={`HP ${player.currentHp}/${player.maxHp}`} />
-        <Bar ratio={player.maxMp > 0 ? player.currentMp / player.maxMp : 0} color="#5b8bd5" label={`MP ${player.currentMp}/${player.maxMp}`} />
+      <div className="absolute bottom-4 left-1/2 flex w-[300px] -translate-x-1/2 flex-col gap-1 rounded-panel border-[3px] border-edge bg-cream/95 px-3 py-2 shadow-panel">
+        <div>
+          <Badge tone="gold">Lv.{player.level}</Badge>
+        </div>
+        <Bar kind="hp" ratio={player.currentHp / player.maxHp} label={`HP ${player.currentHp}/${player.maxHp}`} />
         <Bar
-          ratio={player.experience / player.expToNext}
-          color="#d5a85b"
-          label={`EXP ${player.experience}/${player.expToNext}`}
-          height={10}
+          kind="mp"
+          ratio={player.maxMp > 0 ? player.currentMp / player.maxMp : 0}
+          label={`MP ${player.currentMp}/${player.maxMp}`}
         />
+        <Bar kind="xp" ratio={player.experience / player.expToNext} label={`EXP ${player.experience}/${player.expToNext}`} height={14} />
       </div>
 
       {/* Far right: item hotbar, detached from the status cluster. */}

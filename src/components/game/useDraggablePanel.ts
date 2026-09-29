@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState, type CSSProperties } from 'react';
 import { detectTouch, useIsTouch, useViewportSize, type ViewportSize } from '../../lib/device';
+import { TOUCH_LEFT_COLUMN, TOUCH_TOP_INSET } from './hudLayout';
 
 export interface DraggablePosition {
   x: number;
@@ -15,8 +16,6 @@ const MIN_VISIBLE_HEADER = 48;
 // The phone HUD (TouchHud) keeps its status card + panel-button row in the top-left column. A
 // panel must not open on top of those buttons, or it can't be toggled closed with them.
 // Portrait: open below that block. Landscape: open to the right of it.
-const TOUCH_TOP_INSET = 132;
-const TOUCH_LEFT_COLUMN = 220;
 
 /** Where a panel of `width` first opens on a phone (instead of the desktop default). */
 export function touchPanelPosition(width: number, viewport: ViewportSize): DraggablePosition {

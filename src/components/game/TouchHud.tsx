@@ -1,20 +1,22 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { Backpack, Map as MapIcon, Menu, ScrollText, User, type LucideIcon } from 'lucide-react';
 import { useCombatStore } from '../../stores/combatStore';
 import { useLootStore } from '../../stores/lootStore';
 import { useUIStore } from '../../stores/uiStore';
-import { Bar } from './StatusBar';
+import { Bar } from '../ui/bar';
+import { Badge } from '../ui/badge';
+import { IconButton } from '../ui/icon-button';
+import { cn } from '../../lib/utils';
 import { Hotbar, COMPACT_HEIGHT } from './Hotbar';
 import { clearMoveTarget } from './moveTarget';
 import { computeStick, resetStick, stick } from './touchInput';
 import { interact } from './interactions';
+import { TOUCH_BUTTON_GAP, TOUCH_STATUS_WIDTH } from './hudLayout';
 
 const STICK_SIZE = 120;
 const KNOB_SIZE = 50;
-const ACTION_SIZE = 68;
-const PANEL_BUTTON_SIZE = 36;
-const STATUS_WIDTH = 5 * PANEL_BUTTON_SIZE + 4 * 4;
+const ACTION_SIZE = 72;
 
-const GOLD = '#e8c97a';
 const SAFE_LEFT = 'max(12px, env(safe-area-inset-left))';
 const SAFE_RIGHT = 'max(12px, env(safe-area-inset-right))';
 const SAFE_BOTTOM = 'max(12px, env(safe-area-inset-bottom))';
@@ -74,6 +76,7 @@ function Joystick() {
         if (e.pointerId === activePointer.current) release();
       }}
       onContextMenu={(e) => e.preventDefault()}
+      className="rounded-full border-[3px] border-edge/80 bg-cream/55 shadow-chunk-sm backdrop-blur-[2px]"
       style={{
         pointerEvents: 'auto',
         position: 'absolute',
@@ -81,22 +84,17 @@ function Joystick() {
         bottom: SAFE_BOTTOM,
         width: STICK_SIZE,
         height: STICK_SIZE,
-        borderRadius: '50%',
-        background: 'rgba(15, 17, 13, 0.45)',
-        border: `2px solid rgba(232, 201, 122, 0.45)`,
         touchAction: 'none',
       }}
     >
       <div
+        className="rounded-full border-[3px] border-edge bg-gradient-to-b from-[#ffd970] to-gold shadow-chunk-sm"
         style={{
           position: 'absolute',
           left: half - KNOB_SIZE / 2 + knob.x,
           top: half - KNOB_SIZE / 2 + knob.y,
           width: KNOB_SIZE,
           height: KNOB_SIZE,
-          borderRadius: '50%',
-          background: 'rgba(232, 201, 122, 0.55)',
-          border: '2px solid rgba(232, 201, 122, 0.9)',
           pointerEvents: 'none',
         }}
       />
@@ -104,47 +102,29 @@ function Joystick() {
   );
 }
 
-const PANEL_BUTTONS: { label: string; toggle: () => void; isOpen: (s: ReturnType<typeof useUIStore.getState>) => boolean }[] = [
-  { label: '가방', toggle: () => useUIStore.getState().toggleInventory(), isOpen: (s) => s.isInventoryOpen },
-  { label: '캐릭', toggle: () => useUIStore.getState().toggleCharacterPanel(), isOpen: (s) => s.isCharacterPanelOpen },
-  { label: '퀘스트', toggle: () => useUIStore.getState().toggleQuestLog(), isOpen: (s) => s.isQuestLogOpen },
-  { label: '지도', toggle: () => useUIStore.getState().toggleMap(), isOpen: (s) => s.isMapOpen },
-  { label: '메뉴', toggle: () => useUIStore.getState().toggleSystemMenu(), isOpen: (s) => s.isSystemMenuOpen },
+const PANEL_BUTTONS: {
+  label: string;
+  icon: LucideIcon;
+  toggle: () => void;
+  isOpen: (s: ReturnType<typeof useUIStore.getState>) => boolean;
+}[] = [
+  { label: '가방', icon: Backpack, toggle: () => useUIStore.getState().toggleInventory(), isOpen: (s) => s.isInventoryOpen },
+  { label: '캐릭터', icon: User, toggle: () => useUIStore.getState().toggleCharacterPanel(), isOpen: (s) => s.isCharacterPanelOpen },
+  { label: '퀘스트', icon: ScrollText, toggle: () => useUIStore.getState().toggleQuestLog(), isOpen: (s) => s.isQuestLogOpen },
+  { label: '지도', icon: MapIcon, toggle: () => useUIStore.getState().toggleMap(), isOpen: (s) => s.isMapOpen },
+  { label: '메뉴', icon: Menu, toggle: () => useUIStore.getState().toggleSystemMenu(), isOpen: (s) => s.isSystemMenuOpen },
 ];
-
-const roundButton: CSSProperties = {
-  pointerEvents: 'auto',
-  borderRadius: 8,
-  border: '1px solid rgba(232, 201, 122, 0.5)',
-  color: GOLD,
-  fontWeight: 700,
-  touchAction: 'manipulation',
-  padding: 0,
-};
 
 /** The touch replacement for the I/C/Q/M/F1 shortcuts. */
 function PanelButtons() {
   const ui = useUIStore();
   return (
-    <div style={{ display: 'flex', gap: 4 }}>
-      {PANEL_BUTTONS.map((b) => {
-        const open = b.isOpen(ui);
-        return (
-          <button
-            key={b.label}
-            onClick={b.toggle}
-            style={{
-              ...roundButton,
-              width: PANEL_BUTTON_SIZE,
-              height: PANEL_BUTTON_SIZE,
-              fontSize: 10,
-              background: open ? 'rgba(232, 201, 122, 0.35)' : 'rgba(15, 17, 13, 0.65)',
-            }}
-          >
-            {b.label}
-          </button>
-        );
-      })}
+    <div className="pointer-events-auto flex" style={{ gap: TOUCH_BUTTON_GAP }}>
+      {PANEL_BUTTONS.map(({ label, icon: Icon, toggle, isOpen }) => (
+        <IconButton key={label} label={label} active={isOpen(ui)} onClick={toggle} className="touch-manipulation">
+          <Icon className="size-6" strokeWidth={2.25} />
+        </IconButton>
+      ))}
     </div>
   );
 }
@@ -173,43 +153,27 @@ function ActionButton() {
 
   return (
     <div
+      className="flex flex-col items-center gap-1"
       style={{
         position: 'absolute',
         right: SAFE_RIGHT,
         bottom: `calc(${SAFE_BOTTOM} + ${COMPACT_HEIGHT + 12}px)`,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 4,
       }}
     >
       {hint && (
-        <span
-          style={{
-            color: GOLD,
-            fontSize: 11,
-            fontWeight: 700,
-            textShadow: '0 1px 3px rgba(0,0,0,0.9)',
-            maxWidth: 110,
-            textAlign: 'center',
-          }}
-        >
+        <span className="max-w-[110px] rounded-full border-2 border-edge bg-cream/95 px-2 py-0.5 text-center text-[11px] font-bold leading-4 text-ink">
           {hint}
         </span>
       )}
       <button
         onClick={() => interact()}
-        style={{
-          ...roundButton,
-          width: ACTION_SIZE,
-          height: ACTION_SIZE,
-          borderRadius: '50%',
-          fontSize: 14,
-          borderWidth: 2,
-          opacity: ready ? 1 : 0.4,
-          background: ready ? 'rgba(232, 201, 122, 0.4)' : 'rgba(15, 17, 13, 0.65)',
-          boxShadow: ready ? '0 0 12px rgba(232, 201, 122, 0.6)' : 'none',
-        }}
+        style={{ width: ACTION_SIZE, height: ACTION_SIZE }}
+        className={cn(
+          'pointer-events-auto touch-manipulation select-none rounded-full border-[3px] border-edge font-display text-lg text-ink transition-[transform,box-shadow] duration-75 active:translate-y-[3px] active:shadow-none',
+          ready
+            ? 'bg-gradient-to-b from-[#ffd970] to-gold shadow-[0_4px_0_var(--color-edge),0_0_16px_var(--color-gold)]'
+            : 'bg-cream/70 opacity-60 shadow-chunk-sm',
+        )}
       >
         {label}
       </button>
@@ -226,53 +190,26 @@ export function TouchHud() {
   const player = useCombatStore((s) => s.player);
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        pointerEvents: 'none',
-        fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
-        touchAction: 'none',
-      }}
-    >
+    <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', touchAction: 'none' }}>
       <div
-        style={{
-          position: 'absolute',
-          left: SAFE_LEFT,
-          top: SAFE_TOP,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 6,
-        }}
+        className="flex flex-col gap-1.5"
+        style={{ position: 'absolute', left: SAFE_LEFT, top: SAFE_TOP }}
       >
         <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 3,
-            padding: '6px 8px',
-            width: STATUS_WIDTH,
-            boxSizing: 'border-box',
-            borderRadius: 10,
-            background: 'rgba(15, 17, 13, 0.65)',
-            border: '1px solid rgba(232, 201, 122, 0.4)',
-          }}
+          className="box-border flex flex-col gap-1 rounded-panel border-[3px] border-edge bg-cream/95 px-2 py-1.5 shadow-chunk"
+          style={{ width: TOUCH_STATUS_WIDTH }}
         >
-          <span style={{ color: GOLD, fontWeight: 700, fontSize: 11 }}>Lv.{player.level}</span>
-          <Bar ratio={player.currentHp / player.maxHp} color="#57c25b" label={`HP ${player.currentHp}/${player.maxHp}`} width={STATUS_WIDTH - 18} />
+          <div>
+            <Badge tone="gold">Lv.{player.level}</Badge>
+          </div>
+          <Bar kind="hp" ratio={player.currentHp / player.maxHp} label={`HP ${player.currentHp}/${player.maxHp}`} height={18} />
           <Bar
+            kind="mp"
             ratio={player.maxMp > 0 ? player.currentMp / player.maxMp : 0}
-            color="#5b8bd5"
             label={`MP ${player.currentMp}/${player.maxMp}`}
-            width={STATUS_WIDTH - 18}
+            height={18}
           />
-          <Bar
-            ratio={player.experience / player.expToNext}
-            color="#d5a85b"
-            label={`EXP ${player.experience}/${player.expToNext}`}
-            height={10}
-            width={STATUS_WIDTH - 18}
-          />
+          <Bar kind="xp" ratio={player.experience / player.expToNext} label={`EXP ${player.experience}/${player.expToNext}`} height={14} />
         </div>
         <PanelButtons />
       </div>

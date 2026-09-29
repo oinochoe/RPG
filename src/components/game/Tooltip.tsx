@@ -39,23 +39,8 @@ export function useTooltip(label: string | null | undefined): {
   const tooltip =
     visible && label ? (
       <div
-        style={{
-          position: 'absolute',
-          bottom: '100%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          marginBottom: 6,
-          padding: '4px 8px',
-          borderRadius: 6,
-          border: '1px solid rgba(232, 201, 122, 0.5)',
-          background: 'rgba(15, 17, 13, 0.95)',
-          color: '#f4f1e8',
-          fontSize: 11,
-          fontWeight: 600,
-          whiteSpace: 'nowrap',
-          pointerEvents: 'none',
-          zIndex: 10000,
-        }}
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-[10000] mb-2 -translate-x-1/2 whitespace-nowrap rounded-control border-[3px] border-edge bg-cream px-2.5 py-1 text-xs font-bold text-ink shadow-chunk-sm"
       >
         {label}
       </div>

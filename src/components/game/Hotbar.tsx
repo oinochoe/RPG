@@ -3,6 +3,7 @@ import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 import { useCombatStore, findSkillDef, type SkillDef } from '../../stores/combatStore';
 import { useTooltip } from './Tooltip';
 import { ItemIcon } from './itemIcons';
+import { cn } from '../../lib/utils';
 import type { InventorySlot } from '../../types/api';
 
 // Custom mime type for the drag payload (an item_template_id) — namespaced so it never
@@ -212,40 +213,36 @@ function HotbarSlot({
         onDrop(e);
       }}
       {...tooltipHandlers}
-      style={{
-        pointerEvents: 'auto',
-        width: size,
-        height: size,
-        touchAction: 'manipulation',
-        borderRadius: 8,
-        border: `1px solid ${isArmed ? '#e0538a' : isDragTarget ? '#e8c97a' : 'rgba(232, 201, 122, 0.5)'}`,
-        boxShadow: isArmed ? '0 0 8px rgba(224, 83, 138, 0.7)' : 'none',
-        background: isDragTarget ? 'rgba(232, 201, 122, 0.25)' : 'rgba(15, 17, 13, 0.65)',
-        color: usable ? '#f4f1e8' : '#5c6058',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: usable ? 'pointer' : 'default',
-        position: 'relative',
-        padding: 0,
-      }}
+      style={{ width: size, height: size }}
+      className={cn(
+        'pointer-events-auto relative box-border flex touch-manipulation flex-col items-center justify-center rounded-control border-[3px] p-0 transition-transform duration-75',
+        isArmed
+          ? 'border-danger bg-cream shadow-[0_0_0_3px_var(--color-hp),0_0_14px_var(--color-hp)]'
+          : isDragTarget
+            ? 'border-gold-deep bg-gold/40 shadow-chunk-sm'
+            : 'border-edge bg-cream/95 shadow-chunk-sm',
+        usable ? 'cursor-pointer text-ink hover:brightness-105 active:translate-y-0.5' : 'cursor-default text-ink-soft',
+        !usable && !isArmed && 'opacity-75',
+      )}
     >
-      <span style={{ position: 'absolute', top: 2, left: 4, fontSize: 10, color: '#9aa08f' }}>{index + 1}</span>
+      <span className="absolute left-1 top-0.5 text-[10px] font-bold leading-none text-ink-soft">{index + 1}</span>
       {skill ? (
         <>
-          <span style={{ fontSize: 10, lineHeight: 1.2, textAlign: 'center', padding: '0 2px' }}>{skill.name}</span>
-          <span style={{ fontSize: 10, fontWeight: 700, color: '#9be7ff' }}>MP {skill.mpCost}</span>
+          <span className="px-0.5 text-center text-[10px] font-bold leading-tight">{skill.name}</span>
+          <span className="text-[10px] font-bold text-sky-ink">MP {skill.mpCost}</span>
         </>
       ) : row ? (
         <>
           <ItemIcon itemName={row.item_name} size={32} />
-          <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: 10, fontWeight: 700, color: '#e8c97a' }}>
+          <span
+            className="absolute bottom-0.5 right-1 text-[11px] font-bold leading-none text-ink"
+            style={{ textShadow: '0 0 3px var(--color-cream), 0 0 3px var(--color-cream)' }}
+          >
             {quantity}
           </span>
         </>
       ) : (
-        <span style={{ fontSize: 10, color: '#5c6058' }}>빈 슬롯</span>
+        <span className="whitespace-nowrap text-[10px] font-bold text-ink-soft/70">빈 슬롯</span>
       )}
       {tooltip}
     </button>

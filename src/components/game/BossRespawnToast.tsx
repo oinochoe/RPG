@@ -34,24 +34,17 @@ export function BossRespawnToast() {
 
   return (
     <div
+      className="max-w-[calc(100vw-24px)] rounded-panel border-[3px] border-edge bg-cream px-6 py-3 text-center font-display text-lg text-ink shadow-panel"
       style={{
         position: 'fixed',
         top: '30%',
         left: '50%',
         transform: 'translateX(-50%)',
-        padding: '12px 26px',
-        borderRadius: 10,
-        background: 'rgba(15, 17, 13, 0.85)',
-        border: '2px solid #d5555b',
-        color: '#f4a0a4',
-        fontWeight: 700,
-        fontSize: 16,
-        textAlign: 'center',
         zIndex: 2147483647,
         pointerEvents: 'none',
       }}
     >
-      {notice.bossName} 처치! {formatRemaining(notice.availableAt)} 후 다시 나타납니다.
+      <span className="text-danger-ink">{notice.bossName} 처치!</span> {formatRemaining(notice.availableAt)} 후 다시 나타납니다.
     </div>
   );
 }

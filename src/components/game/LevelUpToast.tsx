@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
+import { THEME } from '../../lib/theme';
 
 interface Particle {
   id: number;
@@ -8,7 +9,7 @@ interface Particle {
   delay: number;
 }
 
-const PARTICLE_COLORS = ['#e8c97a', '#57c25b', '#5b8bd5', '#e0538a', '#f4f1e8'];
+const PARTICLE_COLORS = [THEME.color.gold, THEME.color.xp, THEME.color.mp, THEME.color.hp, THEME.color.sky];
 const PARTICLE_COUNT = 24;
 const VISIBLE_MS = 2600;
 
@@ -65,27 +66,22 @@ export function LevelUpToast() {
             position: 'absolute',
             top: '-5%',
             left: `${p.left}%`,
-            width: 8,
-            height: 8,
+            width: 10,
+            height: 10,
             borderRadius: '50%',
+            border: '2px solid var(--color-edge)',
             background: p.color,
             animation: `rpg-confetti-fall 1.8s ease-in ${p.delay}s forwards`,
           }}
         />
       ))}
       <div
+        className="rounded-panel border-[3px] border-edge bg-gradient-to-b from-[#ffd970] to-gold px-6 py-2.5 text-center font-display text-xl text-ink shadow-panel"
         style={{
           position: 'absolute',
           top: '18%',
           left: '50%',
           transform: 'translateX(-50%)',
-          padding: '10px 22px',
-          borderRadius: 10,
-          background: 'rgba(15, 17, 13, 0.85)',
-          border: '2px solid #e8c97a',
-          color: '#e8c97a',
-          fontWeight: 700,
-          fontSize: 16,
           animation: 'rpg-levelup-pop 0.4s ease-out',
         }}
       >
