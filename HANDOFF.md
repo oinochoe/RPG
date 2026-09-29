@@ -20,6 +20,14 @@
 - [ ] **모바일 후속 개선** — 실제 기기 테스트 피드백 반영(아래 "모바일 지원" 참고).
 - [ ] **콘텐츠** — 업적, 도감, 일일 퀘스트, 랭킹(경제가 서버 권위가 됐으니 가능). 파티/채팅은 멀티플레이 이후 별도 설계.
 
+### 비주얼 (밝은 UI는 끝, 월드가 남음)
+- [ ] **3D 월드의 톤 맞추기(툰 룩).** UI는 밝은 톤으로 바뀌었지만 지형/조명/안개/몬스터·캐릭터 재질은 아직 옛 톤이다.
+      `meshStandardMaterial`을 툰 셰이딩 + 외곽선 + 색감 보정으로 바꾸는 트랙(모델은 그대로 두고 재질만).
+- [ ] **아이템 아이콘(`itemIcons.tsx`)과 지도 그림(`WorldMap`/`MiniMap`의 SVG) 색을 새 팔레트로.**
+- [ ] **전투 이펙트/타격감**(스킬별 파티클, 히트 멈춤, 카메라 흔들림) — 새 토큰 색을 쓸 것.
+- [ ] **폰 카메라 줌**: 폰에서 보이는 월드가 좁다는 피드백(`CameraRig.tsx`의 `MIN_ZOOM_SCALE` 하한 때문에 폰 폭 390px에서
+      가로 약 7칸 vs 데스크톱 10칸). 목표 시야 폭을 11칸 정도로 고정하는 안을 검토했으나 아직 적용 전.
+
 ### 성능
 - [ ] **게임 청크(GamePage) 경량화** — 아직 큼(~1.1MB). 몬스터/NPC GLTF preload 분할 검토.
 
@@ -67,6 +75,20 @@ DB/함수와 클라이언트 사이에는 잠깐 구 클라이언트와 새 서�
   값이 라이브 설정을 덮어쓸 수 있어 위험하니, 쓰기 전에 `supabase config diff`로 먼저 차이를 볼 것.
 - 메일 서비스 없이 급히 열어야 하면 `supabase secrets set REQUIRE_EMAIL_VERIFICATION=false` 후 함수 재배포
   (가입 즉시 로그인). SMTP를 연결한 뒤에는 이 secret을 지울 것.
+
+## UI 디자인 시스템
+
+밝은 스타일라이즈드 톤. 설계와 결정은 `docs/superpowers/specs/2026-09-29-ui-design-system-design.md`. 사용 규칙:
+
+- **색은 토큰으로만.** Tailwind 유틸(`bg-cream`, `text-ink`, `border-edge`, `shadow-chunk`)이나 인라인 스타일의 `var(--color-…)`,
+  three.js에서는 `src/lib/theme.ts`의 `THEME`. 새 hex 리터럴을 UI에 넣지 말 것. 토큰을 추가하면 `index.css`와 `theme.ts`
+  둘 다 고친다(테스트가 어긋남을 잡는다).
+- **글자에는 `ink`/`ink-soft`/`*-ink`만.** `gold`, `sky`, `mint` 같은 밝은 포인트색은 크림 위에서 안 읽힌다(장식·배경용).
+  새 글자/배경 조합을 쓰면 `theme.test.ts`의 `PAIRS`에 추가해 대비(AA 4.5:1)를 검사할 것.
+- **새 창은 `GamePanel`**, 아이템 칸은 `Slot`, 버튼은 `Button`/`IconButton`, 대화상자는 `Modal`. `/dev/ui`에 모든 부품이 있다.
+  터치 요소는 44px 이상(`Button`/`IconButton`은 자동).
+- **폰 HUD 크기(`hudLayout.ts`)를 바꾸면** 패널이 HUD를 가리지 않는지(`TOUCH_TOP_INSET`, `TOUCH_LEFT_COLUMN`) 폰 폭에서 확인.
+- Google Fonts(Jua, Noto Sans KR)를 `index.html`에서 불러온다. 오프라인이면 시스템 글꼴로 대체된다.
 
 ## 경제 서버 권위 (동작/주의)
 
