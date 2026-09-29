@@ -9,6 +9,8 @@ import { Projectile } from './Projectile';
 import { FxSprite, SkillRing } from './FxSprite';
 import { playerPosition, playerFacing, playerStuck, pickupAnimUntil, triggerPickupAnim } from './playerTransform';
 import { moveTarget, clearMoveTarget } from './moveTarget';
+import { stick, isStickActive, stickToWorldDir } from './touchInput';
+import { talkToNearby, pickupNearby } from './interactions';
 import { resolveMovement, PLAYER_COLLISION_RADIUS } from './worldColliders';
 import { OFFSET as CAMERA_OFFSET } from './CameraRig';
 import { playSound, playFootstep } from '../../lib/sound';
@@ -558,7 +560,6 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     playerPosition.set(character.position_x, character.position_y, character.position_z);
 
     function onKeyDown(e: KeyboardEvent) {
-      const ui = useUIStore.getState();
       // Movement/attack deliberately keep working while a panel is open (character/
       // inventory/shop/system-menu are all small docked or draggable windows now, not
       // full-screen blockers, and WorldMap is a see-through overlay) — like most
@@ -570,11 +571,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
         // clicking a monster (see the click-to-target-then-auto-attack block below), same
         // as a skill now requires an explicit clicked target instead of firing at whatever's
         // nearest.
-        if (ui.nearShopKind) {
-          useUIStore.getState().openShop(ui.nearShopKind, ui.nearShopVillageIndex);
-        } else if (ui.nearQuestNpcName) {
-          useUIStore.getState().openQuest(ui.nearQuestNpcName);
-        }
+        talkToNearby();
         return;
       }
       if (e.code === 'KeyK') {
@@ -587,11 +584,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       }
       if (e.code === 'F4') {
         e.preventDefault();
-        const dropId = ui.nearDropId;
-        if (dropId === null) return;
-        pickupDrop(dropId).then((ok) => {
-          if (ok) triggerPickupAnim();
-        });
+        pickupNearby();
         return;
       }
       if (MOVE_KEYS[e.code]) {
@@ -623,6 +616,13 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       if (!dir) continue;
       dx += dir[0];
       dz += dir[1];
+    }
+    // Virtual joystick (touch) drives movement exactly like held keys do — same camera-relative
+    // basis, and it likewise cancels click-to-move / auto-attack walking while pushed.
+    if (isStickActive()) {
+      const [sdx, sdz] = stickToWorldDir(stick.x, stick.y, FORWARD, RIGHT);
+      dx += sdx;
+      dz += sdz;
     }
     const usingKeyboard = Math.hypot(dx, dz) > 0.0001;
 

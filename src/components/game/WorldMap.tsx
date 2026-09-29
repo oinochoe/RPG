@@ -132,7 +132,7 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
       width={720}
       height={720}
       viewBox={`${-VIEW_HALF} ${-VIEW_HALF} ${VIEW_HALF * 2} ${VIEW_HALF * 2}`}
-      style={{ background: '#2f4f27', borderRadius: 6, display: 'block' }}
+      style={{ background: '#2f4f27', borderRadius: 6, display: 'block', maxWidth: '100%', maxHeight: 'calc(100dvh - 120px)' }}
     >
       <defs>
         <radialGradient id="fieldGrass" cx="50%" cy="50%" r="75%">
@@ -288,7 +288,7 @@ function DungeonMap({
       width={440}
       height={700}
       viewBox={`${-DUNGEON_VIEW_HALF_X} ${-DUNGEON_VIEW_HALF_Z} ${DUNGEON_VIEW_HALF_X * 2} ${DUNGEON_VIEW_HALF_Z * 2}`}
-      style={{ background: '#100e13', borderRadius: 6, display: 'block' }}
+      style={{ background: '#100e13', borderRadius: 6, display: 'block', maxWidth: '100%', maxHeight: 'calc(100dvh - 120px)' }}
     >
       <defs>
         <linearGradient id="dungeonFloorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -401,13 +401,29 @@ export function WorldMap() {
           borderRadius: 12,
           padding: 16,
           boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+          // Shrinks to the screen on a phone (the map SVG scales down inside it).
+          maxWidth: 'calc(100vw - 16px)',
+          boxSizing: 'border-box',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>
             {inDungeon && dungeonMeta ? `지도 · ${dungeonMeta.name} 지하 ${dungeonFloor}층` : '지도'}
           </span>
-          <span style={{ color: '#9aa08f', fontSize: 12 }}>M 또는 ESC로 닫기</span>
+          <button
+            onClick={closeMap}
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(232, 201, 122, 0.5)',
+              borderRadius: 6,
+              color: '#e8c97a',
+              fontSize: 12,
+              padding: '4px 10px',
+              touchAction: 'manipulation',
+            }}
+          >
+            닫기
+          </button>
         </div>
         {inDungeon && dungeonMeta ? (
           <DungeonMap player={player} facing={player.facing} floor={dungeonFloor} maxFloor={dungeonMeta.maxFloor} />

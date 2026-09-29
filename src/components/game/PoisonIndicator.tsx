@@ -1,3 +1,4 @@
+import { useIsTouch } from '../../lib/device';
 import { useEffect, useState } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
 
@@ -14,6 +15,7 @@ function formatRemaining(ms: number): string {
  * active at the same time read as one row rather than overlapping. No ItemIcon to reuse here
  * (poison isn't a consumable) — a plain skull glyph on a red-tinted box instead. */
 export function PoisonIndicator() {
+  const isTouch = useIsTouch();
   const poisonUntil = useCombatStore((s) => s.player.poisonUntil);
   const poisonStartedAt = useCombatStore((s) => s.player.poisonStartedAt);
   const [now, setNow] = useState(() => performance.now());
@@ -36,7 +38,7 @@ export function PoisonIndicator() {
     <div
       style={{
         position: 'fixed',
-        top: 16,
+        top: isTouch ? 132 : 16,
         left: 68,
         zIndex: 2147483000,
         pointerEvents: 'none',

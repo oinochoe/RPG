@@ -176,10 +176,10 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
   // Same idea for the sell tab, keyed by inventory row id instead of item_template_id (two
   // different stacks of the same item would otherwise share one quantity by mistake).
   const [sellQuantities, setSellQuantities] = useState<Record<number, number>>({});
-  const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
+  const { frameStyle, onHeaderPointerDown } = useDraggablePanel(() => ({
     x: window.innerWidth / 2 - PANEL_WIDTH / 2,
     y: Math.max(16, window.innerHeight / 2 - 200),
-  }));
+  }), PANEL_WIDTH);
 
   useEffect(() => {
     if (!isOpen || !shopKind) return;
@@ -253,9 +253,7 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
     <div
       style={{
         position: 'fixed',
-        left: position.x,
-        top: position.y,
-        width: PANEL_WIDTH,
+        ...frameStyle,
         background: '#1a2a1c',
         border: `2px solid ${accent}`,
         borderRadius: 12,
@@ -266,13 +264,14 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
       }}
     >
       <div
-        onMouseDown={onHeaderMouseDown}
+        onPointerDown={onHeaderPointerDown}
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: 4,
           cursor: 'move',
+          touchAction: 'none',
           userSelect: 'none',
         }}
       >
