@@ -13,14 +13,19 @@ function requireEmailVerification(): boolean {
   return Deno.env.get("REQUIRE_EMAIL_VERIFICATION") !== "false";
 }
 
+// Same rule for sign-up and password reset. Keep in sync with src/lib/password.ts.
+function assertStrongPassword(password: string) {
+  if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+    throw new ApiError(400, "validation_failed", "weak_password", "비밀번호는 최소 8자 이상이며 영문 대소문자와 숫자를 포함해야 합니다.", "password");
+  }
+}
+
 authRoutes.post("/register", async (c) => {
   const { email, password } = await readJsonBody(c);
   if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
     throw new ApiError(400, "validation_failed", "invalid_request", "email and password are required.");
   }
-  if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-    throw new ApiError(400, "validation_failed", "weak_password", "비밀번호는 최소 8자 이상이며 영문 대소문자와 숫자를 포함해야 합니다.", "password");
-  }
+  assertStrongPassword(password);
 
   const admin = getAdminClient();
 
@@ -117,6 +122,69 @@ authRoutes.post("/resend-verification", async (c) => {
       throw new ApiError(429, "rate_limited", "resend_rate_limited", "잠시 후 다시 시도해주세요.");
     }
     console.error("resend-verification failed:", error.message);
+  }
+
+  return c.json({}, 200);
+});
+
+// Sends the password-reset email. Like /resend-verification it deliberately does NOT reveal
+// whether the address is registered (email enumeration): every outcome except a rate limit
+// returns 200, with the real result only logged server-side. The email's link is built from
+// the "Reset Password" template (supabase/templates/recovery.html) and lands on the client's
+// /reset-password page with the token hash in the query string.
+authRoutes.post("/forgot-password", async (c) => {
+  const { email } = await readJsonBody(c);
+  if (typeof email !== "string" || !email) {
+    throw new ApiError(400, "validation_failed", "invalid_request", "email is required.", "email");
+  }
+
+  const admin = getAdminClient();
+  const { error } = await admin.auth.resetPasswordForEmail(email);
+  if (error) {
+    if (error.status === 429 || /rate.?limit/i.test(error.message ?? "")) {
+      throw new ApiError(429, "rate_limited", "reset_rate_limited", "잠시 후 다시 시도해주세요.");
+    }
+    console.error("forgot-password failed:", error.message);
+  }
+
+  return c.json({}, 200);
+});
+
+// Completes a reset: the token hash from the emailed link + the new password.
+// The password is validated BEFORE the single-use token is consumed, so a too-weak attempt
+// doesn't burn the link.
+authRoutes.post("/reset-password", async (c) => {
+  const { token, password } = await readJsonBody(c);
+  if (typeof token !== "string" || !token) {
+    throw new ApiError(400, "validation_failed", "invalid_request", "token is required.", "token");
+  }
+  if (typeof password !== "string" || !password) {
+    throw new ApiError(400, "validation_failed", "invalid_request", "password is required.", "password");
+  }
+  assertStrongPassword(password);
+
+  const admin = getAdminClient();
+  const { data, error } = await admin.auth.verifyOtp({ token_hash: token, type: "recovery" });
+  if (error || !data.user) {
+    throw new ApiError(400, "invalid_token", "token_expired_or_invalid", "유효하지 않거나 만료된 링크입니다. 비밀번호 찾기를 다시 진행해주세요.", "token");
+  }
+
+  const { error: updateError } = await admin.auth.admin.updateUserById(data.user.id, { password });
+  if (updateError) {
+    if (updateError.code === "same_password") {
+      throw new ApiError(400, "validation_failed", "same_password", "이전과 다른 비밀번호를 입력해주세요.", "password");
+    }
+    console.error("reset-password update failed:", updateError.message);
+    throw new ApiError(500, "internal_error", "password_update_failed", "비밀번호 변경 중 오류가 발생했습니다. 다시 시도해주세요.");
+  }
+
+  // Whoever knew the old password (or had a stolen session) shouldn't stay signed in:
+  // revoke every session of this user. Best effort — the password itself is already changed.
+  if (data.session?.access_token) {
+    const { error: signOutError } = await admin.auth.admin
+      .signOut(data.session.access_token, "global")
+      .catch((err) => ({ error: err }));
+    if (signOutError) console.error("reset-password global signOut failed:", signOutError);
   }
 
   return c.json({}, 200);

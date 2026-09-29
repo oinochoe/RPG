@@ -6,8 +6,7 @@
 
 공개 배포(roleplaying.kr + Vercel + Resend 메일 가입)까지 완료된 상태. 남은 일은 이 순서로 진행.
 
-1. **비밀번호 찾기** — 메일 발송이 되므로 만들 수 있음. 사람이 오면 반드시 필요.
-   Supabase `resetPasswordForEmail` + `/reset-password` 페이지 + 이메일 템플릿(Recovery).
+1. ~~**비밀번호 찾기**~~ — **구현 완료(2026-09-29)**, 배포 시 아래 "비밀번호 찾기 배포 절차" 필요.
 2. **서버에서 골드·경험치 검증(치트 방지)** — 지금 골드/경험치/전투는 클라이언트가 계산해서
    서버에 저장하는 구조라 개발자 도구로 값 조작이 가능. 랭킹 등 경쟁 요소를 넣기 전에 필수.
    (`PATCH /characters/me/progress` 의 상한 검증만 있음 — 킬 보고 기반 서버 계산으로 전환 필요)
@@ -16,6 +15,23 @@
 5. **모바일 후속 개선** — 실제 기기 테스트 피드백 반영(아래 "모바일 지원" 참고).
 6. **콘텐츠** — 업적, 도감, 일일 퀘스트, 랭킹(2번 이후), 파티/채팅은 멀티플레이 이후 별도 설계.
 7. **로그인 화면 번들 추가 경량화** — 게임 청크(GamePage)가 아직 큼(~1.1MB). 몬스터/NPC GLTF preload 분할 검토.
+
+## 비밀번호 찾기 배포 절차 (2026-09-29)
+
+코드: `POST /auth/forgot-password`, `POST /auth/reset-password`(Edge Function `auth.ts`),
+클라이언트 `/forgot-password`, `/reset-password` 페이지, 로그인 화면의 "비밀번호를 잊으셨나요?" 링크.
+
+1. `supabase functions deploy api` (새 라우트 반영. DB 마이그레이션은 없음).
+2. **Supabase Dashboard → Authentication → Email Templates → "Reset password"** 를
+   `supabase/templates/recovery.html` 내용으로 교체 (제목: `[RPG] 비밀번호 재설정 안내`).
+   링크가 `{{ .SiteURL }}/reset-password?token={{ .TokenHash }}` 여야 클라이언트 페이지로 옴.
+   (`config.toml`의 `[auth.email.template.recovery]`는 로컬 개발용, 라이브에는 대시보드에서 직접 적용)
+3. Site URL이 `https://roleplaying.kr`(끝에 `/` 없이)이고 Redirect URLs에 `https://roleplaying.kr/**`가 있는지 확인.
+4. 확인: 로그인 화면 → "비밀번호를 잊으셨나요?" → 가입한 메일 입력 → 메일 수신 → 링크 → 새 비밀번호 →
+   새 비밀번호로 로그인. (링크는 1시간 유효, 1회용. 비밀번호 변경 시 그 계정의 모든 세션이 로그아웃됨.)
+
+설계 메모: 존재하지 않는 이메일에도 똑같이 "메일을 보냈습니다"를 보여줌(계정 유무 노출 방지).
+약한 비밀번호는 토큰을 소모하기 전에 거절(클라이언트+서버 모두). 메일 발송 한도는 Supabase Rate Limits를 따름.
 
 ## 모바일 지원 (2026-09-29)
 

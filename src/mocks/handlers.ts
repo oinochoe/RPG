@@ -26,6 +26,9 @@ interface MockState {
   nextUserId: number;
   users: [string, StoredUser][];
   pendingVerificationToken: string | null;
+  // Password reset: the (single) emailed token and whose account it is for.
+  pendingResetToken?: string | null;
+  pendingResetEmail?: string | null;
   nextCharacterId: number;
   characters: CharacterSummary[];
   activeCharacterId: number | null;
@@ -128,6 +131,50 @@ export const handlers = [
   }),
 
   http.post(`${BASE}/auth/resend-verification`, async () => {
+    return HttpResponse.json({}, { status: 200 });
+  }),
+
+  // Mirrors the real routes: forgot-password always answers 200 (no account enumeration) and the
+  // "emailed" token is the fixed 'mock-reset-token'; reset-password enforces the same password
+  // rule and consumes the token on success.
+  http.post(`${BASE}/auth/forgot-password`, async ({ request }) => {
+    const body = (await request.json()) as { email: string };
+    if (users.has(body.email)) {
+      state.pendingResetToken = 'mock-reset-token';
+      state.pendingResetEmail = body.email;
+      persist();
+    }
+    return HttpResponse.json({}, { status: 200 });
+  }),
+
+  http.post(`${BASE}/auth/reset-password`, async ({ request }) => {
+    const body = (await request.json()) as { token: string; password: string };
+    const strong =
+      body.password.length >= 8 && /[A-Z]/.test(body.password) && /[a-z]/.test(body.password) && /[0-9]/.test(body.password);
+    if (!strong) {
+      return HttpResponse.json(
+        { error: 'validation_failed', reason: 'weak_password', message: 'Weak password.', field: 'password' },
+        { status: 400 },
+      );
+    }
+    const email = state.pendingResetEmail;
+    const user = email ? users.get(email) : undefined;
+    if (!state.pendingResetToken || body.token !== state.pendingResetToken || !user) {
+      return HttpResponse.json(
+        { error: 'invalid_token', reason: 'token_expired_or_invalid', message: 'Invalid token.', field: 'token' },
+        { status: 400 },
+      );
+    }
+    if (user.password === body.password) {
+      return HttpResponse.json(
+        { error: 'validation_failed', reason: 'same_password', message: 'Same password.', field: 'password' },
+        { status: 400 },
+      );
+    }
+    user.password = body.password;
+    state.pendingResetToken = null;
+    state.pendingResetEmail = null;
+    persist();
     return HttpResponse.json({}, { status: 200 });
   }),
 

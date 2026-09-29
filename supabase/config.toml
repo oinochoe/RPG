@@ -251,6 +251,11 @@ otp_expiry = 3600
 subject = "[RPG] 이메일 인증을 완료해주세요"
 content_path = "./supabase/templates/confirmation.html"
 
+# Same idea for password reset: straight to the client's /reset-password page.
+[auth.email.template.recovery]
+subject = "[RPG] 비밀번호 재설정 안내"
+content_path = "./supabase/templates/recovery.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

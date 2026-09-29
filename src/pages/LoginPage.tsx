@@ -93,7 +93,10 @@ export function LoginPage() {
               {resendState === 'sent' ? '다시 보냈습니다' : resendState === 'sending' ? '보내는 중...' : '인증 메일 다시 받기'}
             </button>
           )}
-          <Button type="submit" disabled={submitting} className="mt-2 w-full">
+          <Link to="/forgot-password" className="text-right text-xs font-semibold text-gold hover:underline">
+            비밀번호를 잊으셨나요?
+          </Link>
+          <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? '로그인 중...' : '로그인'}
           </Button>
         </form>
