@@ -1,11 +1,12 @@
 import { HTMLAttributes } from 'react';
 import { cn } from '../../lib/utils';
 
+/** A cream card with a thick outline — the frame of the auth screens and other page-level boxes. */
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
-        'w-full max-w-sm rounded-2xl border border-gold/25 bg-[#152217]/90 p-8 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur',
+        'w-full max-w-sm rounded-panel border-[3px] border-edge bg-cream p-8 text-ink shadow-panel',
         className,
       )}
       {...props}

@@ -2,18 +2,29 @@ import { ButtonHTMLAttributes, forwardRef } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/utils';
 
-const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 rounded-lg font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer',
+// Chunky cartoon button: a bright top edge fading to the accent color, a thick outline, and a hard
+// shadow underneath that "presses in" when tapped. On touch screens every size is at least 44px tall.
+export const buttonVariants = cva(
+  [
+    'inline-flex cursor-pointer select-none items-center justify-center gap-2 rounded-control border-[3px] border-edge',
+    'font-display tracking-wide text-ink shadow-chunk transition-[transform,box-shadow,filter] duration-75',
+    'hover:brightness-105 active:translate-y-[3px] active:shadow-none',
+    'disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100 disabled:active:translate-y-0 disabled:active:shadow-chunk',
+    'pointer-coarse:min-h-11',
+  ],
   {
     variants: {
       variant: {
-        primary: 'bg-gold text-[#1a2a1c] hover:bg-[#f4d98f] shadow-[0_4px_12px_rgba(232,201,122,0.25)]',
-        ghost: 'border border-gold/40 text-ink bg-white/5 hover:bg-white/10',
-        danger: 'border border-danger/50 text-danger bg-danger/10 hover:bg-danger/20',
+        primary: 'bg-gradient-to-b from-[#ffd970] to-gold',
+        sky: 'bg-gradient-to-b from-[#e6f4ff] to-sky-deep',
+        mint: 'bg-gradient-to-b from-[#e3f8ea] to-mint-deep',
+        ghost: 'bg-cream/80 hover:bg-cream',
+        danger: 'bg-gradient-to-b from-[#e0566f] to-danger text-cream',
       },
       size: {
-        default: 'h-10 px-4 text-sm',
-        sm: 'h-8 px-3 text-xs',
+        sm: 'h-9 px-3 text-sm',
+        default: 'h-11 px-5 text-base',
+        lg: 'h-13 px-7 text-lg',
       },
     },
     defaultVariants: { variant: 'primary', size: 'default' },

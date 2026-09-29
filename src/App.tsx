@@ -12,6 +12,8 @@ import { LoadingScreen } from './components/ui/spinner';
 // The 3D game (three.js + R3F) is most of the bundle — split it out so the login and
 // character screens load without waiting on it.
 const GamePage = lazy(() => import('./pages/GamePage').then((m) => ({ default: m.GamePage })));
+// A design-kit page (every shared UI part on one screen) — lazily loaded, so it costs nothing until visited.
+const DevUiPage = lazy(() => import('./pages/DevUiPage').then((m) => ({ default: m.DevUiPage })));
 
 export function App() {
   return (
@@ -35,6 +37,14 @@ export function App() {
             />
           </Route>
         </Route>
+        <Route
+          path="/dev/ui"
+          element={
+            <Suspense fallback={<LoadingScreen label="불러오는 중..." />}>
+              <DevUiPage />
+            </Suspense>
+          }
+        />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

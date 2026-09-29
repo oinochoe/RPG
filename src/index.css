@@ -1,16 +1,39 @@
 @import 'tailwindcss';
 
+/* Design tokens. The same values live in src/lib/theme.ts (for three.js / inline styles); the
+   theme test keeps the two in sync and checks text/background contrast. Colors declared here become
+   Tailwind utilities: bg-cream, text-ink, border-edge, shadow-chunk, rounded-panel, font-display… */
 @theme {
-  --font-fantasy: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  --font-display: 'Jua', 'Noto Sans KR', system-ui, sans-serif;
+  --font-body: 'Noto Sans KR', system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  /* Matches the in-game HUD/WorldMap/CharacterPanel palette so the auth
-     pages don't look like a different app from the game itself. */
-  --color-parchment-bg: #1a2a1c;
-  --color-parchment-panel: #15221733;
-  --color-gold: #e8c97a;
-  --color-gold-dim: #9aa08f;
-  --color-ink: #f4f1e8;
-  --color-danger: #e0538a;
+  --color-cream: #fff8e7;
+  --color-cream-deep: #f3e4bf;
+  --color-sky: #cde9ff;
+  --color-sky-deep: #7dbcef;
+  --color-mint: #c4ebd3;
+  --color-mint-deep: #4fb984;
+  --color-gold: #f5b833;
+  --color-gold-deep: #c98a10;
+  --color-ink: #3a2e2a;
+  --color-ink-soft: #6b5a4c;
+  --color-gold-ink: #8a5300;
+  --color-sky-ink: #1f5f99;
+  --color-danger-ink: #b5233f;
+  --color-edge: #8b6a46;
+  --color-hp: #f3849e;
+  --color-mp: #4c9df2;
+  --color-xp: #6fcf7f;
+  --color-danger: #c93450;
+  --color-night: #1e2a3a;
+
+  --radius-panel: 18px;
+  --radius-control: 12px;
+
+  /* Chunky cartoon depth: a hard offset shadow underneath plus a soft spread. */
+  --shadow-chunk: 0 4px 0 var(--color-edge);
+  --shadow-chunk-sm: 0 2px 0 var(--color-edge);
+  --shadow-panel: 0 6px 0 rgb(58 46 42 / 0.18), 0 18px 36px rgb(30 42 58 / 0.28);
 }
 
 html,
@@ -31,10 +54,14 @@ body {
 }
 
 body {
-  font-family: var(--font-fantasy);
-  background: radial-gradient(circle at 50% 20%, #24391f 0%, #0f1a0d 70%);
+  font-family: var(--font-body);
   color: var(--color-ink);
   min-height: 100vh;
+  /* Sunny sky fading into a meadow — the backdrop of every page outside the 3D game. */
+  background:
+    radial-gradient(circle at 50% -10%, #fff6cf 0%, rgb(255 246 207 / 0) 45%),
+    linear-gradient(180deg, #bfe2ff 0%, #e6f5ff 55%, #dcf3e3 100%);
+  background-attachment: fixed;
   /* Rapid clicking/dragging during combat and the draggable panels (character/inventory/
      system menu) kept highlighting stray text across the page — this is a game UI, not a
      document, so text selection isn't something players actually want here. */
@@ -54,30 +81,51 @@ textarea {
   isolation: isolate;
 }
 
-/* Custom scrollbar for in-game modal panels (character/inventory/shop) — the default
-   browser scrollbar looks out of place against the parchment/gold theme. Firefox uses the
+/* Custom scrollbar for in-game modal panels (character/inventory/shop). Firefox uses the
    `scrollbar-*` properties; Chromium/WebKit needs the `::-webkit-scrollbar` pseudo-elements. */
 .custom-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(232, 201, 122, 0.5) rgba(0, 0, 0, 0.3);
+  scrollbar-color: var(--color-gold-deep) var(--color-cream-deep);
 }
 .custom-scroll::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
 }
 .custom-scroll::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
+  background: var(--color-cream-deep);
+  border-radius: 6px;
 }
 .custom-scroll::-webkit-scrollbar-thumb {
-  background: rgba(232, 201, 122, 0.5);
-  border-radius: 4px;
+  background: var(--color-gold-deep);
+  border: 2px solid var(--color-cream-deep);
+  border-radius: 6px;
 }
 .custom-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(232, 201, 122, 0.8);
+  background: var(--color-edge);
 }
 
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* A soft pop when a panel or dialog opens. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-pop-in {
+  animation: pop-in 140ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop-in {
+    animation: none;
   }
 }
