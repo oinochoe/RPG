@@ -62,9 +62,10 @@ async function fetchInventory(
 ): Promise<InventoryItemRow[]> {
   const { data, error } = await admin
     .from("character_inventory")
+    // One plain string literal on purpose: supabase-js derives the result type from the literal, and a
+    // "a" + "b" concatenation widens to `string`, which collapses every row to GenericStringError.
     .select(
-      "id, item_template_id, slot_index, quantity, enchant_level, is_equipped, equipped_slot, " +
-        "item_templates(name, item_type, equip_slot, attack_bonus, defense_bonus, required_level, required_class, buy_price, sell_price, heal_hp, restore_mp, teleport_target, haste_duration_sec, enchant_scroll_type)",
+      "id, item_template_id, slot_index, quantity, enchant_level, is_equipped, equipped_slot, item_templates(name, item_type, equip_slot, attack_bonus, defense_bonus, required_level, required_class, buy_price, sell_price, heal_hp, restore_mp, teleport_target, haste_duration_sec, enchant_scroll_type)",
     )
     .eq("character_id", characterId)
     .order("slot_index", { ascending: true });

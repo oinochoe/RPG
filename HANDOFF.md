@@ -13,12 +13,8 @@
       `supabase db push`를 쓸 수 없다(아래 "배포 방법"). 게다가 SQL Editor로 직접 적용한
       `20260929010000_server_authoritative_economy`, `20260929030000_atomic_inventory_grant`는 이력에 기록이
       없다. 이력을 로컬과 맞추거나(repair), "SQL로만 적용" 규칙을 정하고 문서화할 것.
-- [ ] **Supabase Redirect URLs에서 `rpg-noel.vercel.app` 항목 삭제.** 그 주소는 공개한 적이 없고
-      리다이렉트도 쓰지 않는다.
 - [ ] **동시 줍기 실측.** `grant_inventory_item`의 락은 표준 방식이지만 단일 연결 Postgres(PGlite)로만
       검증했다. 실제로 몹 여러 마리를 잡고 드랍을 연달아 주워 물약이 한 칸에 합쳐지는지 계속 관찰.
-- [ ] **`fetchInventory`의 supabase-js 타입 추론 오류 9개 정리**
-      (`cd supabase/functions/api && npx deno check --config deno.json index.ts`).
 
 ### 기능
 - [ ] **모바일 후속 개선** — 실제 기기 테스트 피드백 반영(아래 "모바일 지원" 참고).
@@ -93,8 +89,11 @@ DB/함수와 클라이언트 사이에는 잠깐 구 클라이언트와 새 서�
 
 - 클라이언트/규칙: `npm test` (서버 규칙과 클라이언트 예측의 일치, 몬스터 레벨 상한, 드랍 확률 포함)
 - 서버 라우트(가짜 DB): `npx deno test --no-check --config supabase/tests/api/deno.json --allow-env --allow-read supabase/tests/api`
-- 서버 타입체크: `cd supabase/functions/api && npx deno check --config deno.json index.ts`
-  (기존 `fetchInventory` 오류 9개가 있음 — 새 오류가 늘지 않는지만 확인)
+- 서버 타입체크: `cd supabase/functions/api && npx deno check --config deno.json index.ts` — 오류 0개여야 한다.
+  supabase-js `.select("…")`는 **하나의 문자열 리터럴**로 쓸 것. `"a" + "b"`로 이으면 리터럴 타입이 `string`으로 넓어져
+  결과 행이 전부 `GenericStringError`로 무너진다(`fetchInventory`에서 있었던 오류 9개의 원인).
+  서버 라우트 테스트를 `--no-check`로 돌리는 건 의도다: 테스트에서는 `supabaseAdmin`이 가짜 DB로 교체되는데 가짜의
+  타입이 진짜 supabase-js보다 느슨해서, 테스트 기준으로 타입 검사를 하면 실제 코드 문제가 아닌 오류가 나온다.
 - SQL은 가짜 DB 테스트로 검증되지 않는다. 마이그레이션/RPC를 고치면 메모리 Postgres(`@electric-sql/pglite`)나
   로컬 Postgres에 전체 마이그레이션을 적용해 RPC를 직접 호출해 확인할 것.
 - 이 저장소의 `node_modules`를 다른 폴더에 정션으로 연결해 vitest를 돌리면 `toBeInTheDocument` 오류로 테스트가
