@@ -167,12 +167,17 @@ Deno.test("buy: pays first, then grants; the price comes from the item template 
   setup();
   shopTables({ equip_slot: null, buy_price: 50 });
   state.rpc.spend_gold = () => ok([snapRow({ r_gold: 400, r_gold_gained: -150 })]);
+  state.rpc.grant_inventory_item = () => ok(null);
   const res = await post("/me/inventory/buy", { item_template_id: 7, quantity: 3 });
   assert.equal(res.status, 201);
   assert.equal(rpcCall("spend_gold")?.args?.p_amount, 150);
   assert.equal(res.json.progress.gold, 400);
-  const inserts = state.calls.filter((c) => c.kind === "from" && c.name === "character_inventory" && c.op === "insert");
-  assert.equal(inserts.length, 1); // granted
+  // The stack-or-insert happens inside one RPC (serialized per character), never as separate
+  // select/insert calls from the function, which is what used to split potion stacks.
+  const grants = state.calls.filter((c) => c.kind === "rpc" && c.name === "grant_inventory_item");
+  assert.equal(grants.length, 1);
+  assert.deepEqual(grants[0].args, { p_character_id: CHAR_ID, p_item_template_id: 7, p_quantity: 3 });
+  assert.equal(state.calls.some((c) => c.kind === "from" && c.name === "character_inventory" && c.op === "insert"), false);
 });
 
 Deno.test("buy: not enough gold -> 400 insufficient_gold and no item is granted", async () => {
@@ -182,13 +187,13 @@ Deno.test("buy: not enough gold -> 400 insufficient_gold and no item is granted"
   const res = await post("/me/inventory/buy", { item_template_id: 7 });
   assert.equal(res.status, 400);
   assert.equal(res.json.reason, "insufficient_gold");
-  assert.equal(state.calls.some((c) => c.kind === "from" && c.name === "character_inventory" && c.op === "insert"), false);
+  assert.equal(rpcNames().includes("grant_inventory_item"), false);
 });
 
 Deno.test("buy: if handing over the item fails, the gold is refunded", async () => {
   setup();
   shopTables({ equip_slot: null, buy_price: 50 });
-  state.tables.character_inventory = ({ op }) => (op === "insert" ? { data: null, error: { message: "boom" } } : { data: null });
+  state.rpc.grant_inventory_item = () => fail("boom");
   state.rpc.spend_gold = () => ok([snapRow()]);
   state.rpc.grant_progress = () => ok([snapRow()]);
   const res = await post("/me/inventory/buy", { item_template_id: 7, quantity: 2 });
@@ -239,15 +244,15 @@ Deno.test("loot: only a well-formed ticket is accepted, and the ticket decides t
   assert.equal((await post("/me/inventory/loot", { drop_id: "not-a-uuid" })).status, 400);
   assert.equal(rpcNames().length, 0);
 
-  state.tables.item_templates = () => ({ data: { id: 12, equip_slot: null } });
   state.tables.character_inventory = ({ op, single }) => ({ data: op === "select" && !single ? [] : null });
   state.rpc.redeem_drop = () => ok(12);
+  state.rpc.grant_inventory_item = () => ok(null);
   const ticket = "0a1b2c3d-0000-4000-8000-000000000001";
   const res = await post("/me/inventory/loot", { drop_id: ticket, item_template_id: 47 });
   assert.equal(res.status, 201);
   assert.equal(rpcCall("redeem_drop")?.args?.p_drop_id, ticket);
-  const granted = state.calls.find((c) => c.kind === "from" && c.name === "item_templates");
-  assert.equal(granted?.filters?.id, 12); // the ticket's item, not the 47 the client tried to slip in
+  // the ticket's item is what gets granted, not the 47 the client tried to slip in
+  assert.deepEqual(rpcCall("grant_inventory_item")?.args, { p_character_id: CHAR_ID, p_item_template_id: 12, p_quantity: 1 });
 });
 
 Deno.test("loot: a used/expired/foreign ticket is 404", async () => {

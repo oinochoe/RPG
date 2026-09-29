@@ -414,10 +414,11 @@ function mapQuestRpcError(message: string | undefined): ApiError {
   return new ApiError(500, "internal_error", "quest_action_failed", "퀘스트 처리 중 오류가 발생했습니다.");
 }
 
-// Grants `quantity` of an item into a character's inventory as a quest reward — same
-// stack-or-insert shape /me/inventory/buy uses (equip_slot === null stacks onto an existing
-// row, otherwise a fresh row), kept as its own copy rather than sharing buy's inline logic so
-// a change to one flow can never accidentally alter the other's behavior.
+// Grants `quantity` of an item into a character's inventory (quest rewards, world drops, shop
+// purchases all go through here). The stack-or-insert itself lives in the grant_inventory_item
+// RPC, which serializes per character: doing "look for a stack, else insert" from this function
+// let concurrent grants each miss the other's row and split one potion stack into several rows
+// (and a character with two rows of an item could then never pick that item up again).
 async function grantInventoryItem(
   admin: ReturnType<typeof getAdminClient>,
   characterId: number,
@@ -428,65 +429,13 @@ async function grantInventoryItem(
     message: "퀘스트 보상 지급 중 오류가 발생했습니다.",
   },
 ): Promise<void> {
-  const { data: item, error: itemError } = await admin
-    .from("item_templates")
-    .select("id, equip_slot")
-    .eq("id", itemTemplateId)
-    .maybeSingle();
-  if (itemError || !item) {
-    console.error("quest reward item lookup failed:", itemError?.message ?? "item not found");
-    throw new ApiError(500, "internal_error", failure.code, failure.message);
-  }
-
-  if (item.equip_slot === null) {
-    const { data: stack, error: stackError } = await admin
-      .from("character_inventory")
-      .select("id, quantity")
-      .eq("character_id", characterId)
-      .eq("item_template_id", itemTemplateId)
-      .maybeSingle();
-    if (stackError) {
-      console.error("quest reward stack lookup failed:", stackError.message);
-      throw new ApiError(500, "internal_error", failure.code, failure.message);
-    }
-    if (stack) {
-      const { error: updateError } = await admin
-        .from("character_inventory")
-        .update({ quantity: stack.quantity + quantity })
-        .eq("id", stack.id);
-      if (updateError) {
-        console.error("quest reward stack update failed:", updateError.message);
-        throw new ApiError(500, "internal_error", failure.code, failure.message);
-      }
-      return;
-    }
-  }
-
-  const { data: existing, error: slotError } = await admin
-    .from("character_inventory")
-    .select("slot_index")
-    .eq("character_id", characterId)
-    .order("slot_index", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (slotError) {
-    console.error("quest reward slot lookup failed:", slotError.message);
-    throw new ApiError(500, "internal_error", failure.code, failure.message);
-  }
-  const nextSlot = existing ? existing.slot_index + 1 : 0;
-
-  const { error: insertError } = await admin.from("character_inventory").insert({
-    character_id: characterId,
-    item_template_id: itemTemplateId,
-    storage_type: "inventory",
-    slot_index: nextSlot,
-    quantity: item.equip_slot === null ? quantity : 1,
-    enchant_level: 0,
-    is_equipped: false,
-    equipped_slot: null,
+  const { error } = await admin.rpc("grant_inventory_item", {
+    p_character_id: characterId,
+    p_item_template_id: itemTemplateId,
+    p_quantity: quantity,
   });
-  if (insertError) {
-    console.error("quest reward insert failed:", insertError.message);
+  if (error) {
+    console.error("grant_inventory_item RPC failed:", error.message);
     throw new ApiError(500, "internal_error", failure.code, failure.message);
   }
 }
