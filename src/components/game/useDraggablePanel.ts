@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, type CSSProperties } from 'react';
-import { useViewportSize, type ViewportSize } from '../../lib/device';
+import { detectTouch, useIsTouch, useViewportSize, type ViewportSize } from '../../lib/device';
 
 export interface DraggablePosition {
   x: number;
@@ -11,6 +11,20 @@ const EDGE_GAP = 8;
 // Keep at least this much of the header on screen so a dragged panel can always be grabbed
 // back.
 const MIN_VISIBLE_HEADER = 48;
+
+// The phone HUD (TouchHud) keeps its status card + panel-button row in the top-left column. A
+// panel must not open on top of those buttons, or it can't be toggled closed with them.
+// Portrait: open below that block. Landscape: open to the right of it.
+const TOUCH_TOP_INSET = 132;
+const TOUCH_LEFT_COLUMN = 220;
+
+/** Where a panel of `width` first opens on a phone (instead of the desktop default). */
+export function touchPanelPosition(width: number, viewport: ViewportSize): DraggablePosition {
+  if (viewport.width > viewport.height) {
+    return { x: Math.max(EDGE_GAP, Math.min(TOUCH_LEFT_COLUMN, viewport.width - width - EDGE_GAP)), y: EDGE_GAP };
+  }
+  return { x: Math.max(EDGE_GAP, (viewport.width - width) / 2), y: TOUCH_TOP_INSET };
+}
 
 /** True when the screen is too narrow for a panel of `width` px to sit as a floating window. */
 export function isNarrowFor(width: number, viewport: ViewportSize): boolean {
@@ -32,14 +46,19 @@ export function clampPosition(pos: DraggablePosition, width: number, viewport: V
  * full-width sheet pinned to the top on a phone (where a fixed 320-580px window would run off
  * the edge and can't be dragged anywhere useful).
  */
-export function panelFrame(width: number, position: DraggablePosition, viewport: ViewportSize): CSSProperties {
+export function panelFrame(
+  width: number,
+  position: DraggablePosition,
+  viewport: ViewportSize,
+  topInset: number = EDGE_GAP,
+): CSSProperties {
   if (isNarrowFor(width, viewport)) {
     return {
       left: EDGE_GAP,
       right: EDGE_GAP,
-      top: EDGE_GAP,
+      top: topInset,
       width: 'auto',
-      maxHeight: viewport.height - EDGE_GAP * 2,
+      maxHeight: viewport.height - topInset - EDGE_GAP,
       overflowY: 'auto',
       boxSizing: 'border-box',
     };
@@ -65,8 +84,15 @@ export function panelFrame(width: number, position: DraggablePosition, viewport:
  * browser scrolling.
  */
 export function useDraggablePanel(getDefaultPosition: () => DraggablePosition, width: number) {
-  const [position, setPosition] = useState<DraggablePosition>(getDefaultPosition);
+  const [position, setPosition] = useState<DraggablePosition>(() =>
+    detectTouch()
+      ? touchPanelPosition(width, { width: window.innerWidth, height: window.innerHeight })
+      : getDefaultPosition(),
+  );
   const viewport = useViewportSize();
+  const isTouch = useIsTouch();
+  // A full-width sheet in portrait must start below the HUD's button row, not cover it.
+  const topInset = isTouch && viewport.height >= viewport.width ? TOUCH_TOP_INSET : EDGE_GAP;
   const dragRef = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const narrow = isNarrowFor(width, viewport);
 
@@ -104,5 +130,5 @@ export function useDraggablePanel(getDefaultPosition: () => DraggablePosition, w
     [position, narrow, width, viewport],
   );
 
-  return { position, onHeaderPointerDown, frameStyle: panelFrame(width, position, viewport), narrow };
+  return { position, onHeaderPointerDown, frameStyle: panelFrame(width, position, viewport, topInset), narrow };
 }
