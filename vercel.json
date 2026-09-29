@@ -3,13 +3,5 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "redirects": [
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "rpg-noel.vercel.app" }],
-      "destination": "https://www.roleplaying.kr/:path*",
-      "permanent": false
-    }
-  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

@@ -1,74 +1,108 @@
-# Handoff — R3F RPG 클라이언트
+# Handoff — R3F RPG
 
 마지막 업데이트: 2026-09-29
 
-## 다음 개발 순서 (추천, 2026-09-29)
+운영: https://www.roleplaying.kr (Vercel) · 서버: Supabase 프로젝트 `rpg-backend`
+(ref `rfdxirssgsktnjgslocu`, ap-northeast-2)의 Edge Function `api` + Postgres.
+완료된 작업은 여기서 지운다 — 이력은 git log와 `docs/superpowers/`를 볼 것.
 
-공개 배포(roleplaying.kr + Vercel + Resend 메일 가입)까지 완료된 상태. 남은 일은 이 순서로 진행.
+## 할 일
 
-1. ~~**비밀번호 찾기**~~ — **구현 완료(2026-09-29)**, 배포 시 아래 "비밀번호 찾기 배포 절차" 필요.
-2. ~~**서버에서 골드·경험치 검증(치트 방지)**~~ — **구현 완료(2026-09-29), 경제만 서버 권위(B안).** 설계/한계는
-   `docs/superpowers/specs/2026-09-29-server-authoritative-economy-design.md`, 배포 절차는 아래 "경제 서버 권위 배포 절차".
-   남은 위험: API를 직접 호출하는 스크립트가 킬을 가장해 파밍하는 것(속도/레벨 상한으로 이득만 제한).
-   완전히 막으려면 전투 전체를 서버가 관리하는 C안이 필요(몬스터 인스턴스/데미지/이동 검증).
-3. ~~**첫 접속 안내(튜토리얼)**~~ — **구현 완료(2026-09-29)**. 첫 진입 시 자동 표시, 메뉴의 '게임 방법'에서 재열람. 내용은 `src/lib/tutorial.ts`(기기별 문구), 창은 `TutorialModal.tsx`.
-4. ~~**`rpg-noel.vercel.app` → `www.roleplaying.kr` 자동 리다이렉트**~~ — `vercel.json`의 `redirects`로 설정함(임시 307). 기준(Primary) 도메인은 `www.roleplaying.kr`, 루트 `roleplaying.kr`은 Vercel Domains에서 www로 308. `vercel.json`에 www↔루트 리다이렉트를 넣으면 루프가 생기니 넣지 말 것. **배포 후 실제로 이동하는지 확인 필요**(로컬에서 검증 불가). 잘 되면 `permanent: true`로 바꿔도 됨.
-5. **모바일 후속 개선** — 실제 기기 테스트 피드백 반영(아래 "모바일 지원" 참고).
-6. **콘텐츠** — 업적, 도감, 일일 퀘스트, 랭킹(2번 이후), 파티/채팅은 멀티플레이 이후 별도 설계.
-7. **로그인 화면 번들 추가 경량화** — 게임 청크(GamePage)가 아직 큼(~1.1MB). 몬스터/NPC GLTF preload 분할 검토.
+### 바로 할 수 있는 작은 것
+- [ ] **마이그레이션 이력 정리.** 리모트 `supabase_migrations` 이력의 버전 번호가 로컬 파일명과 달라서
+      `supabase db push`를 쓸 수 없다(아래 "배포 방법"). 게다가 SQL Editor로 직접 적용한
+      `20260929010000_server_authoritative_economy`, `20260929030000_atomic_inventory_grant`는 이력에 기록이
+      없다. 이력을 로컬과 맞추거나(repair), "SQL로만 적용" 규칙을 정하고 문서화할 것.
+- [ ] **Supabase Redirect URLs에서 `rpg-noel.vercel.app` 항목 삭제.** 그 주소는 공개한 적이 없고
+      리다이렉트도 쓰지 않는다.
+- [ ] **동시 줍기 실측.** `grant_inventory_item`의 락은 표준 방식이지만 단일 연결 Postgres(PGlite)로만
+      검증했다. 실제로 몹 여러 마리를 잡고 드랍을 연달아 주워 물약이 한 칸에 합쳐지는지 계속 관찰.
+- [ ] **`fetchInventory`의 supabase-js 타입 추론 오류 9개 정리**
+      (`cd supabase/functions/api && npx deno check --config deno.json index.ts`).
 
-## 비밀번호 찾기 배포 절차 (2026-09-29)
+### 기능
+- [ ] **모바일 후속 개선** — 실제 기기 테스트 피드백 반영(아래 "모바일 지원" 참고).
+- [ ] **콘텐츠** — 업적, 도감, 일일 퀘스트, 랭킹(경제가 서버 권위가 됐으니 가능). 파티/채팅은 멀티플레이 이후 별도 설계.
 
-코드: `POST /auth/forgot-password`, `POST /auth/reset-password`(Edge Function `auth.ts`),
-클라이언트 `/forgot-password`, `/reset-password` 페이지, 로그인 화면의 "비밀번호를 잊으셨나요?" 링크.
+### 성능
+- [ ] **게임 청크(GamePage) 경량화** — 아직 큼(~1.1MB). 몬스터/NPC GLTF preload 분할 검토.
 
-1. `supabase functions deploy api` (새 라우트 반영. DB 마이그레이션은 없음).
-2. **Supabase Dashboard → Authentication → Email Templates → "Reset password"** 를
-   `supabase/templates/recovery.html` 내용으로 교체 (제목: `[RPG] 비밀번호 재설정 안내`).
-   링크가 `{{ .SiteURL }}/reset-password?token={{ .TokenHash }}` 여야 클라이언트 페이지로 옴.
-   (`config.toml`의 `[auth.email.template.recovery]`는 로컬 개발용, 라이브에는 대시보드에서 직접 적용)
-3. Site URL이 `https://www.roleplaying.kr`(끝에 `/` 없이)이고 Redirect URLs에 `https://www.roleplaying.kr/**`가 있는지 확인.
-4. 확인: 로그인 화면 → "비밀번호를 잊으셨나요?" → 가입한 메일 입력 → 메일 수신 → 링크 → 새 비밀번호 →
-   새 비밀번호로 로그인. (링크는 1시간 유효, 1회용. 비밀번호 변경 시 그 계정의 모든 세션이 로그아웃됨.)
+### 보안 (큰 작업)
+- [ ] **전투 전체를 서버가 관리하는 C안.** 지금은 경제(골드/경험치/레벨/스탯/드랍)만 서버 권위(B안)라, API를
+      직접 호출하는 스크립트가 킬을 가장해 파밍하는 건 속도/레벨 상한으로 이득만 제한할 뿐 막지 못한다.
+      완전히 막으려면 몬스터 인스턴스/데미지/이동 검증이 필요.
 
-설계 메모: 존재하지 않는 이메일에도 똑같이 "메일을 보냈습니다"를 보여줌(계정 유무 노출 방지).
-약한 비밀번호는 토큰을 소모하기 전에 거절(클라이언트+서버 모두). 메일 발송 한도는 Supabase Rate Limits를 따름.
+### 클라이언트 경미한 항목 (기능엔 문제 없음, 여유 될 때)
+- [ ] `src/api/client.ts`의 `apiRequest`: 동시에 여러 요청이 401을 맞으면 각각 refresh를 호출함. 전투처럼 동시 요청이 늘었으니 in-flight refresh 공유 필요.
+- [ ] `src/stores/authStore.ts`의 `loadStoredTokens()`: localStorage 값이 JSON으로는 유효한데 형태가 이상하면(예: `{}`) 그대로 통과함(다음 호출의 401→refresh 실패로 자연 정리됨).
+- [ ] `src/stores/characterStore.ts`의 `fetchCharacters()`: 실패 시 `isLoading`이 `true`로 남아 스피너와 에러가 동시에 보임.
+- [ ] `src/pages/CharactersPage.tsx`: StrictMode에서 `fetchCharacters()`가 두 번 호출됨(GET이라 무해).
+- [ ] 인증 페이지 3개(Register/Login/VerifyEmail)의 폼 마크업이 조금씩 중복됨 — 화면이 더 늘면 재검토.
 
-## 경제 서버 권위 배포 절차 (2026-09-29)
+## 배포 방법
 
-골드·경험치/레벨·스탯 포인트·파생 능력치·아이템 지급은 이제 **서버(DB)가 유일한 원본**이다.
-클라이언트는 화면 반응성을 위해 로컬에서 먼저 예측하고, 서버 응답의 `progress` 스냅샷으로 덮어쓴다.
+**순서(중요): DB → 서버 함수 → 클라이언트.** 클라이언트가 먼저 나가면 새 API가 아직 없어 깨진다.
 
-**배포 순서 (중요):**
-1. `supabase db push` — 마이그레이션 `20260929010000_server_authoritative_economy.sql`
-   (progress_rev/킬 토큰 컬럼, pending_drops 테이블, grant_progress/apply_kills/allocate_stat/spend_gold/
-   issue_drops/redeem_drop/sync_character_vitals RPC, claim_quest_reward가 보상을 직접 적용)
-2. `supabase functions deploy api`
-3. PR 머지 → Vercel 배포(새 클라이언트)
+1. **DB 마이그레이션.** `supabase db push`는 쓰지 말 것 — 리모트 이력의 버전 번호가 로컬 파일명과
+   달라서 이미 적용된 마이그레이션을 전부 다시 적용하려 든다. 대신 Supabase 대시보드 → SQL Editor에
+   `BEGIN; … COMMIT;`으로 감싼 SQL을 붙여 실행한다(실패하면 통째로 롤백). 적용 후 `execute_sql`로
+   새 테이블/함수와 기존 데이터(캐릭터 수, 골드 합 등)가 그대로인지 확인.
+   (`supabase db query --linked -f 파일`은 임시 로그인 접속이 끊길 수 있다. 실패하면 SQL Editor를 쓸 것.)
+2. **서버 함수:** `npx -y supabase@latest functions deploy api --project-ref rfdxirssgsktnjgslocu --no-verify-jwt`
+   (`verify_jwt`는 꺼져 있고 인증은 함수 안의 `requireAuth`가 한다.) 배포 후 `/api/health`로 확인.
+3. **클라이언트:** `main`에 푸시하면 Vercel이 자동 배포. 환경변수 `VITE_API_BASE_URL`은 빌드 타임에
+   주입되므로 바꾸면 재배포 필요.
 
-1~2와 3 사이에는 구 클라이언트가 새 서버와 섞인다: 구 클라이언트의 진행 저장(레벨/골드 등)은 무시되고
-구 클라이언트의 아이템 줍기는 거절된다. 새로고침하면 해결.
+DB/함수와 클라이언트 사이에는 잠깐 구 클라이언트와 새 서버가 섞인다. 새로고침하면 해결.
 
-**주의할 동작 변화**
+**Vercel 도메인.** Primary는 `www.roleplaying.kr`, 루트 `roleplaying.kr`은 Vercel Domains에서 www로 308
+리다이렉트한다. **`vercel.json`에 www↔루트 리다이렉트를 넣지 말 것** — Domains 설정과 맞물려 무한 루프가 된다.
+
+**Supabase Auth 설정(대시보드에서 직접).**
+- Authentication → URL Configuration: Site URL `https://www.roleplaying.kr`(끝에 `/` 없이),
+  Redirect URLs `https://www.roleplaying.kr/**` (+ 로컬 개발용 `http://localhost:5173/**`).
+- Email Templates: Confirm signup ← `supabase/templates/confirmation.html`,
+  Reset password ← `supabase/templates/recovery.html`. 링크는 각각
+  `{{ .SiteURL }}/verify-email?token={{ .TokenHash }}`, `{{ .SiteURL }}/reset-password?token={{ .TokenHash }}`
+  형태여야 클라이언트 페이지로 온다. (`config.toml`의 템플릿 설정은 로컬 개발용.)
+- SMTP: Resend(`smtp.resend.com:465`, user `resend`, 발신 `no-reply@roleplaying.kr`). Supabase 기본 메일러는
+  팀원에게만 보내고 시간당 몇 통으로 제한된다. Rate Limits의 "Emails sent per hour"는 30 이상으로.
+- **`config.toml`의 `[auth]` 블록은 자동 반영되지 않는다.** 라이브에 반영하는 `supabase config push`는 로컬 개발용
+  값이 라이브 설정을 덮어쓸 수 있어 위험하니, 쓰기 전에 `supabase config diff`로 먼저 차이를 볼 것.
+- 메일 서비스 없이 급히 열어야 하면 `supabase secrets set REQUIRE_EMAIL_VERIFICATION=false` 후 함수 재배포
+  (가입 즉시 로그인). SMTP를 연결한 뒤에는 이 secret을 지울 것.
+
+## 경제 서버 권위 (동작/주의)
+
+골드·경험치/레벨·스탯 포인트·파생 능력치·아이템 지급은 **서버(DB)가 유일한 원본**이다. 클라이언트는 화면
+반응성을 위해 로컬에서 먼저 예측하고, 서버 응답의 `progress` 스냅샷으로 덮어쓴다. 설계와 한계는
+`docs/superpowers/specs/2026-09-29-server-authoritative-economy-design.md`.
+
 - `PATCH /characters/me/progress`는 `current_hp`/`current_mp`만 받는다. 레벨/경험치/골드/능력치는 서버가
   킬 보고(`POST /me/kills`), 퀘스트 보상, 상점, 스탯 배분(`POST /me/stats/allocate`)으로만 바꾼다.
-- 드랍은 서버가 굴리고 1회용 티켓(`pending_drops`, 5분 유효)을 발급한다. 드랍 표는 이제
-  `supabase/functions/api/drops.ts`에 있다(예전 `lootStore.ts`). 확률을 바꾸려면 여기를 고치고 함수를 재배포.
+- 드랍은 서버가 굴리고 1회용 티켓(`pending_drops`, 5분 유효)을 발급한다. 드랍 표는
+  `supabase/functions/api/drops.ts` — 확률을 바꾸려면 여기를 고치고 함수를 재배포. 만료된 티켓은 그
+  캐릭터의 다음 드랍 발급 때 지워진다.
 - 몬스터 레벨 상한/보스 표는 `economyRules.ts`. **몬스터나 던전 층을 추가하면(레벨이 상한을 넘으면) 정상 처치도
   거절되므로** 이 표를 같이 고쳐야 한다 — `src/stores/serverEconomy.test.ts`가 어긋나면 실패해 알려준다.
-- 킬 속도 제한: 초당 1.5킬, 순간 최대 25킬(SQL `apply_kills`의 상수). 광역 스킬로 한 번에 많이 잡아도 통과하는 값.
+- 킬 속도 제한: 초당 1.5킬, 순간 최대 25킬(SQL `apply_kills`의 상수).
+- **아이템 지급(줍기/구매/퀘스트 보상)은 반드시 `grant_inventory_item` RPC로 한다.** 함수에서 "스택 조회 후
+  삽입"을 직접 하면 동시 요청이 겹칠 때 같은 물약이 여러 행으로 쪼개진다(과거 버그).
 
-**테스트**
+## 테스트
+
 - 클라이언트/규칙: `npm test` (서버 규칙과 클라이언트 예측의 일치, 몬스터 레벨 상한, 드랍 확률 포함)
 - 서버 라우트(가짜 DB): `npx deno test --no-check --config supabase/tests/api/deno.json --allow-env --allow-read supabase/tests/api`
 - 서버 타입체크: `cd supabase/functions/api && npx deno check --config deno.json index.ts`
-  (기존에 `fetchInventory`의 supabase-js 타입 추론 오류 9개가 있음 — 새 오류가 늘지 않는지만 확인)
-- SQL은 로컬 Postgres에 전체 마이그레이션을 적용해 RPC를 직접 호출해 검증했다(레벨업, 토큰 버킷, 스탯 비용,
-  골드 부족/상한, 드랍 티켓, 퀘스트 보상). 새 RPC를 고치면 같은 방식으로 확인할 것.
+  (기존 `fetchInventory` 오류 9개가 있음 — 새 오류가 늘지 않는지만 확인)
+- SQL은 가짜 DB 테스트로 검증되지 않는다. 마이그레이션/RPC를 고치면 메모리 Postgres(`@electric-sql/pglite`)나
+  로컬 Postgres에 전체 마이그레이션을 적용해 RPC를 직접 호출해 확인할 것.
+- 이 저장소의 `node_modules`를 다른 폴더에 정션으로 연결해 vitest를 돌리면 `toBeInTheDocument` 오류로 테스트가
+  대량 실패한다. 워크트리에서는 `npm ci`로 실제 설치할 것.
 
-## 모바일 지원 (2026-09-29)
+## 모바일 지원
 
-폰(`(pointer: coarse)`)에서는 데스크톱과 다른 HUD를 씀. 코드 위치:
+폰(`(pointer: coarse)`)에서는 데스크톱과 다른 HUD를 쓴다. 코드 위치:
 - `src/lib/device.ts` — `useIsTouch`, `useViewportSize`
 - `src/components/game/TouchHud.tsx` — 가상 조이스틱, 행동 버튼(대화/줍기), 패널 버튼(가방/캐릭/퀘스트/지도/메뉴), 4x2 단축키
 - `src/components/game/touchInput.ts` — 조이스틱 값/카메라 기준 방향 변환 (CharacterMesh가 매 프레임 읽음)
@@ -79,149 +113,3 @@
 - 인벤토리: 터치는 '사용' 버튼으로 주문서를 든 뒤 대상을 한 번 터치(더블클릭 대체).
 
 모바일 확인은 `npm run dev` 후 브라우저 개발자 도구의 기기 에뮬레이션(터치 모드) 또는 실제 기기로.
-
-## 공개 배포 체크리스트 (2026-09-28) — Vercel + 정식 메일(SMTP)
-
-Supabase 기본 메일 발송기는 **프로젝트 팀원 이메일로만** 발송되고 시간당 몇 통으로
-제한됨 → 외부인 가입을 받으려면 아래 순서대로 진행.
-
-### 1. 클라이언트 Vercel 배포
-1. vercel.com → Add New Project → GitHub `oinochoe/RPG` import (Framework: Vite, 저장소의
-   `vercel.json`이 빌드 명령/SPA rewrite 설정을 갖고 있음).
-2. Environment Variables: `VITE_API_BASE_URL` = `https://<project-ref>.supabase.co/functions/v1/api/api/v1`
-   처럼 로컬 `.env`에 쓰던 **실서버 값 그대로**. (빌드 타임에 주입되므로 바꾸면 재배포 필요)
-3. Deploy → 발급된 도메인(예: `https://rpg-xxx.vercel.app`)을 기록.
-
-### 2. Supabase Auth URL
-Dashboard → Authentication → URL Configuration
-- Site URL: `https://www.roleplaying.kr` (끝에 `/` 붙이지 말 것)
-- Redirect URLs: `https://www.roleplaying.kr/**`, `https://rpg-noel.vercel.app/**` (로컬 개발용 `http://localhost:5173/**`도 유지)
-
-### 3. 메일 발송(SMTP) 설정 — Resend 기준
-1. resend.com 가입(무료: 일 100통/월 3,000통) → Domains에서 본인 도메인 추가 → 안내된
-   DNS 레코드(SPF/DKIM) 등록 → Verified 확인. (도메인이 없으면 먼저 구매 필요 —
-   `resend.dev` 테스트 발신 주소는 본인에게만 발송됨)
-2. API Keys → 키 생성.
-3. Supabase Dashboard → Authentication → SMTP Settings → Enable custom SMTP:
-   host `smtp.resend.com`, port `465`, user `resend`, password = API 키,
-   sender email `no-reply@roleplaying.kr`, sender name `RPG`.
-4. Authentication → Rate Limits → "Emails sent per hour"를 30 이상으로.
-5. Authentication → Email Templates → Confirm signup: 제목/본문을
-   `supabase/templates/confirmation.html` 내용으로 교체 (링크가
-   `{{ .SiteURL }}/verify-email?token={{ .TokenHash }}` 형태여야 클라이언트 인증 페이지로 감).
-6. 새 이메일로 실제 가입 → 메일 수신 → 링크 클릭 → 로그인까지 확인.
-
-(메일 서비스 없이 급하게 열어야 하면 `supabase secrets set REQUIRE_EMAIL_VERIFICATION=false`
-후 함수 재배포 — 가입 즉시 로그인됨. 정식 SMTP 연결 후에는 이 secret을 지울 것.)
-
-### 4. 서버 반영
-`supabase db push` (강화 주문서 개편 마이그레이션 포함) → `supabase functions deploy api`.
-
-## Supabase Auth site_url / 이메일 확인 링크 — 수동 조치 필요 (2026-09-15)
-
-Phase 1 최종 전체 브랜치 리뷰에서 발견: `supabase/config.toml`의 `[auth]` 블록에
-있던 `site_url`/`additional_redirect_urls`가 `supabase init` 템플릿 기본값
-(`http://127.0.0.1:3000`)인 채로 방치되어 있었음. 클라이언트 실제 dev 서버
-포트(`5173`)와 맞지 않아, 실제 사용자에게 발송되는 이메일 인증 링크가 깨진
-URL로 리다이렉트됨.
-
-- (a) `supabase/config.toml`을 `site_url = "http://localhost:5173"`,
-  `additional_redirect_urls = ["http://localhost:5173/**"]`로 커밋해둠 — 이제
-  의도한 값이 저장소에 기록되어 있음.
-- (b) **중요: `config.toml`의 `[auth]` 블록은 `supabase db push` 등으로 자동
-  반영되지 않고, 실제 라이브 GoTrue 설정에 반영하려면 명시적으로
-  `supabase config push`를 실행해야 함.** 이 CLI 버전(`supabase config
-  --help`로 확인)에 실제로 `config push`/`config diff` 커맨드가 존재하는 걸
-  확인했지만, `config push --help`가 스스로 경고하듯 "`supabase init`
-  템플릿이 써놓은 값(로컬 개발용 site_url 등)이 실수로 실제 커스터마이징된
-  라이브 설정을 덮어쓸 수 있다" — 그리고 `config.toml`에는 site_url 외에도
-  다른 `[auth]`/`[storage]` 등 설정이 다수 있어 전체를 한 번에 push하면 의도치
-  않은 값까지 라이브에 반영될 위험이 있음. 이번 수정 작업에서는 이 push를
-  실행하지 않았음 — **실제 사용자가 가입하기 전에 반드시 Supabase Dashboard →
-  Authentication → URL Configuration에서 Site URL/Redirect URLs를 수동으로
-  확인·적용할 것** (또는 `supabase config diff`로 먼저 차이를 검토한 뒤 신중하게
-  `config push`를 실행할 것).
-- (c) 이메일 확인 템플릿도 Dashboard에서 수동 커스터마이징 필요: GoTrue
-  기본값은 "호스팅된 verify 페이지 → 리다이렉트" 플로우라서 현재 깨진 URL로
-  사용자를 보냄. Authentication → Email Templates → Confirm signup에서 확인
-  링크를 `{{ .SiteURL }}/verify-email?token={{ .TokenHash }}` 형태로 바꿔서
-  프론트엔드의 `/verify-email` 라우트(`src/pages/VerifyEmailPage.tsx`)로 직접
-  토큰을 넘기도록 해야 함.
-
-## 현재 상태
-
-- Phase 1 클라이언트(회원가입~맵 입장) 구현 완료, `main`에 머지됨.
-- 실제 BackendX 배포 서버(`https://pool1.backendx.cloud/apps/4a1628b4-7116-4244-973d-55ae3fe4f5f2/api_server`)에 연결해서 실제 연동 테스트 진행 중.
-- 로컬 `.env`(git에 커밋 안 됨)에 다음 값 설정되어 있음:
-  ```
-  VITE_API_BASE_URL=https://pool1.backendx.cloud/apps/4a1628b4-7116-4244-973d-55ae3fe4f5f2/api_server/api/v1
-  ```
-
-## 실제 백엔드로 확인된 것 (정상 동작)
-
-- `POST /auth/register` → 201, 실제 이메일로 인증 메일 발송됨
-- `POST /auth/login` → 200, `/characters`로 정상 리다이렉트
-- `GET /characters` → 200
-
-## 클라이언트에서 발견해서 이미 고친 버그
-
-- **React 18 StrictMode 이중 호출 버그** (`src/pages/VerifyEmailPage.tsx`, 커밋 `08ac836`): 개발 모드에서 `useEffect`가 두 번 실행되면서 1회용 인증 토큰을 두 번 보내 하나는 성공·하나는 실패하고 화면엔 "인증 실패"만 뜨던 문제. `useRef`로 토큰당 한 번만 호출하도록 가드 추가함. 빌드/테스트(16/16) 확인 완료.
-- (참고로 `CharactersPage.tsx`도 같은 이유로 `fetchCharacters()`가 두 번 호출되지만, GET이라 무해해서 그대로 둠 — 필요하면 나중에 같은 패턴으로 고칠 것.)
-
-## BackendX API 계약 변경 (Ver 2, 2026-09-14 확인)
-
-BackendX가 API 문서를 업데이트했고, 같은 날 서버도 재배포됨(마이그레이션 `0002_app → 0003_app`). 변경 사항:
-
-- Admin 마스터 데이터 `template_type` enum이 `monsters|items|drops|shops` → **`maps|monsters|items|drops|spawns|skills|quests|shops`로 확장**. 이제 `maps`(시작 맵 등)를 admin API로 관리할 수 있음.
-- 새 엔드포인트 추가: **`POST /admin/master-data/{template_type}`**(생성, FR-026), **`DELETE /admin/master-data/{template_type}/{template_id}`**(삭제, FR-027).
-- 계정 상태 enum에 `purged` 추가 (`active|suspended|deactivated|purged`).
-- ⚠️ **재배포에도 불구하고 캐릭터 생성 500 버그는 그대로임** (위 시도 3 참고) — 이번 재배포는 API 스펙 확장 반영이었지, 이 버그 수정은 아니었던 것으로 보임.
-- ⚠️ **2026-09-14 추가 재배포 이후 재확인 — 시도 4: 여전히 500.** `{"name":"DeployCheck","character_class":"warrior"}` → 500, trace_id `9373a5c6e4bd4f749c6a3a81fbb71c79`. 로그인은 정상 동작해서 기존 DB 데이터(가입 계정)는 유지됨. 이번 배포도 이 버그와는 무관한 변경이었던 것으로 보임 — 총 4회 재현.
-
-→ 이제 `POST /admin/master-data/maps`로 시작 맵을 직접 만들 수 있으니, 캐릭터 생성 버그가 "시작 맵 미시딩" 때문이라면 **어드민 계정만 있으면 우리가 직접 고칠 수 있음.**
-
-## BackendX 대시보드 로그에 대한 참고
-
-프로젝트 배포 로그(도커 컨테이너 로그: postgres 초기화, nginx, gunicorn 부팅, 스케줄러 시작 등)는 확인했지만, 이건 **인프라 레벨 로그**라 특정 요청이 왜 500이 났는지 나오는 애플리케이션 에러/스택 트레이스는 아님. 실제로 필요한 건 `api_server` 컨테이너의 요청 처리 로그(Python 예외 스택 트레이스 포함)이고, trace_id로 검색 가능한 애플리케이션 로그/에러 트래킹(Sentry류) 메뉴가 대시보드에 별도로 있는지 계속 확인 필요.
-
-## 다음에 처리해야 할 일
-
-### BackendX 쪽에서 확인/조치 필요
-
-- [ ] **`POST /characters` (캐릭터 생성) 500 Internal Server Error — 재현 확정, BackendX에 문의 필요.**
-
-      **BackendX에 그대로 전달할 리포트:**
-
-      > 프로젝트: `4a1628b4-7116-4244-973d-55ae3fe4f5f2` (api_server)
-      > 엔드포인트: `POST /api/v1/characters`
-      > 증상: 인증된(이메일 인증 완료) 사용자가 캐릭터를 생성하면 항상 500 Internal Server Error가 발생합니다. 입력값을 바꿔도 재현되는 걸 확인했습니다 (입력값 문제 아님):
-      >   - 시도 1: `{"name":"Valerius","character_class":"warrior"}` → 500, trace_id `718c8f28cda0454dae78115b1e172971`
-      >   - 시도 2: `{"name":"TestMage","character_class":"mage"}` → 500, trace_id `4fd0f120f4864470908253832fa1ccfa`
-      >   - 시도 3 (2026-09-14 서버 재배포/마이그레이션 0002→0003 이후 재시도): `{"name":"RetestHero","character_class":"warrior"}` → 500, trace_id `99e922540e7b44669b59e935d532b7b0` — **재배포 후에도 동일하게 재현됨**, 이 재배포는 이 버그를 고친 게 아니었던 것으로 보임.
-      > 요청 헤더에는 로그인으로 발급받은 `Authorization: Bearer <access_token>`이 정상적으로 포함되어 있었습니다.
-      > 실패 후 `GET /api/v1/characters`로 확인하면 목록이 비어 있어서 부분 생성 없이 깨끗하게 롤백되는 것으로 보입니다.
-      > 추정 원인: 명세(FR-006)상 캐릭터 생성 시 "기본 시작 맵의 생성 위치로 캐릭터를 초기화"해야 하는데, `characters.current_map_id`가 `map_templates.id`를 참조하는 FK라서 시작 맵 마스터 데이터가 아직 시딩되지 않았다면 INSERT가 실패할 수 있습니다. `map_templates`(및 관련 `monster_templates`, `map_monster_spawns`)에 기본 데이터가 들어있는지 확인 부탁드립니다.
-      > 대시보드의 "사용량 관리"에는 API 호출 수가 0회로 표시되는데, 실제로는 이 요청들이 DB에 반영되고 있어(9MB 사용량) 사용량 카운터가 실시간이 아닌 것 같습니다 — 요청/에러 로그를 trace_id로 조회할 수 있는 별도 메뉴가 있는지도 궁금합니다.
-- [ ] **admin 역할 계정 확보.** 어드민 마스터 데이터 API는 `role: admin`만 호출 가능한데, 지금 테스트 계정(`copstyle@naver.com`)은 일반 `user`임. BackendX 대시보드에 "이 계정을 admin으로 승격"하는 기능이 있는지, 혹은 프로젝트 생성 시 기본 admin 계정이 있는지 확인 필요 — 이게 있어야 어드민 사이트 개발과 맵 시딩을 시작할 수 있음.
-- [ ] **이메일 인증 링크가 프론트엔드가 아니라 백엔드 자체 URL로 연결됨** (`.../api_server/auth/verify-email?token=...`, `/api/v1` 프리픽스도 빠져 있어 그대로 두면 404).
-      클라이언트를 실제 도메인에 배포한 뒤, BackendX 프로젝트 설정에서 인증 이메일의 콜백/프론트엔드 URL을 `https://<배포된 도메인>/verify-email`로 지정해야 함. 그 전까지는 이메일에서 토큰을 수동으로 추출해서 `/verify-email?token=...`에 직접 넣어 테스트해야 함.
-
-### 클라이언트에 남아있는 경미한 항목들 (기능엔 문제 없음, 여유 될 때)
-
-Phase 1 리뷰 과정에서 나왔던, 의도적으로 미룬 항목들:
-
-- `src/api/client.ts`의 `apiRequest`: 동시에 여러 요청이 401을 맞으면 각각 독립적으로 refresh를 호출함 (현재는 순차 호출만 있어서 문제 없지만, Phase 2에서 전투처럼 동시 요청이 늘면 in-flight refresh 공유 로직 필요).
-- `src/stores/authStore.ts`의 `loadStoredTokens()`: localStorage 값이 JSON으로는 유효한데 형태가 이상하면(예: `{}`) 그대로 통과함 — 다음 API 호출에서 401→refresh 실패로 자연 정리되긴 함(self-healing).
-- `src/stores/characterStore.ts`의 `fetchCharacters()`: 실패 시 `isLoading`이 `true`로 남아서 스피너 문구와 에러 메시지가 동시에 보임 (기능은 정상).
-- `src/mocks/handlers.ts`(로컬 개발용 mock, 프로덕션 미포함): `verify-email`이 모든 유저를 한번에 인증 처리해서 한 브라우저 탭에서 여러 계정 테스트는 안 됨 — 단일 계정 흐름 검증에는 문제 없음.
-- 인증 페이지 3개(Register/Login/VerifyEmail)의 폼 마크업이 조금씩 중복됨 — 지금 규모에선 추상화가 오히려 과함, Phase 2에서 화면이 늘면 재검토.
-
-## 재개할 때 순서
-
-1. admin 역할 계정 확보 (BackendX 대시보드에서 승격 또는 기본 admin 계정 확인).
-2. admin 계정으로 `POST /admin/master-data/maps`를 호출해서 시작 맵(`map_templates`) 레코드를 하나 만들어보고, 캐릭터 생성이 그걸로 고쳐지는지 확인. (별도 어드민 사이트 없이 curl/Postman으로 먼저 확인해도 됨 — 원인 검증이 목적이면 화면부터 만들 필요는 없음.)
-3. 원인이 맞았다면: 어드민 사이트를 새 feature 브랜치로 시작 (마스터 데이터 CRUD: maps/monsters/items/drops/spawns/skills/quests/shops, 공지 게시, 유저 제재 — FR-020~027).
-   원인이 아니었다면: BackendX에 위 리포트 그대로 문의.
-4. 캐릭터 생성 → 선택 → `/game` 맵 입장까지 실제 백엔드로 끝까지 재검증.
-5. (선택) 클라이언트 배포 후 BackendX 이메일 콜백 URL 설정.
-6. Phase 2 브레인스토밍: 전투(FR-010~013), 인벤토리/창고/상점(FR-016~018), 퀘스트(FR-019) 등.
