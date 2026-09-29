@@ -3,26 +3,14 @@ import { useCombatStore } from '../../stores/combatStore';
 import { useQuestStore, QUEST_DEFS, mainQuestUnlocked, type QuestDef } from '../../stores/questStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useDraggablePanel } from './useDraggablePanel';
+import { Bar } from '../ui/bar';
+import { GamePanel } from '../ui/game-panel';
 import type { ActiveQuest } from '../../types/api';
 
 const PANEL_WIDTH = 340;
 
 function ProgressBar({ ratio, color }: { ratio: number; color: string }) {
-  const clamped = Math.max(0, Math.min(1, ratio));
-  return (
-    <div
-      style={{
-        width: '100%',
-        height: 8,
-        borderRadius: 4,
-        background: 'rgba(0,0,0,0.4)',
-        border: '1px solid rgba(232, 201, 122, 0.25)',
-        overflow: 'hidden',
-      }}
-    >
-      <div style={{ width: `${clamped * 100}%`, height: '100%', background: color, transition: 'width 200ms ease-out' }} />
-    </div>
-  );
+  return <Bar ratio={ratio} color={color} height={14} />;
 }
 
 function QuestRow({ quest, state, playerLevel }: { quest: QuestDef; state: ActiveQuest | undefined; playerLevel: number }) {
@@ -38,24 +26,24 @@ function QuestRow({ quest, state, playerLevel }: { quest: QuestDef; state: Activ
         : `${state.progress_count} / ${quest.targetCount}`;
 
   return (
-    <div style={{ padding: '8px 4px', borderBottom: '1px solid rgba(232, 201, 122, 0.15)' }}>
+    <div style={{ padding: '8px 4px', borderBottom: '2px solid rgb(139 106 70 / 0.15)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
-        <span style={{ color: '#f4f1e8', fontSize: 13, fontWeight: 700 }}>{quest.title}</span>
-        <span style={{ color: '#9aa08f', fontSize: 11 }}>
+        <span style={{ color: 'var(--color-ink)', fontSize: 13, fontWeight: 700 }}>{quest.title}</span>
+        <span style={{ color: 'var(--color-ink-soft)', fontSize: 11 }}>
           {quest.villageName} · {quest.giverNpcName}
         </span>
       </div>
-      <div style={{ color: '#9aa08f', fontSize: 11, marginBottom: 4 }}>
+      <div style={{ color: 'var(--color-ink-soft)', fontSize: 11, marginBottom: 4 }}>
         {quest.targetMonsterName} {quest.targetCount}마리 처치
       </div>
       {state && state.status !== 'completed' && (
         <div style={{ marginBottom: 4 }}>
-          <ProgressBar ratio={state.progress_count / quest.targetCount} color={ready ? '#7be08a' : '#e8c97a'} />
+          <ProgressBar ratio={state.progress_count / quest.targetCount} color={ready ? 'var(--color-mint-deep)' : 'var(--color-gold)'} />
         </div>
       )}
       <div
         style={{
-          color: state?.status === 'completed' ? '#9aa08f' : ready ? '#7be08a' : '#ffd54a',
+          color: state?.status === 'completed' ? 'var(--color-ink-soft)' : ready ? 'var(--color-mint-ink)' : 'var(--color-gold-ink)',
           fontSize: 11,
           fontWeight: 700,
         }}
@@ -69,7 +57,7 @@ function QuestRow({ quest, state, playerLevel }: { quest: QuestDef; state: Activ
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div style={{ marginBottom: 10 }}>
-      <div style={{ color: '#e8c97a', fontSize: 12, fontWeight: 700, marginBottom: 4, letterSpacing: 0.3 }}>{title}</div>
+      <div style={{ color: 'var(--color-gold-ink)', fontSize: 12, fontWeight: 700, marginBottom: 4, letterSpacing: 0.3 }}>{title}</div>
       {children}
     </div>
   );
@@ -115,70 +103,37 @@ export function QuestLogPanel() {
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        ...frameStyle,
-        maxHeight: '70vh',
-        display: 'flex',
-        flexDirection: 'column',
-        background: '#1a2a1c',
-        border: '2px solid #e8c97a',
-        borderRadius: 12,
-        padding: 16,
-        boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-        zIndex: 2147483647,
-        fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
-      }}
+    <GamePanel
+      title="퀘스트 (Q)"
+      onClose={closeQuestLog}
+      frameStyle={frameStyle}
+      onHeaderPointerDown={onHeaderPointerDown}
+      className="z-[2147483647]"
+      style={{ maxHeight: '70vh' }}
     >
-      <div
-        onPointerDown={onHeaderPointerDown}
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 10,
-          cursor: 'move',
-          touchAction: 'none',
-          userSelect: 'none',
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>퀘스트 (Q)</span>
-        <button
-          onClick={closeQuestLog}
-          style={{ background: 'transparent', border: 'none', color: '#9aa08f', fontSize: 16, cursor: 'pointer', lineHeight: 1, padding: 2 }}
-          title="닫기 (ESC)"
-        >
-          ✕
-        </button>
-      </div>
+      {inProgress.length > 0 && (
+        <Section title={`진행 중 (${inProgress.length})`}>
+          {inProgress.map((q) => (
+            <QuestRow key={q.id} quest={q} state={quests[q.id]} playerLevel={playerLevel} />
+          ))}
+        </Section>
+      )}
 
-      <div className="custom-scroll" style={{ overflowY: 'auto', flex: 1 }}>
-        {inProgress.length > 0 && (
-          <Section title={`진행 중 (${inProgress.length})`}>
-            {inProgress.map((q) => (
-              <QuestRow key={q.id} quest={q} state={quests[q.id]} playerLevel={playerLevel} />
-            ))}
-          </Section>
-        )}
+      {available.length > 0 && (
+        <Section title={`수락 가능 (${available.length})`}>
+          {available.map((q) => (
+            <QuestRow key={q.id} quest={q} state={quests[q.id]} playerLevel={playerLevel} />
+          ))}
+        </Section>
+      )}
 
-        {available.length > 0 && (
-          <Section title={`수락 가능 (${available.length})`}>
-            {available.map((q) => (
-              <QuestRow key={q.id} quest={q} state={quests[q.id]} playerLevel={playerLevel} />
-            ))}
-          </Section>
-        )}
-
-        {completed.length > 0 && (
-          <Section title={`완료 (${completed.length})`}>
-            {completed.map((q) => (
-              <QuestRow key={q.id} quest={q} state={quests[q.id]} playerLevel={playerLevel} />
-            ))}
-          </Section>
-        )}
-      </div>
-    </div>
+      {completed.length > 0 && (
+        <Section title={`완료 (${completed.length})`}>
+          {completed.map((q) => (
+            <QuestRow key={q.id} quest={q} state={quests[q.id]} playerLevel={playerLevel} />
+          ))}
+        </Section>
+      )}
+    </GamePanel>
   );
 }

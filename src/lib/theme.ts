@@ -22,6 +22,8 @@ export const THEME = {
     'gold-ink': '#8A5300',
     'sky-ink': '#1F5F99',
     'danger-ink': '#B5233F',
+    'mint-ink': '#186A40',
+    'violet-ink': '#7A3FC4',
     // Outlines, status, alerts
     edge: '#8B6A46',
     hp: '#F3849E',

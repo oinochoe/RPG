@@ -3,18 +3,16 @@ import { useCombatStore } from '../../stores/combatStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useDraggablePanel } from './useDraggablePanel';
+import { Button } from '../ui/button';
+import { GamePanel } from '../ui/game-panel';
+import { IconButton } from '../ui/icon-button';
+import { Slot } from '../ui/slot';
 import { formatGold } from './itemLabels';
 import { ItemIcon } from './itemIcons';
 import { VILLAGE_BLACKSMITH_LEVEL_RANGE } from './Village';
 import type { CharacterProfile } from '../../types/api';
 
 const PANEL_WIDTH = 340;
-
-const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
-  warrior: '#f4c430',
-  mage: '#9be7ff',
-  archer: '#d7f79b',
-};
 
 const SHOP_TITLE: Record<'merchant' | 'blacksmith', string> = {
   merchant: '상인의 가게',
@@ -54,101 +52,41 @@ function ShopRow({
 }) {
   const hasStepper = quantity !== undefined && onQuantityChange !== undefined;
   const totalPrice = hasStepper ? price * quantity : price;
+  const atMax = maxQuantity !== undefined && quantity !== undefined && quantity >= maxQuantity;
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '8px 4px',
-        borderBottom: '1px solid rgba(232, 201, 122, 0.15)',
-        gap: 8,
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-        <div
-          style={{
-            width: 34,
-            height: 34,
-            flexShrink: 0,
-            borderRadius: 6,
-            background: 'rgba(0, 0, 0, 0.35)',
-            border: '1px solid rgba(232, 201, 122, 0.25)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <ItemIcon itemName={iconName} size={24} />
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ color: '#f4f1e8', fontSize: 13, fontWeight: 600 }}>{name}</div>
-          <div style={{ color: '#9aa08f', fontSize: 11 }}>{meta}</div>
+    <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b-2 border-edge/15 px-1 py-2 last:border-b-0">
+      <div className="flex min-w-0 items-center gap-2">
+        <Slot size={40}>
+          <ItemIcon itemName={iconName} size={26} />
+        </Slot>
+        <div className="min-w-0">
+          <div className="text-sm font-bold text-ink">{name}</div>
+          <div className="text-xs text-ink-soft">{meta}</div>
         </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+      <div className="flex shrink-0 items-center gap-1.5">
         {hasStepper && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <button
-              onClick={() => onQuantityChange(Math.max(1, quantity - 1))}
-              disabled={quantity <= 1}
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: 4,
-                border: '1px solid rgba(232, 201, 122, 0.5)',
-                background: 'rgba(255,255,255,0.05)',
-                color: quantity <= 1 ? '#5c6058' : '#e8c97a',
-                fontSize: 11,
-                lineHeight: 1,
-                cursor: quantity <= 1 ? 'default' : 'pointer',
-                padding: 0,
-              }}
-            >
+          <div className="flex items-center gap-1">
+            <IconButton label="수량 줄이기" size="sm" disabled={quantity <= 1} onClick={() => onQuantityChange(Math.max(1, quantity - 1))}>
               −
-            </button>
-            <span style={{ color: '#f4f1e8', fontSize: 12, fontWeight: 700, minWidth: 18, textAlign: 'center' }}>
-              {quantity}
-            </span>
-            <button
+            </IconButton>
+            <span className="min-w-5 text-center text-sm font-bold text-ink">{quantity}</span>
+            <IconButton
+              label="수량 늘리기"
+              size="sm"
+              disabled={atMax}
               onClick={() => onQuantityChange(Math.min(maxQuantity ?? 99, quantity + 1))}
-              disabled={maxQuantity !== undefined && quantity >= maxQuantity}
-              style={{
-                width: 18,
-                height: 18,
-                borderRadius: 4,
-                border: '1px solid rgba(232, 201, 122, 0.5)',
-                background: 'rgba(255,255,255,0.05)',
-                color: maxQuantity !== undefined && quantity >= maxQuantity ? '#5c6058' : '#e8c97a',
-                fontSize: 11,
-                lineHeight: 1,
-                cursor: maxQuantity !== undefined && quantity >= maxQuantity ? 'default' : 'pointer',
-                padding: 0,
-              }}
             >
               +
-            </button>
+            </IconButton>
           </div>
         )}
-        <span style={{ color: priceColor, fontSize: 12, fontWeight: 700, minWidth: 64, textAlign: 'right' }}>
+        <span className="min-w-16 text-right text-sm font-bold" style={{ color: priceColor }}>
           {formatGold(totalPrice)} G
         </span>
-        <button
-          onClick={onAction}
-          disabled={disabled}
-          style={{
-            padding: '4px 10px',
-            borderRadius: 6,
-            border: '1px solid #e8c97a',
-            background: 'rgba(255,255,255,0.05)',
-            color: disabled ? '#6a6a5f' : '#e8c97a',
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: disabled ? 'default' : 'pointer',
-          }}
-        >
+        <Button size="sm" onClick={onAction} disabled={disabled}>
           {actionLabel}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -166,7 +104,6 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
   const fetchInventory = useCharacterStore((s) => s.fetchInventory);
   const buyItem = useCharacterStore((s) => s.buyItem);
   const sellItem = useCharacterStore((s) => s.sellItem);
-  const accent = CLASS_ACCENT[character.character_class];
   const [tab, setTab] = useState<'buy' | 'sell'>('buy');
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<number | null>(null);
@@ -250,162 +187,113 @@ export function ShopPanel({ character }: { character: CharacterProfile }) {
     // click backdrop, for the same consistency reason as CharacterPanel/InventoryPanel:
     // dragging and click-outside-to-close would otherwise fight over what a mouseup outside
     // the header means.
-    <div
-      style={{
-        position: 'fixed',
-        ...frameStyle,
-        background: '#1a2a1c',
-        border: `2px solid ${accent}`,
-        borderRadius: 12,
-        padding: 16,
-        boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-        zIndex: 2147483647,
-        fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
-      }}
+    <GamePanel
+      title={SHOP_TITLE[shopKind]}
+      onClose={closeShop}
+      frameStyle={frameStyle}
+      onHeaderPointerDown={onHeaderPointerDown}
+      className="z-[2147483647]"
     >
-      <div
-        onPointerDown={onHeaderPointerDown}
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 4,
-          cursor: 'move',
-          touchAction: 'none',
-          userSelect: 'none',
-        }}
-      >
-        <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>{SHOP_TITLE[shopKind]}</span>
-        <button
-          onClick={closeShop}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: '#9aa08f',
-            fontSize: 16,
-            cursor: 'pointer',
-            lineHeight: 1,
-            padding: 2,
-          }}
-          title="닫기 (ESC)"
-        >
-          ✕
-        </button>
+      <div className="mb-3 font-display text-lg text-gold-ink">{formatGold(player.gold)} G 보유</div>
+
+      <div className="mb-3 flex gap-2">
+        {(['buy', 'sell'] as const).map((t) => (
+          <Button key={t} variant={tab === t ? 'primary' : 'ghost'} size="sm" className="flex-1" onClick={() => setTab(t)}>
+            {t === 'buy' ? '구매' : '판매'}
+          </Button>
+        ))}
       </div>
-      <div style={{ color: '#ffd54a', fontSize: 13, fontWeight: 700, marginBottom: 12 }}>{formatGold(player.gold)} G 보유</div>
 
-        <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-          {(['buy', 'sell'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              style={{
-                flex: 1,
-                padding: '6px 0',
-                borderRadius: 6,
-                border: `1px solid ${tab === t ? accent : 'rgba(232, 201, 122, 0.25)'}`,
-                background: tab === t ? 'rgba(232, 201, 122, 0.15)' : 'transparent',
-                color: tab === t ? '#e8c97a' : '#9aa08f',
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              {t === 'buy' ? '구매' : '판매'}
-            </button>
-          ))}
-        </div>
+      {error && <p className="mb-2 text-sm text-danger-ink">{error}</p>}
 
-        {error && <p style={{ color: '#e0538a', fontSize: 12, marginBottom: 8 }}>{error}</p>}
-
-        <div className="custom-scroll" style={{ maxHeight: 280, overflowY: 'auto' }}>
-          {tab === 'buy' ? (
-            sortedShop.length === 0 ? (
-              <p style={{ color: '#9aa08f', fontSize: 13, padding: '12px 4px' }}>판매 중인 아이템이 없습니다.</p>
-            ) : (
-              sortedShop.map((item) => {
-                const classOk =
-                  !item.required_class || item.required_class === 'all' || item.required_class === character.character_class;
-                const levelOk = character.level >= item.required_level;
-                // Stackable only (equip gear always buys one at a time — see the server
-                // route's equip_slot check) — the affordability cap below uses this too, so
-                // an equip item's stepper is simply never rendered rather than rendered
-                // pinned at 1.
-                const stackable = item.equip_slot === null;
-                const maxAffordable = item.buy_price > 0 ? Math.floor(player.gold / item.buy_price) : 99;
-                const maxQuantity = Math.max(1, Math.min(99, maxAffordable));
-                const quantity = Math.min(quantities[item.id] ?? 1, maxQuantity);
-                const canAfford = player.gold >= item.buy_price * (stackable ? quantity : 1);
-                const disabled = pendingId === item.id || !classOk || !levelOk || !canAfford;
-                const bonus =
+      <div className="custom-scroll max-h-[280px] overflow-y-auto">
+        {tab === 'buy' ? (
+          sortedShop.length === 0 ? (
+            <p style={{ color: 'var(--color-ink-soft)', fontSize: 13, padding: '12px 4px' }}>판매 중인 아이템이 없습니다.</p>
+          ) : (
+            sortedShop.map((item) => {
+              const classOk =
+                !item.required_class || item.required_class === 'all' || item.required_class === character.character_class;
+              const levelOk = character.level >= item.required_level;
+              // Stackable only (equip gear always buys one at a time — see the server
+              // route's equip_slot check) — the affordability cap below uses this too, so
+              // an equip item's stepper is simply never rendered rather than rendered
+              // pinned at 1.
+              const stackable = item.equip_slot === null;
+              const maxAffordable = item.buy_price > 0 ? Math.floor(player.gold / item.buy_price) : 99;
+              const maxQuantity = Math.max(1, Math.min(99, maxAffordable));
+              const quantity = Math.min(quantities[item.id] ?? 1, maxQuantity);
+              const canAfford = player.gold >= item.buy_price * (stackable ? quantity : 1);
+              const disabled = pendingId === item.id || !classOk || !levelOk || !canAfford;
+              const bonus =
+                (item.attack_bonus > 0 ? `공격 +${item.attack_bonus} ` : '') +
+                (item.defense_bonus > 0 ? `방어 +${item.defense_bonus} ` : '') +
+                (item.heal_hp > 0 ? `체력 +${item.heal_hp} ` : '') +
+                (item.restore_mp > 0 ? `마나 +${item.restore_mp} ` : '') +
+                (item.teleport_target === 'village' ? '마을 이동 ' : '') +
+                (item.teleport_target === 'blink' ? '순간이동 ' : '') +
+                (item.haste_duration_sec > 0 ? `이속/공속 ${item.haste_duration_sec}초 ` : '');
+              const restriction = !levelOk
+                ? `Lv.${item.required_level} 필요`
+                : !classOk
+                  ? '직업 제한'
+                  : !canAfford
+                    ? '골드 부족'
+                    : '';
+              return (
+                <ShopRow
+                  key={item.id}
+                  name={item.name}
+                  iconName={item.name}
+                  meta={[bonus, restriction].filter(Boolean).join('· ')}
+                  price={item.buy_price}
+                  priceColor='var(--color-gold-ink)'
+                  actionLabel="구매"
+                  disabled={disabled}
+                  onAction={() => handleBuy(item.id, item.buy_price, stackable ? quantity : 1)}
+                  quantity={stackable ? quantity : undefined}
+                  onQuantityChange={stackable ? (next) => setQuantities((q) => ({ ...q, [item.id]: next })) : undefined}
+                  maxQuantity={stackable ? maxQuantity : undefined}
+                />
+              );
+            })
+          )
+        ) : inventory.length === 0 ? (
+          <p style={{ color: 'var(--color-ink-soft)', fontSize: 13, padding: '12px 4px' }}>인벤토리가 비어 있습니다.</p>
+        ) : (
+          inventory.map((item) => {
+            // Equipped gear and single-count rows always sell one at a time — same
+            // "stackable only" rule the buy tab uses (see ShopRow's own comment).
+            const stackable = item.equip_slot === null && item.quantity > 1;
+            const maxQuantity = Math.max(1, Math.min(99, item.quantity));
+            const sellQuantity = Math.min(sellQuantities[item.id] ?? 1, maxQuantity);
+            return (
+              <ShopRow
+                key={item.id}
+                name={item.item_name + (item.quantity > 1 ? ` x${item.quantity}` : '') + (item.is_equipped ? ' (장착 중)' : '')}
+                iconName={item.item_name}
+                meta={
                   (item.attack_bonus > 0 ? `공격 +${item.attack_bonus} ` : '') +
                   (item.defense_bonus > 0 ? `방어 +${item.defense_bonus} ` : '') +
                   (item.heal_hp > 0 ? `체력 +${item.heal_hp} ` : '') +
                   (item.restore_mp > 0 ? `마나 +${item.restore_mp} ` : '') +
                   (item.teleport_target === 'village' ? '마을 이동 ' : '') +
                   (item.teleport_target === 'blink' ? '순간이동 ' : '') +
-                  (item.haste_duration_sec > 0 ? `이속/공속 ${item.haste_duration_sec}초 ` : '');
-                const restriction = !levelOk
-                  ? `Lv.${item.required_level} 필요`
-                  : !classOk
-                    ? '직업 제한'
-                    : !canAfford
-                      ? '골드 부족'
-                      : '';
-                return (
-                  <ShopRow
-                    key={item.id}
-                    name={item.name}
-                    iconName={item.name}
-                    meta={[bonus, restriction].filter(Boolean).join('· ')}
-                    price={item.buy_price}
-                    priceColor="#ffd54a"
-                    actionLabel="구매"
-                    disabled={disabled}
-                    onAction={() => handleBuy(item.id, item.buy_price, stackable ? quantity : 1)}
-                    quantity={stackable ? quantity : undefined}
-                    onQuantityChange={stackable ? (next) => setQuantities((q) => ({ ...q, [item.id]: next })) : undefined}
-                    maxQuantity={stackable ? maxQuantity : undefined}
-                  />
-                );
-              })
-            )
-          ) : inventory.length === 0 ? (
-            <p style={{ color: '#9aa08f', fontSize: 13, padding: '12px 4px' }}>인벤토리가 비어 있습니다.</p>
-          ) : (
-            inventory.map((item) => {
-              // Equipped gear and single-count rows always sell one at a time — same
-              // "stackable only" rule the buy tab uses (see ShopRow's own comment).
-              const stackable = item.equip_slot === null && item.quantity > 1;
-              const maxQuantity = Math.max(1, Math.min(99, item.quantity));
-              const sellQuantity = Math.min(sellQuantities[item.id] ?? 1, maxQuantity);
-              return (
-                <ShopRow
-                  key={item.id}
-                  name={item.item_name + (item.quantity > 1 ? ` x${item.quantity}` : '') + (item.is_equipped ? ' (장착 중)' : '')}
-                  iconName={item.item_name}
-                  meta={
-                    (item.attack_bonus > 0 ? `공격 +${item.attack_bonus} ` : '') +
-                    (item.defense_bonus > 0 ? `방어 +${item.defense_bonus} ` : '') +
-                    (item.heal_hp > 0 ? `체력 +${item.heal_hp} ` : '') +
-                    (item.restore_mp > 0 ? `마나 +${item.restore_mp} ` : '') +
-                    (item.teleport_target === 'village' ? '마을 이동 ' : '') +
-                    (item.teleport_target === 'blink' ? '순간이동 ' : '') +
-                    (item.haste_duration_sec > 0 ? `이속/공속 ${item.haste_duration_sec}초 ` : '')
-                  }
-                  price={item.sell_price}
-                  priceColor="#9aa08f"
-                  actionLabel="판매"
-                  disabled={pendingId === item.id}
-                  onAction={() => handleSell(item.id, item.sell_price, stackable ? sellQuantity : 1)}
-                  quantity={stackable ? sellQuantity : undefined}
-                  onQuantityChange={stackable ? (next) => setSellQuantities((q) => ({ ...q, [item.id]: next })) : undefined}
-                  maxQuantity={stackable ? maxQuantity : undefined}
-                />
-              );
-            })
-          )}
-        </div>
-    </div>
+                  (item.haste_duration_sec > 0 ? `이속/공속 ${item.haste_duration_sec}초 ` : '')
+                }
+                price={item.sell_price}
+                priceColor='var(--color-ink-soft)'
+                actionLabel="판매"
+                disabled={pendingId === item.id}
+                onAction={() => handleSell(item.id, item.sell_price, stackable ? sellQuantity : 1)}
+                quantity={stackable ? sellQuantity : undefined}
+                onQuantityChange={stackable ? (next) => setSellQuantities((q) => ({ ...q, [item.id]: next })) : undefined}
+                maxQuantity={stackable ? maxQuantity : undefined}
+              />
+            );
+          })
+        )}
+      </div>
+    </GamePanel>
   );
 }

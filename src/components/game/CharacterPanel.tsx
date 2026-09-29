@@ -15,16 +15,16 @@ import { HOTBAR_DRAG_SKILL_MIME } from './Hotbar';
 import { ItemIcon } from './itemIcons';
 import { useTooltip } from './Tooltip';
 import { useDraggablePanel } from './useDraggablePanel';
+import { CLASS_ACCENT } from './classAccent';
+import { Button } from '../ui/button';
+import { GamePanel } from '../ui/game-panel';
+import { IconButton } from '../ui/icon-button';
+import { Slot } from '../ui/slot';
+import { cn } from '../../lib/utils';
 import { useIsTouch } from '../../lib/device';
 import type { CharacterProfile, InventorySlot } from '../../types/api';
 
 const PANEL_WIDTH = 320;
-
-const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
-  warrior: '#f4c430',
-  mage: '#9be7ff',
-  archer: '#d7f79b',
-};
 
 const STAT_ROWS: { stat: AllocatableStat; label: string }[] = [
   { stat: 'str', label: 'STR (힘)' },
@@ -55,34 +55,25 @@ function StatRow({
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '8px 4px',
-        borderBottom: '1px solid rgba(232, 201, 122, 0.15)',
+        borderBottom: '2px solid rgb(139 106 70 / 0.15)',
       }}
     >
-      <span style={{ color: '#cfe8d0', fontSize: 13 }}>{label}</span>
+      <span style={{ color: 'var(--color-ink)', fontSize: 13 }}>{label}</span>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, minWidth: 32, textAlign: 'right' }}>
+        <span style={{ color: 'var(--color-ink)', fontWeight: 700, fontSize: 14, minWidth: 32, textAlign: 'right' }}>
           {value}
         </span>
-        <button
+        <IconButton
+          label={`${label} 포인트 올리기`}
+          size="sm"
+          className={cn('relative', canAllocate ? 'bg-gradient-to-b from-[#ffd970] to-gold' : '')}
           onClick={onAllocate}
           disabled={!canAllocate}
           {...tooltipHandlers}
-          style={{
-            width: 28,
-            height: 24,
-            borderRadius: 6,
-            border: '1px solid #e8c97a',
-            background: canAllocate ? 'rgba(232, 201, 122, 0.2)' : 'rgba(255,255,255,0.05)',
-            color: canAllocate ? '#e8c97a' : '#6a6a5f',
-            fontWeight: 700,
-            fontSize: 13,
-            cursor: canAllocate ? 'pointer' : 'default',
-            position: 'relative',
-          }}
         >
           +
           {tooltip}
-        </button>
+        </IconButton>
       </div>
     </div>
   );
@@ -91,19 +82,6 @@ function StatRow({
 // Paper-doll layout (Lineage1-style humanoid silhouette with slot boxes positioned around
 // it) — position within a 220x300 box. Drawn with plain CSS shapes rather than an SVG/image
 // asset (none available), just enough to read as a figure.
-const SLOT_BOX: CSSProperties = {
-  position: 'absolute',
-  width: 52,
-  height: 52,
-  borderRadius: 8,
-  border: '1px solid rgba(232, 201, 122, 0.5)',
-  background: 'rgba(0, 0, 0, 0.35)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-};
-
 const SLOT_LAYOUT: { slot: string; style: CSSProperties }[] = [
   { slot: 'helmet', style: { top: 0, left: '50%', transform: 'translateX(-50%)' } },
   { slot: 'necklace', style: { top: 44, left: '78%', transform: 'translateX(-50%)' } },
@@ -129,22 +107,20 @@ function EquipmentSlotBox({
 }) {
   const { handlers: tooltipHandlers, tooltip } = useTooltip(item ? item.item_name : EQUIP_SLOT_LABEL[slot]);
   return (
-    <div
-      style={{
-        ...SLOT_BOX,
-        ...style,
-        opacity: item && pending ? 0.5 : 1,
-      }}
+    <Slot
+      size={52}
+      className="absolute"
+      style={{ ...style, opacity: item && pending ? 0.5 : 1 }}
       onClick={onClick}
       {...tooltipHandlers}
     >
       {item ? (
         <ItemIcon itemName={item.item_name} size={34} />
       ) : (
-        <span style={{ fontSize: 10, color: 'rgba(154, 160, 143, 0.6)' }}>{EQUIP_SLOT_LABEL[slot]}</span>
+        <span className="text-[11px] font-bold text-ink-soft">{EQUIP_SLOT_LABEL[slot]}</span>
       )}
       {tooltip}
-    </div>
+    </Slot>
   );
 }
 
@@ -176,7 +152,7 @@ function EquipmentTab() {
 
   return (
     <div>
-      {error && <p style={{ color: '#e0538a', fontSize: 12, marginBottom: 8 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--color-danger-ink)', fontSize: 12, marginBottom: 8 }}>{error}</p>}
       <div style={{ position: 'relative', width: 220, height: 250, margin: '4px auto 8px' }}>
         {/* Humanoid silhouette backdrop, purely decorative */}
         <div
@@ -188,7 +164,7 @@ function EquipmentTab() {
             width: 16,
             height: 16,
             borderRadius: '50%',
-            background: 'rgba(232, 201, 122, 0.12)',
+            background: 'rgb(245 184 51 / 0.35)',
           }}
         />
         <div
@@ -200,7 +176,7 @@ function EquipmentTab() {
             width: 70,
             height: 130,
             borderRadius: '18px 18px 10px 10px',
-            background: 'rgba(232, 201, 122, 0.08)',
+            background: 'rgb(245 184 51 / 0.35)',
           }}
         />
 
@@ -218,7 +194,7 @@ function EquipmentTab() {
           />
         ))}
       </div>
-      <p style={{ color: '#9aa08f', fontSize: 11, textAlign: 'center' }}>
+      <p style={{ color: 'var(--color-ink-soft)', fontSize: 12, textAlign: 'center' }}>
         장착된 칸을 클릭하면 해제됩니다. 장착은 인벤토리(I)에서.
       </p>
     </div>
@@ -263,7 +239,7 @@ function SkillCard({ skill, character }: { skill: SkillDef; character: Character
 
   return (
     <div style={{ marginBottom: 8 }}>
-      {error && <p style={{ color: '#e0538a', fontSize: 11, marginBottom: 4 }}>{error}</p>}
+      {error && <p style={{ color: 'var(--color-danger-ink)', fontSize: 12, marginBottom: 4 }}>{error}</p>}
       <div
         draggable={learned && !isTouch}
         onDragStart={(e) => {
@@ -289,51 +265,37 @@ function SkillCard({ skill, character }: { skill: SkillDef; character: Character
           justifyContent: 'space-between',
           padding: '10px',
           borderRadius: 8,
-          background: isArmed ? 'rgba(224, 83, 138, 0.18)' : 'rgba(255,255,255,0.04)',
-          border: isArmed ? '1px solid #e0538a' : '1px solid transparent',
+          background: isArmed ? 'rgb(201 52 80 / 0.18)' : 'rgb(58 46 42 / 0.07)',
+          border: isArmed ? '2px solid var(--color-danger)' : '1px solid transparent',
           opacity: levelLocked ? 0.5 : 1,
           cursor: learned ? 'grab' : 'default',
         }}
       >
         <div>
-          <div style={{ color: '#f4f1e8', fontSize: 14, fontWeight: 700 }}>
+          <div style={{ color: 'var(--color-ink)', fontSize: 14, fontWeight: 700 }}>
             {skill.name}
             {skill.type === 'aoe' && (
-              <span style={{ color: '#c084fc', fontSize: 10, fontWeight: 700, marginLeft: 6 }}>범위</span>
+              <span style={{ color: 'var(--color-violet-ink)', fontSize: 11, fontWeight: 700, marginLeft: 6 }}>범위</span>
             )}
             {' — '}Lv.{skillLevel}/{SKILL_MAX_LEVEL}
           </div>
-          <div style={{ color: '#9aa08f', fontSize: 11, marginTop: 2 }}>
+          <div style={{ color: 'var(--color-ink-soft)', fontSize: 12, marginTop: 2 }}>
             {levelLocked
               ? `Lv.${skill.requiredLevel} 필요 · 피해 ${dmgMin}~${dmgMax}${skill.type === 'aoe' ? ' (범위)' : ''}`
               : `MP ${skill.mpCost} · 쿨다운 ${skill.cooldownMs / 1000}초 · 피해 ${dmgMin}~${dmgMax}${skill.type === 'aoe' ? ` · 범위 ${skill.aoeRadius}` : ''} · 더블클릭 후 몬스터 클릭으로 시전`}
           </div>
         </div>
-        <button
-          onClick={handleUpgrade}
-          disabled={!canUpgrade}
-          style={{
-            padding: '6px 12px',
-            borderRadius: 6,
-            border: '1px solid #e8c97a',
-            background: canUpgrade ? 'rgba(232, 201, 122, 0.2)' : 'rgba(255,255,255,0.05)',
-            color: canUpgrade ? '#e8c97a' : '#6a6a5f',
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: canUpgrade ? 'pointer' : 'default',
-            flexShrink: 0,
-          }}
-        >
+        <Button size="sm" variant={canUpgrade ? 'primary' : 'ghost'} className="shrink-0" onClick={handleUpgrade} disabled={!canUpgrade}>
           레벨업
-        </button>
+        </Button>
       </div>
 
       {learned && (
         <div style={{ marginTop: 6 }}>
-          <div style={{ color: '#9aa08f', fontSize: 10, lineHeight: 1.4, marginBottom: 4 }}>
+          <div style={{ color: 'var(--color-ink-soft)', fontSize: 11, lineHeight: 1.4, marginBottom: 4 }}>
             {assignedSlot >= 0 ? (
               <>
-                단축키 <span style={{ color: '#e8c97a', fontWeight: 700 }}>{assignedSlot + 1}</span>번에 등록됨
+                단축키 <span style={{ color: 'var(--color-gold-ink)', fontWeight: 700 }}>{assignedSlot + 1}</span>번에 등록됨
               </>
             ) : (
               '드래그하거나 아래 번호를 눌러 단축키에 등록하세요.'
@@ -341,25 +303,17 @@ function SkillCard({ skill, character }: { skill: SkillDef; character: Character
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
             {Array.from({ length: HOTBAR_SIZE }).map((_, slot) => (
-              <button
+              <Button
                 key={slot}
+                variant={assignedSlot === slot ? 'primary' : 'ghost'}
+                size="sm"
+                className="h-7 flex-1 px-0 text-xs"
                 onClick={() =>
                   setHotbarSlot(slot, assignedSlot === slot ? null : { kind: 'skill', skillTemplateId: skill.id })
                 }
-                style={{
-                  flex: 1,
-                  height: 20,
-                  borderRadius: 5,
-                  border: '1px solid #e8c97a',
-                  background: assignedSlot === slot ? 'rgba(232, 201, 122, 0.35)' : 'rgba(255,255,255,0.05)',
-                  color: '#e8c97a',
-                  fontSize: 10,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
               >
                 {slot + 1}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -381,12 +335,12 @@ function SkillTab({ character }: { character: CharacterProfile }) {
           justifyContent: 'space-between',
           padding: '6px 10px',
           borderRadius: 8,
-          background: player.skillUpgradePoints > 0 ? 'rgba(232, 201, 122, 0.15)' : 'rgba(255,255,255,0.04)',
+          background: player.skillUpgradePoints > 0 ? 'rgb(245 184 51 / 0.35)' : 'rgb(58 46 42 / 0.07)',
           marginBottom: 10,
         }}
       >
-        <span style={{ color: '#e8c97a', fontSize: 13, fontWeight: 700 }}>스킬 강화 포인트</span>
-        <span style={{ color: '#e8c97a', fontSize: 15, fontWeight: 700 }}>{player.skillUpgradePoints}</span>
+        <span style={{ color: 'var(--color-gold-ink)', fontSize: 13, fontWeight: 700 }}>스킬 강화 포인트</span>
+        <span style={{ color: 'var(--color-gold-ink)', fontSize: 15, fontWeight: 700 }}>{player.skillUpgradePoints}</span>
       </div>
 
       {skills.map((skill) => (
@@ -439,72 +393,24 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
     // Docked near the left by default (인벤토리 docks near the right — see InventoryPanel)
     // rather than a centered modal with a dismiss-on-outside-click backdrop, so the two can
     // be open side by side; draggable via the header, see useDraggablePanel.
-    <div
-      style={{
-        position: 'fixed',
-        ...frameStyle,
-        background: '#1a2a1c',
-        border: `2px solid ${accent}`,
-        borderRadius: 12,
-        padding: 16,
-        boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-        zIndex: 2147483647,
-        fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
-      }}
-    >
-      <div
-        onPointerDown={onHeaderPointerDown}
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 12,
-          cursor: 'move',
-          touchAction: 'none',
-          userSelect: 'none',
-        }}
-      >
-        <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>
+    <GamePanel
+      title={
+        <>
           {character.name} <span style={{ color: accent }}>Lv.{player.level}</span>
-        </span>
-        <button
-          onClick={closeCharacterPanel}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: '#9aa08f',
-            fontSize: 16,
-            cursor: 'pointer',
-            lineHeight: 1,
-            padding: 2,
-          }}
-          title="닫기 (C 또는 ESC)"
-        >
-          ✕
-        </button>
+        </>
+      }
+      onClose={closeCharacterPanel}
+      frameStyle={frameStyle}
+      onHeaderPointerDown={onHeaderPointerDown}
+      className="z-[2147483647]"
+    >
+      <div className="mb-3 flex gap-2">
+        {(['stats', 'equipment', 'skill'] as const).map((t) => (
+          <Button key={t} variant={tab === t ? 'primary' : 'ghost'} size="sm" className="flex-1" onClick={() => setTab(t)}>
+            {t === 'stats' ? '스탯' : t === 'equipment' ? '장비' : '스킬'}
+          </Button>
+        ))}
       </div>
-
-        <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-          {(['stats', 'equipment', 'skill'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              style={{
-                flex: 1,
-                padding: '6px 0',
-                borderRadius: 6,
-                border: `1px solid ${tab === t ? accent : 'rgba(232, 201, 122, 0.25)'}`,
-                background: tab === t ? 'rgba(232, 201, 122, 0.15)' : 'transparent',
-                color: tab === t ? '#e8c97a' : '#9aa08f',
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              {t === 'stats' ? '스탯' : t === 'equipment' ? '장비' : '스킬'}
-            </button>
-          ))}
-        </div>
 
         {tab === 'stats' ? (
           <>
@@ -515,12 +421,12 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
                 justifyContent: 'space-between',
                 padding: '6px 10px',
                 borderRadius: 8,
-                background: canAllocate ? 'rgba(232, 201, 122, 0.15)' : 'rgba(255,255,255,0.04)',
+                background: canAllocate ? 'rgb(245 184 51 / 0.35)' : 'rgb(58 46 42 / 0.07)',
                 marginBottom: 8,
               }}
             >
-              <span style={{ color: '#e8c97a', fontSize: 13, fontWeight: 700 }}>스킬 포인트</span>
-              <span style={{ color: '#e8c97a', fontSize: 15, fontWeight: 700 }}>{player.skillPoints}</span>
+              <span style={{ color: 'var(--color-gold-ink)', fontSize: 13, fontWeight: 700 }}>스킬 포인트</span>
+              <span style={{ color: 'var(--color-gold-ink)', fontSize: 15, fontWeight: 700 }}>{player.skillPoints}</span>
             </div>
 
             <div
@@ -530,10 +436,10 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
                 gap: 4,
                 padding: '6px 10px',
                 borderRadius: 8,
-                background: 'rgba(255,255,255,0.04)',
+                background: 'rgb(58 46 42 / 0.07)',
                 marginBottom: 10,
                 fontSize: 12,
-                color: '#cfe8d0',
+                color: 'var(--color-ink)',
               }}
             >
               <span>공격력 {player.attackPower}</span>
@@ -564,6 +470,6 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
         ) : (
           <SkillTab character={character} />
         )}
-    </div>
+    </GamePanel>
   );
 }

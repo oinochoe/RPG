@@ -1,9 +1,11 @@
-import { useState, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useQuestStore, findQuestByGiver, NPC_FLAVOR_TEXT } from '../../stores/questStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useDraggablePanel } from './useDraggablePanel';
+import { Button } from '../ui/button';
+import { GamePanel } from '../ui/game-panel';
 
 const PANEL_WIDTH = 320;
 
@@ -73,111 +75,65 @@ export function QuestPanel() {
     : '';
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        ...frameStyle,
-        background: '#1a2a1c',
-        border: '2px solid #e8c97a',
-        borderRadius: 12,
-        padding: 16,
-        boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-        zIndex: 2147483647,
-        fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
-      }}
+    <GamePanel
+      title={npcName}
+      onClose={closeQuest}
+      frameStyle={frameStyle}
+      onHeaderPointerDown={onHeaderPointerDown}
+      className="z-[2147483647]"
     >
-      <div
-        onPointerDown={onHeaderPointerDown}
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: 10,
-          cursor: 'move',
-          touchAction: 'none',
-          userSelect: 'none',
-        }}
-      >
-        <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>{npcName}</span>
-        <button
-          onClick={closeQuest}
-          style={{ background: 'transparent', border: 'none', color: '#9aa08f', fontSize: 16, cursor: 'pointer', lineHeight: 1, padding: 2 }}
-          title="닫기 (ESC)"
-        >
-          ✕
-        </button>
-      </div>
-
-      {error && <p style={{ color: '#e0538a', fontSize: 12, marginBottom: 8 }}>{error}</p>}
+      {error && <p className="mb-2 text-sm text-danger-ink">{error}</p>}
 
       {!quest ? (
-        <p style={{ color: '#9aa08f', fontSize: 13, fontStyle: 'italic' }}>
+        <p className="text-sm italic text-ink-soft">
           "{NPC_FLAVOR_TEXT[npcName] ?? '지금은 특별히 부탁할 일이 없네.'}"
         </p>
       ) : !state ? (
         <>
-          <p style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{quest.title}</p>
-          <p style={{ color: '#c9c4b3', fontSize: 12, lineHeight: 1.6, marginBottom: 10, fontStyle: 'italic' }}>
-            "{quest.hookText}"
-          </p>
-          <p style={{ color: '#9aa08f', fontSize: 11, marginBottom: 4 }}>
+          <p className="mb-2 font-display text-lg text-ink">{quest.title}</p>
+          <p className="mb-2.5 text-sm italic leading-relaxed text-ink-soft">"{quest.hookText}"</p>
+          <p className="mb-1 text-xs text-ink-soft">
             {quest.targetMonsterName} {quest.targetCount}마리 처치
           </p>
-          <p style={{ color: '#ffd54a', fontSize: 12, marginBottom: 12 }}>{rewardLine}</p>
+          <p className="mb-3 text-sm font-bold text-gold-ink">{rewardLine}</p>
           {levelLocked ? (
-            <p style={{ color: '#e0538a', fontSize: 12 }}>Lv.{quest.requiredLevel} 필요</p>
+            <p className="text-sm font-bold text-danger-ink">Lv.{quest.requiredLevel} 필요</p>
           ) : (
-            <button onClick={handleAccept} disabled={pending} style={acceptButtonStyle(pending)}>
+            <Button onClick={handleAccept} disabled={pending} className="w-full">
               수락하기
-            </button>
+            </Button>
           )}
         </>
       ) : state.status === 'completed' ? (
         <>
-          <p style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{quest.title}</p>
-          <p style={{ color: '#c9c4b3', fontSize: 12, lineHeight: 1.6, marginBottom: quest.repeatable ? 10 : 0, fontStyle: 'italic' }}>
+          <p className="mb-2 font-display text-lg text-ink">{quest.title}</p>
+          <p className={`text-sm italic leading-relaxed text-ink-soft ${quest.repeatable ? 'mb-2.5' : ''}`}>
             "{quest.completionText}"
           </p>
           {quest.repeatable && (
-            <button onClick={handleAccept} disabled={pending} style={acceptButtonStyle(pending)}>
+            <Button onClick={handleAccept} disabled={pending} className="w-full">
               다시 부탁받기
-            </button>
+            </Button>
           )}
         </>
       ) : ready ? (
         <>
-          <p style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{quest.title}</p>
-          <p style={{ color: '#7be08a', fontSize: 12, marginBottom: 8 }}>목표를 달성했다!</p>
-          <p style={{ color: '#ffd54a', fontSize: 12, marginBottom: 12 }}>{rewardLine}</p>
-          <button onClick={handleClaim} disabled={pending} style={acceptButtonStyle(pending)}>
+          <p className="mb-2 font-display text-lg text-ink">{quest.title}</p>
+          <p className="mb-2 text-sm font-bold text-mint-ink">목표를 달성했다!</p>
+          <p className="mb-3 text-sm font-bold text-gold-ink">{rewardLine}</p>
+          <Button variant="mint" onClick={handleClaim} disabled={pending} className="w-full">
             보상 받기
-          </button>
+          </Button>
         </>
       ) : (
         <>
-          <p style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{quest.title}</p>
-          <p style={{ color: '#c9c4b3', fontSize: 12, lineHeight: 1.6, marginBottom: 10, fontStyle: 'italic' }}>
-            "{quest.hookText}"
-          </p>
-          <p style={{ color: '#9aa08f', fontSize: 12 }}>
+          <p className="mb-2 font-display text-lg text-ink">{quest.title}</p>
+          <p className="mb-2.5 text-sm italic leading-relaxed text-ink-soft">"{quest.hookText}"</p>
+          <p className="text-sm text-ink-soft">
             {quest.targetMonsterName} {state.progress_count} / {quest.targetCount} 처치 중
           </p>
         </>
       )}
-    </div>
+    </GamePanel>
   );
-}
-
-function acceptButtonStyle(pending: boolean): CSSProperties {
-  return {
-    width: '100%',
-    padding: '8px 0',
-    borderRadius: 6,
-    border: '1px solid #e8c97a',
-    background: pending ? 'rgba(255,255,255,0.05)' : 'rgba(232, 201, 122, 0.2)',
-    color: pending ? '#6a6a5f' : '#e8c97a',
-    fontSize: 13,
-    fontWeight: 700,
-    cursor: pending ? 'default' : 'pointer',
-  };
 }

@@ -8,6 +8,8 @@ import { useDraggablePanel } from "./useDraggablePanel";
 import { useTooltip } from "./Tooltip";
 import { useTutorialStore } from "../../lib/tutorial";
 import { useIsTouch } from "../../lib/device";
+import { Button } from "../ui/button";
+import { GamePanel } from "../ui/game-panel";
 
 const PANEL_WIDTH = 280;
 const STUCK_POLL_MS = 300;
@@ -79,175 +81,66 @@ export function SystemMenu() {
   return (
     // Draggable via the header (see useDraggablePanel) — no full-screen dismiss-on-outside-
     // click backdrop, same reasoning as the other panels.
-    <div
-      style={{
-        position: "fixed",
-        ...frameStyle,
-        background: "#1a2a1c",
-        border: "2px solid #e8c97a",
-        borderRadius: 12,
-        padding: 16,
-        boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
-        zIndex: 2147483647,
-        fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
-      }}
+    <GamePanel
+      title="메뉴"
+      onClose={closeSystemMenu}
+      frameStyle={frameStyle}
+      onHeaderPointerDown={onHeaderPointerDown}
+      className="z-[2147483647]"
     >
-      <div
-        onPointerDown={onHeaderPointerDown}
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 12,
-          cursor: "move",
-          touchAction: "none",
-          userSelect: "none",
-        }}
-      >
-        <span style={{ color: "#f4f1e8", fontWeight: 700, fontSize: 16 }}>
-          메뉴
-        </span>
-        <button
-          onClick={closeSystemMenu}
-          style={{
-            background: "transparent",
-            border: "none",
-            color: "#9aa08f",
-            fontSize: 16,
-            cursor: "pointer",
-            lineHeight: 1,
-            padding: 2,
+      <div className="flex flex-col gap-2">
+        <Button
+          variant="primary"
+          size="sm"
+          className="w-full"
+          onClick={() => {
+            closeSystemMenu();
+            useTutorialStore.getState().open();
           }}
-          title="닫기 (F1 또는 ESC)"
         >
-          ✕
-        </button>
+          게임 방법 (도움말)
+        </Button>
+        <Button variant="ghost" size="sm" className="w-full" onClick={() => navigate("/characters")}>
+          캐릭터 선택
+        </Button>
+        <Button variant="ghost" size="sm" className="w-full" onClick={handleLogout} disabled={loggingOut}>
+          {loggingOut ? "로그아웃 중..." : "로그아웃"}
+        </Button>
+        <Button
+          variant="danger"
+          size="sm"
+          className="relative w-full"
+          onClick={() => {
+            if (!isStuck) return;
+            useCharacterStore.getState().unstuck();
+            closeSystemMenu();
+          }}
+          disabled={!isStuck}
+          {...stuckTooltipHandlers}
+        >
+          긴급 탈출 {isStuck ? "(마을로 이동)" : "(끼었을 때만 사용 가능)"}
+          {stuckTooltip}
+        </Button>
       </div>
 
-      <button
-        onClick={() => {
-          closeSystemMenu();
-          useTutorialStore.getState().open();
-        }}
-        style={{
-          width: "100%",
-          padding: "6px 0",
-          borderRadius: 6,
-          border: "1px solid rgba(232, 201, 122, 0.5)",
-          background: "rgba(232, 201, 122, 0.12)",
-          color: "#e8c97a",
-          fontSize: 12,
-          cursor: "pointer",
-          marginBottom: 6,
-        }}
-      >
-        게임 방법 (도움말)
-      </button>
-      <button
-        onClick={() => navigate("/characters")}
-        style={{
-          width: "100%",
-          padding: "6px 0",
-          borderRadius: 6,
-          border: "1px solid rgba(244, 241, 232, 0.35)",
-          background: "rgba(0,0,0,0.25)",
-          color: "#f4f1e8",
-          fontSize: 12,
-          cursor: "pointer",
-          marginBottom: 6,
-        }}
-      >
-        캐릭터 선택
-      </button>
-      <button
-        onClick={handleLogout}
-        disabled={loggingOut}
-        style={{
-          width: "100%",
-          padding: "6px 0",
-          borderRadius: 6,
-          border: "1px solid rgba(244, 241, 232, 0.35)",
-          background: "rgba(0,0,0,0.25)",
-          color: "#f4f1e8",
-          fontSize: 12,
-          cursor: loggingOut ? "default" : "pointer",
-          opacity: loggingOut ? 0.6 : 1,
-        }}
-      >
-        {loggingOut ? "로그아웃 중..." : "로그아웃"}
-      </button>
-      <button
-        onClick={() => {
-          if (!isStuck) return;
-          useCharacterStore.getState().unstuck();
-          closeSystemMenu();
-        }}
-        disabled={!isStuck}
-        {...stuckTooltipHandlers}
-        style={{
-          width: "100%",
-          padding: "6px 0",
-          marginTop: 6,
-          borderRadius: 6,
-          border: `1px solid rgba(224, 83, 138, ${isStuck ? 0.4 : 0.15})`,
-          background: isStuck ? "rgba(224, 83, 138, 0.12)" : "rgba(224, 83, 138, 0.04)",
-          color: isStuck ? "#e0538a" : "rgba(224, 83, 138, 0.4)",
-          fontSize: 12,
-          cursor: isStuck ? "pointer" : "not-allowed",
-          position: "relative",
-        }}
-      >
-        긴급 탈출 {isStuck ? "(마을로 이동)" : "(끼었을 때만 사용 가능)"}
-        {stuckTooltip}
-      </button>
-
       {!isTouch && (
-      <button
-        onClick={() => setShowKeybinds((s) => !s)}
-        style={{
-          width: "100%",
-          padding: "6px 0",
-          marginTop: 10,
-          borderRadius: 6,
-          border: "1px solid rgba(232, 201, 122, 0.25)",
-          background: "transparent",
-          color: "#9aa08f",
-          fontSize: 11,
-          cursor: "pointer",
-        }}
-      >
-        단축키 안내 {showKeybinds ? "▲" : "▼"}
-      </button>
+        <Button variant="ghost" size="sm" className="mt-3 w-full" onClick={() => setShowKeybinds((s) => !s)}>
+          단축키 안내 {showKeybinds ? "▲" : "▼"}
+        </Button>
       )}
       {!isTouch && showKeybinds && (
-        <div style={{ marginTop: 8 }}>
+        <div className="mt-2">
           {KEYBINDS.map(([label, key]) => (
-            <div
-              key={label}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                padding: "5px 2px",
-                fontSize: 12,
-                borderBottom: "1px solid rgba(232, 201, 122, 0.12)",
-              }}
-            >
-              <span style={{ color: "#cfe8d0" }}>{label}</span>
-              <span style={{ color: "#e8c97a", fontWeight: 700 }}>{key}</span>
+            <div key={label} className="flex justify-between border-b-2 border-edge/15 px-0.5 py-1.5 text-sm last:border-b-0">
+              <span className="text-ink">{label}</span>
+              <span className="font-bold text-gold-ink">{key}</span>
             </div>
           ))}
         </div>
       )}
 
       {/* CC BY 3.0 requires attribution — see itemIcons.tsx for which icon came from whom. */}
-      <p
-        style={{
-          color: "rgba(154, 160, 143, 0.6)",
-          fontSize: 9,
-          marginTop: 10,
-          textAlign: "center",
-        }}
-      >
+      <p className="mt-3 text-center text-[10px] leading-snug text-ink-soft">
         아이템/지도 아이콘: Lorc, Delapouite, sbed, Caro Asercion, badges
         (game-icons.net, CC BY 3.0)
         <br />
@@ -255,6 +148,6 @@ export function SystemMenu() {
         <br />
         자연물/마을 소품(나무/사막/다리/노점/풍차): Kenney.nl (CC0)
       </p>
-    </div>
+    </GamePanel>
   );
 }

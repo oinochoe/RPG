@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Modal } from '../ui/modal';
 import { playerPosition, playerFacing } from './playerTransform';
 import {
   DUNGEON_ENTRANCES,
@@ -377,60 +378,24 @@ export function WorldMap() {
   if (!isOpen) return null;
 
   return (
-    <div
-      onClick={closeMap}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0, 0, 0, 0.55)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        // drei's <Html> nametags (rendered above monsters/characters in the 3D scene) set
-        // their own distance-scaled z-index that can reach into the millions — this needs
-        // to beat any of them so the map modal isn't punched through by in-world labels.
-        zIndex: 2147483647,
-        fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
-      }}
+    <Modal
+      open
+      onClose={closeMap}
+      title={inDungeon && dungeonMeta ? `지도 · ${dungeonMeta.name} 지하 ${dungeonFloor}층` : '지도'}
+      // drei's <Html> nametags (rendered above monsters/characters in the 3D scene) set
+      // their own distance-scaled z-index that can reach into the millions — this needs
+      // to beat any of them so the map modal isn't punched through by in-world labels.
+      overlayClassName="z-[2147483647]"
+      // Shrinks to the screen on a phone (the map SVG scales down inside it).
+      className="w-auto max-w-[calc(100vw-16px)]"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: '#1a2a1c',
-          border: '2px solid #e8c97a',
-          borderRadius: 12,
-          padding: 16,
-          boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
-          // Shrinks to the screen on a phone (the map SVG scales down inside it).
-          maxWidth: 'calc(100vw - 16px)',
-          boxSizing: 'border-box',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <span style={{ color: '#f4f1e8', fontWeight: 700, fontSize: 16 }}>
-            {inDungeon && dungeonMeta ? `지도 · ${dungeonMeta.name} 지하 ${dungeonFloor}층` : '지도'}
-          </span>
-          <button
-            onClick={closeMap}
-            style={{
-              background: 'transparent',
-              border: '1px solid rgba(232, 201, 122, 0.5)',
-              borderRadius: 6,
-              color: '#e8c97a',
-              fontSize: 12,
-              padding: '4px 10px',
-              touchAction: 'manipulation',
-            }}
-          >
-            닫기
-          </button>
-        </div>
+      <div className="[&>svg]:mx-auto [&>svg]:block [&>svg]:overflow-hidden [&>svg]:rounded-control [&>svg]:border-[3px] [&>svg]:border-edge">
         {inDungeon && dungeonMeta ? (
           <DungeonMap player={player} facing={player.facing} floor={dungeonFloor} maxFloor={dungeonMeta.maxFloor} />
         ) : (
           <FieldMap player={player} facing={player.facing} />
         )}
       </div>
-    </div>
+    </Modal>
   );
 }
