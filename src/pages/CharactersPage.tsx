@@ -189,7 +189,7 @@ export function CharactersPage() {
                   className={cn(
                     'flex flex-col items-center gap-1 rounded-control border-[3px] px-2 py-2.5 text-sm font-bold transition-colors pointer-coarse:min-h-11',
                     characterClass === value
-                      ? 'border-edge bg-gradient-to-b from-[#ffd970] to-gold text-ink shadow-chunk-sm'
+                      ? 'border-edge bg-gradient-to-b from-gold-light to-gold text-ink shadow-chunk-sm'
                       : 'border-edge/30 bg-cream-deep/50 text-ink-soft hover:border-edge/60',
                   )}
                 >

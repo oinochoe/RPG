@@ -88,7 +88,7 @@ function Joystick() {
       }}
     >
       <div
-        className="rounded-full border-[3px] border-edge bg-gradient-to-b from-[#ffd970] to-gold shadow-chunk-sm"
+        className="rounded-full border-[3px] border-edge bg-gradient-to-b from-gold-light to-gold shadow-chunk-sm"
         style={{
           position: 'absolute',
           left: half - KNOB_SIZE / 2 + knob.x,
@@ -171,7 +171,7 @@ function ActionButton() {
         className={cn(
           'pointer-events-auto touch-manipulation select-none rounded-full border-[3px] border-edge font-display text-lg text-ink transition-[transform,box-shadow] duration-75 active:translate-y-[3px] active:shadow-none',
           ready
-            ? 'bg-gradient-to-b from-[#ffd970] to-gold shadow-[0_4px_0_var(--color-edge),0_0_16px_var(--color-gold)]'
+            ? 'bg-gradient-to-b from-gold-light to-gold shadow-[0_4px_0_var(--color-edge),0_0_16px_var(--color-gold)]'
             : 'bg-cream/70 opacity-60 shadow-chunk-sm',
         )}
       >

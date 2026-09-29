@@ -66,7 +66,7 @@ function StatRow({
         <IconButton
           label={`${label} 포인트 올리기`}
           size="sm"
-          className={cn('relative', canAllocate ? 'bg-gradient-to-b from-[#ffd970] to-gold' : '')}
+          className={cn('relative', canAllocate ? 'bg-gradient-to-b from-gold-light to-gold' : '')}
           onClick={onAllocate}
           disabled={!canAllocate}
           {...tooltipHandlers}

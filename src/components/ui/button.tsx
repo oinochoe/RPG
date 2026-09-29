@@ -15,11 +15,11 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: 'bg-gradient-to-b from-[#ffd970] to-gold',
-        sky: 'bg-gradient-to-b from-[#e6f4ff] to-sky-deep',
-        mint: 'bg-gradient-to-b from-[#e3f8ea] to-mint-deep',
+        primary: 'bg-gradient-to-b from-gold-light to-gold',
+        sky: 'bg-gradient-to-b from-sky-light to-sky-deep',
+        mint: 'bg-gradient-to-b from-mint-light to-mint-deep',
         ghost: 'bg-cream/80 hover:bg-cream',
-        danger: 'bg-gradient-to-b from-[#e0566f] to-danger text-cream',
+        danger: 'bg-gradient-to-b from-danger-light to-danger text-cream',
       },
       size: {
         sm: 'h-9 px-3 text-sm',

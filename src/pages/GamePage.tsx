@@ -6,6 +6,7 @@ import { useCombatStore } from '../stores/combatStore';
 import { useSessionStore } from '../stores/sessionStore';
 import { useUIStore } from '../stores/uiStore';
 import { Scene } from '../components/game/Scene';
+import { THEME } from '../lib/theme';
 import { HUD } from '../components/game/HUD';
 import { LevelUpToast } from '../components/game/LevelUpToast';
 import { BossRespawnToast } from '../components/game/BossRespawnToast';
@@ -39,7 +40,7 @@ const HOTBAR_KEYS: Record<string, number> = {
 // Ragnarok-style targeting reticle — swapped in for the default cursor while a skill is
 // armed (see combatStore's armedSkillId) so "click to fire" has an obvious visual cue.
 const AIM_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><circle cx="14" cy="14" r="9" fill="none" stroke="#e0538a" stroke-width="3"/></svg>',
+  `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28"><circle cx="14" cy="14" r="9" fill="none" stroke="${THEME.color.danger}" stroke-width="3"/></svg>`,
 )}") 14 14, crosshair`;
 
 export function GamePage() {

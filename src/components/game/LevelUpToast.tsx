@@ -76,7 +76,7 @@ export function LevelUpToast() {
         />
       ))}
       <div
-        className="rounded-panel border-[3px] border-edge bg-gradient-to-b from-[#ffd970] to-gold px-6 py-2.5 text-center font-display text-xl text-ink shadow-panel"
+        className="rounded-panel border-[3px] border-edge bg-gradient-to-b from-gold-light to-gold px-6 py-2.5 text-center font-display text-xl text-ink shadow-panel"
         style={{
           position: 'absolute',
           top: '18%',

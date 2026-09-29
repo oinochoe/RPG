@@ -20,7 +20,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         'inline-flex shrink-0 cursor-pointer select-none items-center justify-center rounded-control border-[3px] border-edge text-ink',
         'shadow-chunk-sm transition-[transform,box-shadow,filter] duration-75 hover:brightness-105 active:translate-y-0.5 active:shadow-none',
         'disabled:cursor-not-allowed disabled:opacity-50',
-        active ? 'bg-gradient-to-b from-[#e6f4ff] to-sky-deep' : 'bg-gradient-to-b from-cream to-cream-deep',
+        active ? 'bg-gradient-to-b from-sky-light to-sky-deep' : 'bg-gradient-to-b from-cream to-cream-deep',
         size === 'md' ? 'size-11' : 'size-9 pointer-coarse:size-11',
         className,
       )}

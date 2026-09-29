@@ -821,7 +821,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
         <primitive object={scene} />
       </group>
       <NameTag position={[0, TARGET_HEIGHT + 0.35, 0]} label={character.name} accent={accent} />
-      <HealthBar position={[0, TARGET_HEIGHT + 0.15, 0]} ratio={player.currentHp / player.maxHp} color="#57c25b" />
+      <HealthBar position={[0, TARGET_HEIGHT + 0.15, 0]} ratio={player.currentHp / player.maxHp} color="var(--color-hp)" />
     </group>
     </>
   );

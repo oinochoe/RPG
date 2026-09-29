@@ -14,6 +14,11 @@ export const THEME = {
     mint: '#C4EBD3',
     'mint-deep': '#4FB984',
     gold: '#F5B833',
+    // Highlights: the bright top edge of a chunky gradient (button, knob, toast).
+    'gold-light': '#FFD970',
+    'sky-light': '#E6F4FF',
+    'mint-light': '#E3F8EA',
+    'danger-light': '#E0566F',
     'gold-deep': '#C98A10',
     // Text — the decorative accent colors above are too light to read as text on cream, so text
     // gets its own darker siblings.

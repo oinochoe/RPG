@@ -154,11 +154,12 @@ export function PlayerCombatEffects({ fieldMonsters }: { fieldMonsters: MonsterI
       {popups.map((popup) => (
         <Html key={popup.id} position={[0, 2.1, 0]} center>
           <div
+            className="font-display"
             style={{
               color: popup.color,
-              fontWeight: 700,
-              fontSize: 15,
-              textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+              fontSize: 20,
+              WebkitTextStroke: '4px var(--color-ink)',
+              paintOrder: 'stroke fill',
               pointerEvents: 'none',
               animation: 'rpg-dmg-float 700ms ease-out forwards',
             }}

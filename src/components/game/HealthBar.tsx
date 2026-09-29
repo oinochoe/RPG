@@ -1,5 +1,6 @@
 import { Html } from '@react-three/drei';
 
+// The slim bar over a character or monster. `color` is any CSS color (see theme tokens).
 export function HealthBar({
   position,
   ratio,
@@ -12,24 +13,10 @@ export function HealthBar({
   const clamped = Math.max(0, Math.min(1, ratio));
   return (
     <Html position={position} center>
-      <div
-        style={{
-          width: 46,
-          height: 6,
-          borderRadius: 3,
-          background: 'rgba(0, 0, 0, 0.55)',
-          border: '1px solid rgba(0, 0, 0, 0.6)',
-          overflow: 'hidden',
-          pointerEvents: 'none',
-        }}
-      >
+      <div className="pointer-events-none h-2.5 w-14 overflow-hidden rounded-full border-2 border-edge bg-cream-deep">
         <div
-          style={{
-            width: `${clamped * 100}%`,
-            height: '100%',
-            background: color,
-            transition: 'width 150ms ease-out',
-          }}
+          className="h-full rounded-full transition-[width] duration-150 ease-out"
+          style={{ width: `${clamped * 100}%`, background: color }}
         />
       </div>
     </Html>

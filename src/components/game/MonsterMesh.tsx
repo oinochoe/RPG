@@ -689,7 +689,7 @@ export function MonsterMesh({
       {isTargeted && !dying && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
           <ringGeometry args={[0.55, 0.7, 24]} />
-          <meshBasicMaterial color="#e0538a" transparent opacity={0.85} />
+          <meshBasicMaterial color="var(--color-danger)" transparent opacity={0.85} />
         </mesh>
       )}
       {!dying && (
@@ -721,11 +721,12 @@ export function MonsterMesh({
       {popups.map((popup) => (
         <Html key={popup.id} position={[0, labelHeight + 0.25, 0]} center>
           <div
+            className="font-display"
             style={{
-              color: '#ffd54a',
-              fontWeight: 700,
-              fontSize: 15,
-              textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+              color: 'var(--color-gold)',
+              fontSize: 20,
+              WebkitTextStroke: '4px var(--color-ink)',
+              paintOrder: 'stroke fill',
               pointerEvents: 'none',
               animation: 'rpg-dmg-float 700ms ease-out forwards',
             }}

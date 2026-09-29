@@ -119,7 +119,7 @@ export function NPC({
           <RetargetedNpcModel kind={kind} modelGroupRef={modelGroupRef} />
         )}
       </group>
-      <NameTag position={[0, TARGET_HEIGHT + 0.3, 0]} label={name} accent="#e8c97a" />
+      <NameTag position={[0, TARGET_HEIGHT + 0.3, 0]} label={name} accent="var(--color-gold)" />
     </group>
   );
 }
