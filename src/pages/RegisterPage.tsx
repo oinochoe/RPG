@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { MailCheck, UserPlus } from 'lucide-react';
 import * as authApi from '../api/auth';
+import { useAuthStore } from '../stores/authStore';
 import { translateApiError } from './errorMessages';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -17,13 +18,21 @@ export function RegisterPage() {
   const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>('idle');
   const [resendError, setResendError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const login = useAuthStore((s) => s.login);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      await authApi.register(email, password);
+      const result = await authApi.register(email, password);
+      if (result?.requires_verification === false) {
+        // Verification is off server-side — log straight in instead of sending the
+        // player to an inbox that will never get a mail.
+        await login(email, password);
+        navigate('/characters', { replace: true });
+        return;
+      }
       setSubmitted(true);
     } catch (err) {
       setError(translateApiError(err));

@@ -17,7 +17,7 @@ export function CameraRig() {
     const cam = camRef.current;
     if (!cam) return;
     const followSpeed = Math.min(1, delta * 4);
-    const desiredPos = new THREE.Vector3().addVectors(playerPosition, OFFSET);
+    const desiredPos = new THREE.Vector3(playerPosition.x, playerPosition.y, playerPosition.z).add(OFFSET);
     cam.position.lerp(desiredPos, followSpeed);
     lookTarget.current.lerp(
       new THREE.Vector3(playerPosition.x, playerPosition.y + 1, playerPosition.z),

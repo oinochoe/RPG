@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { NameTag } from './NameTag';
+import { RUINS_POSITION } from './worldColliders';
 
 // Sits just off 태고의 거인's own spawn point (see FieldMonsters.ts's WORLD_BOSS_POSITION,
 // [300, -260]) rather than on top of it — a visible "something old is buried here" landmark
@@ -7,10 +8,8 @@ import { NameTag } from './NameTag';
 // 떴다더군", see questStore's 잊혀진 재앙). Built from primitive geometry, same choice
 // CaveEntrance.tsx already made for its own rock piles, rather than sourcing a new ruins GLB —
 // no new asset risk, and broken/tilted columns read fine as procedural shapes.
-// Exported so FieldMonsters.ts's buildRuinsGuardian can spawn 유적의 파수병 exactly here,
-// rather than duplicating this coordinate as a second magic number that could drift out of
-// sync with where the landmark actually renders.
-export const RUINS_POSITION: [number, number] = [285, -240];
+// RUINS_POSITION lives in worldColliders.ts, shared with FieldMonsters.ts's
+// buildRuinsGuardian so 유적의 파수병 spawns exactly where the landmark renders.
 
 interface ColumnDef {
   offset: [number, number];

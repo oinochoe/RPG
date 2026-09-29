@@ -207,10 +207,11 @@ ITEM_ICON['여신의 목걸이'] = { path: NECKLACE_PATH, color: '#ffe08a' }; //
 
 // Higher potion tier reuses its own lower tier's shape at a brighter color; the 3 enchant
 // scrolls reuse 마을 귀환 주문서's scroll shape but need their own semantic colors (not a
-// level tier) since normal/cursed/blessed is a type distinction, not a power ranking.
+// level tier) since weapon/armor/cursed/blessed is a type distinction, not a power ranking.
 ITEM_ICON['최상급 체력 물약'] = { path: POTION_HEAL_PATH, color: '#ffd54a' };
 ITEM_ICON['최상급 마나 물약'] = { path: POTION_MANA_PATH, color: '#d9b3ff' };
-ITEM_ICON['일반 강화 주문서'] = { path: SCROLL_PATH, color: '#c7cdb9' };
+ITEM_ICON['무기 강화 주문서'] = { path: SCROLL_PATH, color: '#c7cdb9' };
+ITEM_ICON['방어구 강화 주문서'] = { path: SCROLL_PATH, color: '#8fb3d9' };
 ITEM_ICON['저주의 강화 주문서'] = { path: SCROLL_PATH, color: '#8a1f2b' };
 ITEM_ICON['축복의 강화 주문서'] = { path: SCROLL_PATH, color: '#ffe08a' };
 // 초록 물약 — same potion-bottle shape, literally green (Lineage Classic's own 속도향상

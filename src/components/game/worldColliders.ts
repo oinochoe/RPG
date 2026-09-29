@@ -1,4 +1,9 @@
-import { mulberry32 } from './proceduralTextures';
+import { mulberry32 } from '../../lib/random';
+
+// Where AncientRuins.tsx renders its landmark and FieldMonsters.ts's buildRuinsGuardian spawns
+// 유적의 파수병 — kept here (plain data) rather than in the 3D component so the stores can
+// reach it without importing three.js.
+export const RUINS_POSITION: [number, number] = [285, -240];
 
 const SEED = 42;
 // Scaled up alongside FIELD_EXTENT's own 400 -> 640 bump (the new outer-ring zones, see

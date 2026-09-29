@@ -1,8 +1,23 @@
-import * as THREE from 'three';
+/** A plain x/y/z holder instead of THREE.Vector3: the (non-3D) stores import this module,
+ * and pulling three.js in through here would drag it into the login/character-select bundle. */
+export class Vec3 {
+  constructor(
+    public x = 0,
+    public y = 0,
+    public z = 0,
+  ) {}
+
+  set(x: number, y: number, z: number): this {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    return this;
+  }
+}
 
 /** Mutated every frame by CharacterMesh, read every frame by CameraRig. Avoids routing
  * 60fps position updates through React state/props. */
-export const playerPosition = new THREE.Vector3();
+export const playerPosition = new Vec3();
 
 /** Same pattern, for the character's current facing angle (radians, atan2(dx,dz) convention
  * — see CharacterMesh's own `facing` ref) — WorldMap.tsx polls this to point the minimap's
