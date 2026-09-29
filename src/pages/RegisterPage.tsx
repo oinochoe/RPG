@@ -57,15 +57,15 @@ export function RegisterPage() {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <Card className="text-center">
-          <MailCheck className="mx-auto mb-4 size-8 text-gold" strokeWidth={1.5} />
-          <h1 className="text-xl font-bold text-ink">회원가입 완료</h1>
-          <p className="mt-3 text-sm text-gold-dim">
+          <MailCheck className="mx-auto mb-4 size-8 text-gold-deep" strokeWidth={1.5} />
+          <h1 className="font-display text-2xl text-ink">회원가입 완료</h1>
+          <p className="mt-3 text-sm text-ink-soft">
             <span className="text-ink">{email}</span>로 인증 메일을 보냈습니다.
             <br />
             메일함을 확인해주세요.
           </p>
           {resendError && (
-            <p role="alert" className="mt-3 text-xs text-danger">
+            <p role="alert" className="mt-3 text-sm text-danger-ink">
               {resendError}
             </p>
           )}
@@ -73,7 +73,7 @@ export function RegisterPage() {
             type="button"
             onClick={handleResend}
             disabled={resendState !== 'idle'}
-            className="mt-3 text-xs font-semibold text-gold hover:underline disabled:no-underline disabled:opacity-60"
+            className="mt-3 text-sm font-bold text-gold-ink hover:underline disabled:no-underline disabled:opacity-60"
           >
             {resendState === 'sent' ? '다시 보냈습니다' : resendState === 'sending' ? '보내는 중...' : '인증 메일 다시 받기'}
           </button>
@@ -89,8 +89,8 @@ export function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card>
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <UserPlus className="size-8 text-gold" strokeWidth={1.5} />
-          <h1 className="text-xl font-bold text-ink">회원가입</h1>
+          <UserPlus className="size-8 text-gold-deep" strokeWidth={1.5} />
+          <h1 className="font-display text-2xl text-ink">회원가입</h1>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
@@ -115,10 +115,10 @@ export function RegisterPage() {
               autoComplete="new-password"
               required
             />
-            <p className="mt-1.5 text-[11px] text-gold-dim">영문 대소문자와 숫자를 포함해 8자 이상</p>
+            <p className="mt-1.5 text-xs text-ink-soft">영문 대소문자와 숫자를 포함해 8자 이상</p>
           </div>
           {error && (
-            <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+            <p role="alert" className="rounded-control border-2 border-danger/50 bg-danger/10 px-3 py-2 text-sm text-danger-ink">
               {error}
             </p>
           )}
@@ -126,9 +126,9 @@ export function RegisterPage() {
             {submitting ? '가입 처리 중...' : '가입하기'}
           </Button>
         </form>
-        <p className="mt-6 text-center text-xs text-gold-dim">
+        <p className="mt-6 text-center text-sm text-ink-soft">
           이미 계정이 있으신가요?{' '}
-          <Link to="/login" className="font-semibold text-gold hover:underline">
+          <Link to="/login" className="font-bold text-gold-ink hover:underline">
             로그인
           </Link>
         </p>

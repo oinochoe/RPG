@@ -39,26 +39,26 @@ export function VerifyEmailPage() {
       <Card className="text-center">
         {status === 'pending' && (
           <>
-            <Loader2 className="mx-auto mb-4 size-8 animate-spin text-gold" strokeWidth={1.5} />
-            <p className="text-sm text-gold-dim">이메일 인증 처리 중입니다...</p>
+            <Loader2 className="mx-auto mb-4 size-8 animate-spin text-gold-deep" strokeWidth={1.5} />
+            <p className="text-sm text-ink-soft">이메일 인증 처리 중입니다...</p>
           </>
         )}
         {status === 'error' && (
           <>
             <ShieldX className="mx-auto mb-4 size-8 text-danger" strokeWidth={1.5} />
-            <h1 className="text-xl font-bold text-ink">인증 실패</h1>
-            <p role="alert" className="mt-3 text-sm text-danger">
+            <h1 className="font-display text-2xl text-ink">인증 실패</h1>
+            <p role="alert" className="mt-3 text-sm text-danger-ink">
               {error}
             </p>
           </>
         )}
         {status === 'success' && (
           <>
-            <ShieldCheck className="mx-auto mb-4 size-8 text-gold" strokeWidth={1.5} />
-            <h1 className="text-xl font-bold text-ink">이메일 인증 완료</h1>
-            <p className="mt-3 text-sm text-gold-dim">
+            <ShieldCheck className="mx-auto mb-4 size-8 text-gold-deep" strokeWidth={1.5} />
+            <h1 className="font-display text-2xl text-ink">이메일 인증 완료</h1>
+            <p className="mt-3 text-sm text-ink-soft">
               이제 로그인할 수 있습니다.{' '}
-              <Link to="/login" className="font-semibold text-gold hover:underline">
+              <Link to="/login" className="font-bold text-gold-ink hover:underline">
                 로그인하러 가기
               </Link>
             </p>

@@ -61,6 +61,8 @@ body {
   background:
     radial-gradient(circle at 50% -10%, #fff6cf 0%, rgb(255 246 207 / 0) 45%),
     linear-gradient(180deg, #bfe2ff 0%, #e6f5ff 55%, #dcf3e3 100%);
+  background-color: #dcf3e3;
+  background-repeat: no-repeat;
   background-attachment: fixed;
   /* Rapid clicking/dragging during combat and the draggable panels (character/inventory/
      system menu) kept highlighting stray text across the page — this is a game UI, not a

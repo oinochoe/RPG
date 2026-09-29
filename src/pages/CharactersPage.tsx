@@ -105,7 +105,7 @@ export function CharactersPage() {
     <div className="flex min-h-screen items-center justify-center px-4 py-10">
       <Card className="max-w-md">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-ink">캐릭터 선택</h1>
+          <h1 className="font-display text-2xl text-ink">캐릭터 선택</h1>
           <Button variant="ghost" size="sm" onClick={() => logout()}>
             <LogOut className="size-3.5" />
             로그아웃
@@ -113,12 +113,12 @@ export function CharactersPage() {
         </div>
 
         {error && (
-          <p role="alert" className="mb-4 rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+          <p role="alert" className="mb-4 rounded-control border-2 border-danger/50 bg-danger/10 px-3 py-2 text-sm text-danger-ink">
             {error}
           </p>
         )}
         {isLoading && (
-          <div className="mb-4 flex items-center gap-2 text-xs text-gold-dim">
+          <div className="mb-4 flex items-center gap-2 text-sm text-ink-soft">
             <Spinner size={16} />
             불러오는 중...
           </div>
@@ -132,12 +132,12 @@ export function CharactersPage() {
               return (
                 <li
                   key={character.id}
-                  className="flex items-center justify-between rounded-lg border border-gold/20 bg-black/20 px-3 py-2.5"
+                  className="flex items-center justify-between rounded-control border-2 border-edge/40 bg-cream-deep/60 px-3 py-2"
                 >
                   <div className="flex items-center gap-2.5">
-                    <ClassIcon className="size-4 text-gold" strokeWidth={1.5} />
-                    <span className="text-sm text-ink">
-                      {character.name} <span className="text-gold-dim">Lv.{character.level}</span>
+                    <ClassIcon className="size-5 text-gold-deep" strokeWidth={1.75} />
+                    <span className="text-base font-bold text-ink">
+                      {character.name} <span className="text-ink-soft">Lv.{character.level}</span>
                     </span>
                   </div>
                   <div className="flex gap-1.5">
@@ -165,8 +165,8 @@ export function CharactersPage() {
           </ul>
         )}
 
-        <form onSubmit={handleCreate} className="flex flex-col gap-4 border-t border-gold/15 pt-5">
-          <h2 className="text-sm font-bold text-ink">새 캐릭터 생성</h2>
+        <form onSubmit={handleCreate} className="flex flex-col gap-4 border-t-[3px] border-edge/25 pt-5">
+          <h2 className="font-display text-lg text-ink">새 캐릭터 생성</h2>
           <div>
             <Label htmlFor="char-name">이름</Label>
             <Input
@@ -187,13 +187,13 @@ export function CharactersPage() {
                   type="button"
                   onClick={() => setCharacterClass(value)}
                   className={cn(
-                    'flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-xs transition-colors',
+                    'flex flex-col items-center gap-1 rounded-control border-[3px] px-2 py-2.5 text-sm font-bold transition-colors pointer-coarse:min-h-11',
                     characterClass === value
-                      ? 'border-gold bg-gold/15 text-gold'
-                      : 'border-gold/20 text-gold-dim hover:border-gold/40',
+                      ? 'border-edge bg-gradient-to-b from-[#ffd970] to-gold text-ink shadow-chunk-sm'
+                      : 'border-edge/30 bg-cream-deep/50 text-ink-soft hover:border-edge/60',
                   )}
                 >
-                  <Icon className="size-4" strokeWidth={1.5} />
+                  <Icon className="size-5" strokeWidth={1.75} />
                   {label}
                 </button>
               ))}

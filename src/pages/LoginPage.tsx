@@ -52,8 +52,8 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card>
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <Swords className="size-8 text-gold" strokeWidth={1.5} />
-          <h1 className="text-xl font-bold text-ink">로그인</h1>
+          <Swords className="size-8 text-gold-deep" strokeWidth={1.5} />
+          <h1 className="font-display text-2xl text-ink">로그인</h1>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
@@ -79,7 +79,7 @@ export function LoginPage() {
             />
           </div>
           {error && (
-            <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+            <p role="alert" className="rounded-control border-2 border-danger/50 bg-danger/10 px-3 py-2 text-sm text-danger-ink">
               {error}
             </p>
           )}
@@ -88,21 +88,21 @@ export function LoginPage() {
               type="button"
               onClick={handleResend}
               disabled={resendState !== 'idle'}
-              className="text-left text-xs font-semibold text-gold hover:underline disabled:no-underline disabled:opacity-60"
+              className="text-left text-sm font-bold text-gold-ink hover:underline disabled:no-underline disabled:opacity-60"
             >
               {resendState === 'sent' ? '다시 보냈습니다' : resendState === 'sending' ? '보내는 중...' : '인증 메일 다시 받기'}
             </button>
           )}
-          <Link to="/forgot-password" className="text-right text-xs font-semibold text-gold hover:underline">
+          <Link to="/forgot-password" className="text-right text-sm font-bold text-gold-ink hover:underline">
             비밀번호를 잊으셨나요?
           </Link>
           <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? '로그인 중...' : '로그인'}
           </Button>
         </form>
-        <p className="mt-6 text-center text-xs text-gold-dim">
+        <p className="mt-6 text-center text-sm text-ink-soft">
           계정이 없으신가요?{' '}
-          <Link to="/register" className="font-semibold text-gold hover:underline">
+          <Link to="/register" className="font-bold text-gold-ink hover:underline">
             회원가입
           </Link>
         </p>

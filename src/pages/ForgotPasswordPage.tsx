@@ -32,10 +32,10 @@ export function ForgotPasswordPage() {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <Card className="text-center">
-          <MailCheck className="mx-auto mb-4 size-8 text-gold" strokeWidth={1.5} />
-          <h1 className="text-xl font-bold text-ink">메일을 보냈습니다</h1>
+          <MailCheck className="mx-auto mb-4 size-8 text-gold-deep" strokeWidth={1.5} />
+          <h1 className="font-display text-2xl text-ink">메일을 보냈습니다</h1>
           {/* Same wording whether or not the address is registered — the server never says. */}
-          <p className="mt-3 text-sm text-gold-dim">
+          <p className="mt-3 text-sm text-ink-soft">
             <span className="text-ink">{email}</span>로 가입된 계정이 있다면
             <br />
             비밀번호 재설정 링크를 보냈습니다.
@@ -45,11 +45,11 @@ export function ForgotPasswordPage() {
           <button
             type="button"
             onClick={() => setSent(false)}
-            className="mt-3 text-xs font-semibold text-gold hover:underline"
+            className="mt-3 text-sm font-bold text-gold-ink hover:underline"
           >
             다른 이메일로 다시 보내기
           </button>
-          <Link to="/login" className="mt-6 block text-xs font-semibold text-gold hover:underline">
+          <Link to="/login" className="mt-6 block text-sm font-bold text-gold-ink hover:underline">
             로그인 화면으로
           </Link>
         </Card>
@@ -61,9 +61,9 @@ export function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card>
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <KeyRound className="size-8 text-gold" strokeWidth={1.5} />
-          <h1 className="text-xl font-bold text-ink">비밀번호 찾기</h1>
-          <p className="text-xs text-gold-dim">가입한 이메일을 입력하면 재설정 링크를 보내드립니다.</p>
+          <KeyRound className="size-8 text-gold-deep" strokeWidth={1.5} />
+          <h1 className="font-display text-2xl text-ink">비밀번호 찾기</h1>
+          <p className="text-xs text-ink-soft">가입한 이메일을 입력하면 재설정 링크를 보내드립니다.</p>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
@@ -78,7 +78,7 @@ export function ForgotPasswordPage() {
             />
           </div>
           {error && (
-            <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+            <p role="alert" className="rounded-control border-2 border-danger/50 bg-danger/10 px-3 py-2 text-sm text-danger-ink">
               {error}
             </p>
           )}
@@ -86,8 +86,8 @@ export function ForgotPasswordPage() {
             {submitting ? '보내는 중...' : '재설정 링크 받기'}
           </Button>
         </form>
-        <p className="mt-6 text-center text-xs text-gold-dim">
-          <Link to="/login" className="font-semibold text-gold hover:underline">
+        <p className="mt-6 text-center text-sm text-ink-soft">
+          <Link to="/login" className="font-bold text-gold-ink hover:underline">
             로그인으로 돌아가기
           </Link>
         </p>
