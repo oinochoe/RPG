@@ -45,3 +45,19 @@ export function logout(refreshToken: string): Promise<void> {
     body: { refresh_token: refreshToken },
   });
 }
+
+export function forgotPassword(email: string): Promise<void> {
+  return apiRequest<void>('/auth/forgot-password', {
+    method: 'POST',
+    body: { email },
+    auth: false,
+  });
+}
+
+export function resetPassword(token: string, password: string): Promise<void> {
+  return apiRequest<void>('/auth/reset-password', {
+    method: 'POST',
+    body: { token, password },
+    auth: false,
+  });
+}

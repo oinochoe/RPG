@@ -1,6 +1,51 @@
 # Handoff — R3F RPG 클라이언트
 
-마지막 업데이트: 2026-09-15
+마지막 업데이트: 2026-09-29
+
+## 다음 개발 순서 (추천, 2026-09-29)
+
+공개 배포(roleplaying.kr + Vercel + Resend 메일 가입)까지 완료된 상태. 남은 일은 이 순서로 진행.
+
+1. ~~**비밀번호 찾기**~~ — **구현 완료(2026-09-29)**, 배포 시 아래 "비밀번호 찾기 배포 절차" 필요.
+2. **서버에서 골드·경험치 검증(치트 방지)** — 지금 골드/경험치/전투는 클라이언트가 계산해서
+   서버에 저장하는 구조라 개발자 도구로 값 조작이 가능. 랭킹 등 경쟁 요소를 넣기 전에 필수.
+   (`PATCH /characters/me/progress` 의 상한 검증만 있음 — 킬 보고 기반 서버 계산으로 전환 필요)
+3. **첫 접속 안내(튜토리얼)** — 조작법(이동/공격/스킬/가방/퀘스트) 안내. 모바일은 조이스틱/행동 버튼 설명 포함.
+4. **`rpg-noel.vercel.app` → `roleplaying.kr` 자동 리다이렉트** (Vercel Domains에서 설정).
+5. **모바일 후속 개선** — 실제 기기 테스트 피드백 반영(아래 "모바일 지원" 참고).
+6. **콘텐츠** — 업적, 도감, 일일 퀘스트, 랭킹(2번 이후), 파티/채팅은 멀티플레이 이후 별도 설계.
+7. **로그인 화면 번들 추가 경량화** — 게임 청크(GamePage)가 아직 큼(~1.1MB). 몬스터/NPC GLTF preload 분할 검토.
+
+## 비밀번호 찾기 배포 절차 (2026-09-29)
+
+코드: `POST /auth/forgot-password`, `POST /auth/reset-password`(Edge Function `auth.ts`),
+클라이언트 `/forgot-password`, `/reset-password` 페이지, 로그인 화면의 "비밀번호를 잊으셨나요?" 링크.
+
+1. `supabase functions deploy api` (새 라우트 반영. DB 마이그레이션은 없음).
+2. **Supabase Dashboard → Authentication → Email Templates → "Reset password"** 를
+   `supabase/templates/recovery.html` 내용으로 교체 (제목: `[RPG] 비밀번호 재설정 안내`).
+   링크가 `{{ .SiteURL }}/reset-password?token={{ .TokenHash }}` 여야 클라이언트 페이지로 옴.
+   (`config.toml`의 `[auth.email.template.recovery]`는 로컬 개발용, 라이브에는 대시보드에서 직접 적용)
+3. Site URL이 `https://roleplaying.kr`(끝에 `/` 없이)이고 Redirect URLs에 `https://roleplaying.kr/**`가 있는지 확인.
+4. 확인: 로그인 화면 → "비밀번호를 잊으셨나요?" → 가입한 메일 입력 → 메일 수신 → 링크 → 새 비밀번호 →
+   새 비밀번호로 로그인. (링크는 1시간 유효, 1회용. 비밀번호 변경 시 그 계정의 모든 세션이 로그아웃됨.)
+
+설계 메모: 존재하지 않는 이메일에도 똑같이 "메일을 보냈습니다"를 보여줌(계정 유무 노출 방지).
+약한 비밀번호는 토큰을 소모하기 전에 거절(클라이언트+서버 모두). 메일 발송 한도는 Supabase Rate Limits를 따름.
+
+## 모바일 지원 (2026-09-29)
+
+폰(`(pointer: coarse)`)에서는 데스크톱과 다른 HUD를 씀. 코드 위치:
+- `src/lib/device.ts` — `useIsTouch`, `useViewportSize`
+- `src/components/game/TouchHud.tsx` — 가상 조이스틱, 행동 버튼(대화/줍기), 패널 버튼(가방/캐릭/퀘스트/지도/메뉴), 4x2 단축키
+- `src/components/game/touchInput.ts` — 조이스틱 값/카메라 기준 방향 변환 (CharacterMesh가 매 프레임 읽음)
+- `src/components/game/interactions.ts` — Space(대화)/F4(줍기) 공용 로직 (키보드와 터치 버튼이 공유)
+- `useDraggablePanel.ts` — 포인터 이벤트(터치 드래그), 좁은 화면에서는 전체 폭 시트로 고정
+- 카메라 줌은 화면 폭에 비례해 축소(`cameraZoomFor`), 폰은 그림자/해상도도 낮춤.
+- 단축키 슬롯: 터치는 길게 눌러 해제(데스크톱 우클릭 대응), 등록은 아이템/스킬 상세의 번호 버튼.
+- 인벤토리: 터치는 '사용' 버튼으로 주문서를 든 뒤 대상을 한 번 터치(더블클릭 대체).
+
+모바일 확인은 `npm run dev` 후 브라우저 개발자 도구의 기기 에뮬레이션(터치 모드) 또는 실제 기기로.
 
 ## 공개 배포 체크리스트 (2026-09-28) — Vercel + 정식 메일(SMTP)
 
@@ -16,8 +61,8 @@ Supabase 기본 메일 발송기는 **프로젝트 팀원 이메일로만** 발�
 
 ### 2. Supabase Auth URL
 Dashboard → Authentication → URL Configuration
-- Site URL: `https://<vercel 도메인>`
-- Redirect URLs: `https://<vercel 도메인>/**` (로컬 개발용 `http://localhost:5173/**`도 유지)
+- Site URL: `https://roleplaying.kr` (끝에 `/` 붙이지 말 것)
+- Redirect URLs: `https://roleplaying.kr/**`, `https://rpg-noel.vercel.app/**` (로컬 개발용 `http://localhost:5173/**`도 유지)
 
 ### 3. 메일 발송(SMTP) 설정 — Resend 기준
 1. resend.com 가입(무료: 일 100통/월 3,000통) → Domains에서 본인 도메인 추가 → 안내된
@@ -26,7 +71,7 @@ Dashboard → Authentication → URL Configuration
 2. API Keys → 키 생성.
 3. Supabase Dashboard → Authentication → SMTP Settings → Enable custom SMTP:
    host `smtp.resend.com`, port `465`, user `resend`, password = API 키,
-   sender email `no-reply@<도메인>`, sender name `RPG`.
+   sender email `no-reply@roleplaying.kr`, sender name `RPG`.
 4. Authentication → Rate Limits → "Emails sent per hour"를 30 이상으로.
 5. Authentication → Email Templates → Confirm signup: 제목/본문을
    `supabase/templates/confirmation.html` 내용으로 교체 (링크가

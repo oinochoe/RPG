@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useIsTouch } from '../../lib/device';
 
 // The browser's native `title` attribute waits ~700ms-1s (OS-dependent) before showing —
 // fine for a one-off hint, too slow for skimming item names across a full inventory grid.
@@ -17,10 +18,13 @@ export function useTooltip(label: string | null | undefined): {
   tooltip: React.ReactNode;
 } {
   const [visible, setVisible] = useState(false);
+  // A tap fires an emulated mouseenter with no matching mouseleave, so on a phone a tooltip would
+  // stick on screen until the next tap elsewhere. There is no hover on touch — show none.
+  const isTouch = useIsTouch();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function onMouseEnter() {
-    if (!label) return;
+    if (!label || isTouch) return;
     timerRef.current = setTimeout(() => setVisible(true), SHOW_DELAY_MS);
   }
 

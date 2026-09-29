@@ -1,0 +1,9 @@
+<h2>비밀번호 재설정</h2>
+<p>비밀번호 재설정을 요청하셨습니다. 아래 버튼을 눌러 새 비밀번호를 설정해주세요.</p>
+<p>
+  <a href="{{ .SiteURL }}/reset-password?token={{ .TokenHash }}"
+     style="display:inline-block;padding:10px 18px;background:#e8c97a;color:#1a2a1c;text-decoration:none;border-radius:6px;font-weight:bold">
+    비밀번호 재설정하기
+  </a>
+</p>
+<p style="color:#888;font-size:12px">본인이 요청하지 않았다면 이 메일을 무시하세요. 비밀번호는 바뀌지 않습니다. 링크는 1시간 동안 유효하며 한 번만 사용할 수 있습니다.</p>

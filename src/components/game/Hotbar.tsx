@@ -1,4 +1,4 @@
-import { useState, type DragEvent } from 'react';
+import { useRef, useState, type DragEvent } from 'react';
 import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 import { useCombatStore, findSkillDef, type SkillDef } from '../../stores/combatStore';
 import { useTooltip } from './Tooltip';
@@ -15,6 +15,15 @@ export const HOTBAR_DRAG_MIME = 'application/x-rpg-item-template-id';
 // payload — the payload itself is the skill's skill_template_id (a class now has 3 skills,
 // see SKILLS_BY_CLASS, so there's an id to carry). Set by the draggable skill card in
 // CharacterPanel.tsx's SkillTab.
+export const COMPACT_SLOT_SIZE = 48;
+export const COMPACT_COLUMNS = 4;
+export const COMPACT_GAP = 6;
+/** Height of the phone hotbar (rows of slots + gaps) — TouchHud stacks the action button above it. */
+export const COMPACT_HEIGHT =
+  Math.ceil(HOTBAR_SIZE / COMPACT_COLUMNS) * COMPACT_SLOT_SIZE + (Math.ceil(HOTBAR_SIZE / COMPACT_COLUMNS) - 1) * COMPACT_GAP;
+// Holding a slot this long clears it on touch (the right-click of a phone).
+const LONG_PRESS_MS = 550;
+
 export const HOTBAR_DRAG_SKILL_MIME = 'application/x-rpg-hotbar-skill';
 
 /**
@@ -30,7 +39,8 @@ export const HOTBAR_DRAG_SKILL_MIME = 'application/x-rpg-hotbar-skill';
  * Positioned by its parent (HUD.tsx, next to the status bar) rather than self-positioning,
  * so the two form one visual unit at the bottom of the screen.
  */
-export function Hotbar() {
+/** `compact` = the phone layout: a 4x2 grid of bigger touch targets instead of one long row. */
+export function Hotbar({ compact = false }: { compact?: boolean }) {
   const hotbar = useCharacterStore((s) => s.hotbar);
   const hotbarPending = useCharacterStore((s) => s.hotbarPending);
   const inventory = useCharacterStore((s) => s.inventory);
@@ -43,11 +53,11 @@ export function Hotbar() {
 
   return (
     <div
-      style={{
-        display: 'flex',
-        gap: 8,
-        pointerEvents: 'none',
-      }}
+      style={
+        compact
+          ? { display: 'grid', gridTemplateColumns: `repeat(${COMPACT_COLUMNS}, ${COMPACT_SLOT_SIZE}px)`, gap: COMPACT_GAP, pointerEvents: 'none' }
+          : { display: 'flex', gap: 8, pointerEvents: 'none' }
+      }
     >
       {Array.from({ length: HOTBAR_SIZE }).map((_, i) => {
         const assignment = hotbar[i];
@@ -58,6 +68,7 @@ export function Hotbar() {
           <HotbarSlot
             key={i}
             index={i}
+            size={compact ? COMPACT_SLOT_SIZE : 52}
             skill={skill}
             row={row ?? null}
             hotbarPending={hotbarPending[i]}
@@ -97,6 +108,7 @@ export function Hotbar() {
 
 function HotbarSlot({
   index,
+  size,
   skill,
   row,
   hotbarPending,
@@ -112,6 +124,7 @@ function HotbarSlot({
   onDrop,
 }: {
   index: number;
+  size: number;
   skill: SkillDef | undefined;
   row: InventorySlot | null;
   hotbarPending: boolean;
@@ -145,6 +158,16 @@ function HotbarSlot({
       ? `${row.item_name} — 우클릭으로 해제`
       : '드래그하거나 번호를 눌러 등록';
   const { handlers: tooltipHandlers, tooltip } = useTooltip(label);
+  // Touch has no right-click, and iOS never fires contextmenu on long-press — so clearing a
+  // slot is an explicit hold-to-clear there. The click that follows the release is swallowed.
+  const holdTimer = useRef<number | null>(null);
+  const heldClear = useRef(false);
+  function cancelHold() {
+    if (holdTimer.current !== null) {
+      window.clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+    }
+  }
 
   return (
     <button
@@ -153,7 +176,24 @@ function HotbarSlot({
       // browser drag/drop pointer interaction in most engines, so an "empty, therefore
       // disabled" slot would silently refuse to accept a drop from a real mouse drag. The
       // click-to-use guard just lives in the handler.
+      onPointerDown={(e) => {
+        if (e.pointerType === 'mouse') return;
+        heldClear.current = false;
+        cancelHold();
+        holdTimer.current = window.setTimeout(() => {
+          holdTimer.current = null;
+          heldClear.current = true;
+          onClear();
+        }, LONG_PRESS_MS);
+      }}
+      onPointerUp={cancelHold}
+      onPointerLeave={cancelHold}
+      onPointerCancel={cancelHold}
       onClick={() => {
+        if (heldClear.current) {
+          heldClear.current = false;
+          return;
+        }
         if (skill) onUse();
         else if (usable) onUse();
       }}
@@ -174,8 +214,9 @@ function HotbarSlot({
       {...tooltipHandlers}
       style={{
         pointerEvents: 'auto',
-        width: 52,
-        height: 52,
+        width: size,
+        height: size,
+        touchAction: 'manipulation',
         borderRadius: 8,
         border: `1px solid ${isArmed ? '#e0538a' : isDragTarget ? '#e8c97a' : 'rgba(232, 201, 122, 0.5)'}`,
         boxShadow: isArmed ? '0 0 8px rgba(224, 83, 138, 0.7)' : 'none',

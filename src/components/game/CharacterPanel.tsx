@@ -15,6 +15,7 @@ import { HOTBAR_DRAG_SKILL_MIME } from './Hotbar';
 import { ItemIcon } from './itemIcons';
 import { useTooltip } from './Tooltip';
 import { useDraggablePanel } from './useDraggablePanel';
+import { useIsTouch } from '../../lib/device';
 import type { CharacterProfile, InventorySlot } from '../../types/api';
 
 const PANEL_WIDTH = 320;
@@ -237,6 +238,7 @@ function SkillCard({ skill, character }: { skill: SkillDef; character: Character
   const skillLevel = player.skillLevels[skill.id] ?? 0;
   const levelLocked = character.level < skill.requiredLevel;
   const canUpgrade = !pending && !levelLocked && player.skillUpgradePoints > 0 && skillLevel < SKILL_MAX_LEVEL;
+  const isTouch = useIsTouch();
   const learned = skillLevel > 0;
   // Previews at level 1 while unlearned (rather than hiding the number entirely) so a
   // player deciding whether to spend a point can see roughly what they're buying — matches
@@ -263,7 +265,7 @@ function SkillCard({ skill, character }: { skill: SkillDef; character: Character
     <div style={{ marginBottom: 8 }}>
       {error && <p style={{ color: '#e0538a', fontSize: 11, marginBottom: 4 }}>{error}</p>}
       <div
-        draggable={learned}
+        draggable={learned && !isTouch}
         onDragStart={(e) => {
           if (!learned) return;
           e.dataTransfer.setData(HOTBAR_DRAG_SKILL_MIME, String(skill.id));
@@ -403,10 +405,10 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
   const [tab, setTab] = useState<'stats' | 'equipment' | 'skill'>('stats');
   // Default anchor matches the old fixed left/top-centered position, expressed as plain
   // pixel coordinates so dragging can move it freely afterward — see useDraggablePanel.
-  const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
+  const { frameStyle, onHeaderPointerDown } = useDraggablePanel(() => ({
     x: 16,
     y: Math.max(16, window.innerHeight / 2 - 140),
-  }));
+  }), PANEL_WIDTH);
 
   // Jumps to the skill tab whenever K asks for it (see openSkillTab) — skipping the run
   // that fires on mount, since the counter's value at that point reflects whatever request
@@ -440,9 +442,7 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
     <div
       style={{
         position: 'fixed',
-        left: position.x,
-        top: position.y,
-        width: PANEL_WIDTH,
+        ...frameStyle,
         background: '#1a2a1c',
         border: `2px solid ${accent}`,
         borderRadius: 12,
@@ -453,13 +453,14 @@ export function CharacterPanel({ character }: { character: CharacterProfile }) {
       }}
     >
       <div
-        onMouseDown={onHeaderMouseDown}
+        onPointerDown={onHeaderPointerDown}
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: 12,
           cursor: 'move',
+          touchAction: 'none',
           userSelect: 'none',
         }}
       >

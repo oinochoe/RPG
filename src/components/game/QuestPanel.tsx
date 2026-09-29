@@ -25,10 +25,10 @@ export function QuestPanel() {
   const claim = useQuestStore((s) => s.claim);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
+  const { frameStyle, onHeaderPointerDown } = useDraggablePanel(() => ({
     x: window.innerWidth / 2 - PANEL_WIDTH / 2,
     y: Math.max(16, window.innerHeight / 2 - 160),
-  }));
+  }), PANEL_WIDTH);
 
   if (!isOpen || !npcName) return null;
 
@@ -73,9 +73,7 @@ export function QuestPanel() {
     <div
       style={{
         position: 'fixed',
-        left: position.x,
-        top: position.y,
-        width: PANEL_WIDTH,
+        ...frameStyle,
         background: '#1a2a1c',
         border: '2px solid #e8c97a',
         borderRadius: 12,
@@ -86,13 +84,14 @@ export function QuestPanel() {
       }}
     >
       <div
-        onMouseDown={onHeaderMouseDown}
+        onPointerDown={onHeaderPointerDown}
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: 10,
           cursor: 'move',
+          touchAction: 'none',
           userSelect: 'none',
         }}
       >

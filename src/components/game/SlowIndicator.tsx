@@ -1,3 +1,4 @@
+import { useIsTouch } from '../../lib/device';
 import { useEffect, useState } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
 
@@ -12,6 +13,7 @@ function formatRemaining(ms: number): string {
 }
 
 export function SlowIndicator() {
+  const isTouch = useIsTouch();
   const slowUntil = useCombatStore((s) => s.player.slowUntil);
   const slowStartedAt = useCombatStore((s) => s.player.slowStartedAt);
   const [now, setNow] = useState(() => performance.now());
@@ -34,7 +36,7 @@ export function SlowIndicator() {
     <div
       style={{
         position: 'fixed',
-        top: 16,
+        top: isTouch ? 132 : 16,
         left: 120,
         zIndex: 2147483000,
         pointerEvents: 'none',

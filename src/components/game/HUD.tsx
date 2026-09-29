@@ -3,47 +3,14 @@ import { useQuestStore, findQuestByGiver } from '../../stores/questStore';
 import { useLootStore } from '../../stores/lootStore';
 import { useUIStore } from '../../stores/uiStore';
 import { Hotbar } from './Hotbar';
+import { Bar } from './StatusBar';
+import { TouchHud } from './TouchHud';
+import { useIsTouch } from '../../lib/device';
 
 const SHOP_NPC_LABEL: Record<'merchant' | 'blacksmith', string> = {
   merchant: '상인',
   blacksmith: '대장장이',
 };
-
-const STATUS_BAR_WIDTH = 320;
-
-function Bar({ ratio, color, label, height = 14 }: { ratio: number; color: string; label: string; height?: number }) {
-  const clamped = Math.max(0, Math.min(1, ratio));
-  return (
-    <div
-      style={{
-        position: 'relative',
-        width: STATUS_BAR_WIDTH,
-        height,
-        borderRadius: 4,
-        background: 'rgba(0,0,0,0.5)',
-        border: '1px solid rgba(232, 201, 122, 0.3)',
-        overflow: 'hidden',
-      }}
-    >
-      <div style={{ width: `${clamped * 100}%`, height: '100%', background: color, transition: 'width 200ms ease-out' }} />
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 10,
-          fontWeight: 700,
-          color: '#f4f1e8',
-          textShadow: '0 1px 2px rgba(0,0,0,0.8)',
-        }}
-      >
-        {label}
-      </div>
-    </div>
-  );
-}
 
 export function HUD() {
   const player = useCombatStore((s) => s.player);
@@ -53,6 +20,7 @@ export function HUD() {
   const nearDropId = useUIStore((s) => s.nearDropId);
   const drops = useLootStore((s) => s.drops);
   const toggleSystemMenu = useUIStore((s) => s.toggleSystemMenu);
+  const isTouch = useIsTouch();
   const nearDrop = nearDropId !== null ? drops.find((d) => d.id === nearDropId) : undefined;
 
   // Only relevant while standing near a quest NPC — null otherwise, so the JSX below can
@@ -64,6 +32,10 @@ export function HUD() {
       ? `${nearQuestNpcName}에게 보상 받기: Space`
       : `${nearQuestNpcName}에게 말 걸기: Space`
     : null;
+
+  // Phones get their own layout (joystick, action button, compact status/hotbar) — the desktop
+  // one below assumes a keyboard and a 1000px+ wide screen.
+  if (isTouch) return <TouchHud />;
 
   return (
     <div

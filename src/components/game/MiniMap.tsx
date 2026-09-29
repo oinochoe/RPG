@@ -1,3 +1,4 @@
+import { useIsTouch } from '../../lib/device';
 import { useEffect, useMemo, useState } from 'react';
 import { playerPosition, playerFacing } from './playerTransform';
 import {
@@ -135,6 +136,7 @@ function MiniDungeonView({
 /** Persistent corner overlay — unlike WorldMap.tsx's full modal, this never closes and never
  * blocks clicks, so it's mounted directly alongside the HUD rather than gated by isMapOpen. */
 export function MiniMap() {
+  const isTouch = useIsTouch();
   const isMapOpen = useUIStore((s) => s.isMapOpen);
   const currentArea = useWorldStore((s) => s.currentArea);
   const currentDungeonId = useWorldStore((s) => s.currentDungeonId);
@@ -162,6 +164,8 @@ export function MiniMap() {
         right: 16,
         width: CORNER_SIZE,
         height: CORNER_SIZE,
+        // Phones: same drawing, scaled down so it doesn't cover a third of the screen.
+        ...(isTouch ? { top: 8, right: 8, transform: 'scale(0.55)', transformOrigin: 'top right' } : {}),
         borderRadius: 14,
         overflow: 'hidden',
         border: '2px solid #e8c97a',

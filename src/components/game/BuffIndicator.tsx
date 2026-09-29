@@ -1,3 +1,4 @@
+import { useIsTouch } from '../../lib/device';
 import { useEffect, useState } from 'react';
 import { useCombatStore } from '../../stores/combatStore';
 import { ItemIcon } from './itemIcons';
@@ -17,6 +18,7 @@ function formatRemaining(ms: number): string {
  * reads generically off combatStore's player state so a second buff later just adds another
  * icon here rather than a whole new component. */
 export function BuffIndicator() {
+  const isTouch = useIsTouch();
   const hasteUntil = useCombatStore((s) => s.player.hasteUntil);
   const hasteStartedAt = useCombatStore((s) => s.player.hasteStartedAt);
   const [now, setNow] = useState(() => performance.now());
@@ -39,7 +41,7 @@ export function BuffIndicator() {
     <div
       style={{
         position: 'fixed',
-        top: 16,
+        top: isTouch ? 132 : 16,
         left: 16,
         zIndex: 2147483000,
         pointerEvents: 'none',

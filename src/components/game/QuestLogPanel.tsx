@@ -86,10 +86,10 @@ export function QuestLogPanel() {
   const closeQuestLog = useUIStore((s) => s.closeQuestLog);
   const playerLevel = useCombatStore((s) => s.player.level);
   const quests = useQuestStore((s) => s.quests);
-  const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
+  const { frameStyle, onHeaderPointerDown } = useDraggablePanel(() => ({
     x: window.innerWidth / 2 - PANEL_WIDTH / 2,
     y: Math.max(16, window.innerHeight / 2 - 220),
-  }));
+  }), PANEL_WIDTH);
 
   if (!isOpen) return null;
 
@@ -118,9 +118,7 @@ export function QuestLogPanel() {
     <div
       style={{
         position: 'fixed',
-        left: position.x,
-        top: position.y,
-        width: PANEL_WIDTH,
+        ...frameStyle,
         maxHeight: '70vh',
         display: 'flex',
         flexDirection: 'column',
@@ -134,13 +132,14 @@ export function QuestLogPanel() {
       }}
     >
       <div
-        onMouseDown={onHeaderMouseDown}
+        onPointerDown={onHeaderPointerDown}
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: 10,
           cursor: 'move',
+          touchAction: 'none',
           userSelect: 'none',
           flexShrink: 0,
         }}

@@ -22,6 +22,7 @@ import { QuestLogPanel } from '../components/game/QuestLogPanel';
 import { SystemMenu } from '../components/game/SystemMenu';
 import { LoadingScreen } from '../components/ui/spinner';
 import { translateApiError } from './errorMessages';
+import { useIsTouch } from '../lib/device';
 
 const HOTBAR_KEYS: Record<string, number> = {
   Digit1: 0,
@@ -45,6 +46,7 @@ export function GamePage() {
   const currentMap = useSessionStore((s) => s.currentMap);
   const enterMap = useSessionStore((s) => s.enterMap);
   const armedSkillId = useCombatStore((s) => s.armedSkillId);
+  const isTouch = useIsTouch();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -118,10 +120,21 @@ export function GamePage() {
   return (
     <>
       <Canvas
-        shadows="soft"
-        dpr={[1, 2]}
+        // Phones: cheaper shadows and a lower pixel ratio — soft shadows at dpr 2 is what makes
+        // the field stutter on a mid-range phone.
+        shadows={isTouch ? 'basic' : 'soft'}
+        dpr={isTouch ? [1, 1.5] : [1, 2]}
         gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
-        style={{ width: '100vw', height: '100vh', display: 'block', cursor: armedSkillId !== null ? AIM_CURSOR : 'auto' }}
+        onContextMenu={(e) => e.preventDefault()}
+        // 100dvh, not 100vh: on mobile browsers 100vh is the height WITHOUT the URL bar
+        // showing, so the bottom of the game (hotbar, joystick) hid behind the browser chrome.
+        style={{
+          width: '100vw',
+          height: '100dvh',
+          display: 'block',
+          touchAction: 'none',
+          cursor: armedSkillId !== null ? AIM_CURSOR : 'auto',
+        }}
       >
         <Scene character={activeCharacter} map={currentMap} />
       </Canvas>

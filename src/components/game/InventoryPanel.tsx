@@ -5,6 +5,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { EQUIP_SLOT_LABEL, formatGold } from './itemLabels';
 import { HOTBAR_DRAG_MIME } from './Hotbar';
 import { useDraggablePanel } from './useDraggablePanel';
+import { useIsTouch, useViewportSize } from '../../lib/device';
 import { ItemIcon } from './itemIcons';
 import { useTooltip } from './Tooltip';
 import { ENCHANT_MAX_LEVEL, CURSED_MIN_LEVEL, enchantSuccessChance, safeEnchantLevel, scrollIneligibleReason } from './enchantRules';
@@ -29,18 +30,23 @@ function GridCell({
   item,
   selected,
   eligibleForPendingScroll,
+  size,
   onClick,
   onDoubleClick,
 }: {
   item: InventorySlot | undefined;
   selected: boolean;
   eligibleForPendingScroll: boolean;
+  size: number;
   onClick: () => void;
   onDoubleClick: () => void;
 }) {
+  const isTouch = useIsTouch();
   // Only consumables are hotbar-assignable (equip/use items go through the 장착 button or a
   // double-click instead; scrolls are double-click-onto-a-target items, not hotbar items).
-  const draggable = !!item && (item.heal_hp > 0 || item.restore_mp > 0 || !!item.teleport_target || item.haste_duration_sec > 0);
+  // Native HTML5 drag never fires from a finger (and arming it just fights with tap/scroll) —
+  // touch registers to the hotbar with the numbered buttons in the item details instead.
+  const draggable = !isTouch && !!item && (item.heal_hp > 0 || item.restore_mp > 0 || !!item.teleport_target || item.haste_duration_sec > 0);
   const { handlers: tooltipHandlers, tooltip } = useTooltip(item?.item_name);
 
   return (
@@ -56,9 +62,10 @@ function GridCell({
         e.dataTransfer.effectAllowed = 'copy';
       }}
       style={{
-        width: 56,
-        height: 56,
+        width: size,
+        height: size,
         borderRadius: 8,
+        touchAction: 'manipulation',
         border: `1px solid ${eligibleForPendingScroll ? '#57c25b' : selected ? '#e8c97a' : 'rgba(232, 201, 122, 0.3)'}`,
         boxShadow: eligibleForPendingScroll ? '0 0 6px rgba(87, 194, 91, 0.7)' : undefined,
         background: item?.is_equipped ? 'rgba(232, 201, 122, 0.18)' : 'rgba(0, 0, 0, 0.35)',
@@ -72,7 +79,7 @@ function GridCell({
     >
       {item && (
         <>
-          <ItemIcon itemName={item.item_name} size={34} />
+          <ItemIcon itemName={item.item_name} size={Math.round(size * 0.6)} />
           {item.quantity > 1 && (
             <span style={{ position: 'absolute', bottom: 2, right: 4, fontSize: 10, fontWeight: 700, color: '#e8c97a' }}>
               {item.quantity}
@@ -119,10 +126,12 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
   // below) is what makes it still visible in that case. Cleared when a different item is
   // selected or the panel closes.
   const [enchantResult, setEnchantResult] = useState<{ itemName: string; outcome: EnchantOutcome } | null>(null);
-  const { position, onHeaderMouseDown } = useDraggablePanel(() => ({
+  const isTouch = useIsTouch();
+  const viewport = useViewportSize();
+  const { frameStyle, onHeaderPointerDown, narrow } = useDraggablePanel(() => ({
     x: window.innerWidth - PANEL_WIDTH - 16,
     y: Math.max(16, window.innerHeight / 2 - 160),
-  }));
+  }), PANEL_WIDTH);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -203,6 +212,10 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
     }
   }
 
+  // On a phone the 6-column grid has to fit inside the sheet (viewport - sheet margins - panel
+  // padding/border - column gaps) instead of a fixed 56px per cell.
+  const cellSize = narrow ? Math.max(40, Math.min(56, Math.floor((viewport.width - 16 - 36 - 6 * 5) / GRID_COLUMNS))) : 56;
+
   async function handleApplyScroll(target: InventorySlot, scroll: InventorySlot) {
     setError(null);
     setEnchantResult(null);
@@ -259,9 +272,7 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
     <div
       style={{
         position: 'fixed',
-        left: position.x,
-        top: position.y,
-        width: PANEL_WIDTH,
+        ...frameStyle,
         background: '#1a2a1c',
         border: `2px solid ${accent}`,
         borderRadius: 12,
@@ -272,13 +283,14 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
       }}
     >
       <div
-        onMouseDown={onHeaderMouseDown}
+        onPointerDown={onHeaderPointerDown}
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: 10,
           cursor: 'move',
+          touchAction: 'none',
           userSelect: 'none',
         }}
       >
@@ -331,20 +343,26 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
         )}
         {pendingScroll && (
           <p style={{ color: '#e8c97a', fontSize: 12, marginBottom: 8 }}>
-            {pendingScroll.item_name} 사용 중 — 적용할 무기/방어구를 더블클릭하세요. (ESC 또는 같은 주문서를 다시
-            더블클릭하면 취소)
+            {pendingScroll.item_name} 사용 중 —{' '}
+            {isTouch ? '적용할 무기/방어구를 터치하세요.' : '적용할 무기/방어구를 더블클릭하세요. (ESC 또는 같은 주문서를 다시 더블클릭하면 취소)'}{' '}
+            <button
+              onClick={() => setPendingScroll(null)}
+              style={{ background: 'transparent', border: '1px solid #e8c97a', color: '#e8c97a', borderRadius: 4, fontSize: 11, padding: '1px 8px' }}
+            >
+              취소
+            </button>
           </p>
         )}
 
-        <div style={{ display: 'flex', gap: 14 }}>
+        <div style={{ display: 'flex', gap: 14, flexWrap: narrow ? 'wrap' : 'nowrap' }}>
           <div
             className="custom-scroll"
             style={{
               display: 'grid',
-              gridTemplateColumns: `repeat(${GRID_COLUMNS}, 56px)`,
+              gridTemplateColumns: `repeat(${GRID_COLUMNS}, ${cellSize}px)`,
               gap: 6,
-              width: GRID_COLUMNS * 56 + (GRID_COLUMNS - 1) * 6,
-              maxHeight: 56 * GRID_ROWS + 6 * (GRID_ROWS - 1),
+              width: GRID_COLUMNS * cellSize + (GRID_COLUMNS - 1) * 6,
+              maxHeight: cellSize * GRID_ROWS + 6 * (GRID_ROWS - 1),
               overflowY: 'auto',
               overflowX: 'hidden',
               flexShrink: 0,
@@ -358,8 +376,15 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                   item={item}
                   selected={item?.id === selectedId}
                   eligibleForPendingScroll={!!(item && pendingScroll && item.id !== pendingScroll.id && !scrollIneligibleReason(item, pendingScroll))}
+                  size={cellSize}
                   onClick={() => {
                     if (!item) return;
+                    // No reliable double-tap on a phone: while a scroll is armed a single tap
+                    // on a target applies it (or on the armed scroll itself cancels).
+                    if (isTouch && pendingScroll) {
+                      handleCellDoubleClick(item);
+                      return;
+                    }
                     setSelectedId(item.id);
                     setEnchantResult(null);
                   }}
@@ -369,7 +394,7 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
             })}
           </div>
 
-          <div style={{ width: 160, flexShrink: 0 }}>
+          <div style={{ width: narrow ? '100%' : 160, flexShrink: 0 }}>
             {selected ? (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -399,13 +424,13 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                   <div style={{ color: '#9aa08f', fontSize: 11, lineHeight: 1.6, marginBottom: 10 }}>
                     {selected.enchant_scroll_type === 'weapon' && (
                       <>
-                        <div>더블클릭 후 강화할 무기를 더블클릭하세요.</div>
+                        <div>'사용'을 누른 뒤 강화할 무기를 선택하세요.</div>
                         <div>+6까지는 100% 안전, +6 이상에서 실패하면 무기가 파괴됩니다.</div>
                       </>
                     )}
                     {selected.enchant_scroll_type === 'armor' && (
                       <>
-                        <div>더블클릭 후 강화할 방어구를 더블클릭하세요.</div>
+                        <div>'사용'을 누른 뒤 강화할 방어구를 선택하세요.</div>
                         <div>+4까지는 100% 안전, +4 이상에서 실패하면 방어구가 파괴됩니다.</div>
                       </>
                     )}
@@ -421,6 +446,30 @@ export function InventoryPanel({ character }: { character: CharacterProfile }) {
                       </>
                     )}
                   </div>
+                )}
+
+                {selected.enchant_scroll_type && (
+                  <button
+                    onClick={() => {
+                      setPendingScroll(pendingScroll?.id === selected.id ? null : selected);
+                      setError(null);
+                      setEnchantResult(null);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 0',
+                      marginBottom: 10,
+                      borderRadius: 6,
+                      border: '1px solid #e8c97a',
+                      background: pendingScroll?.id === selected.id ? 'rgba(232, 201, 122, 0.25)' : 'rgba(255,255,255,0.05)',
+                      color: '#e8c97a',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      touchAction: 'manipulation',
+                    }}
+                  >
+                    {pendingScroll?.id === selected.id ? '사용 취소' : '사용'}
+                  </button>
                 )}
 
                 {equippable && (

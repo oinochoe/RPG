@@ -18,6 +18,18 @@ body {
   height: 100%;
 }
 
+/* Game on a phone: no pull-to-refresh / overscroll bounce, no tap highlight flash, no
+   long-press text-callout, and double-tap must not zoom the page. */
+html,
+body {
+  overscroll-behavior: none;
+}
+body {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+
 body {
   font-family: var(--font-fantasy);
   background: radial-gradient(circle at 50% 20%, #24391f 0%, #0f1a0d 70%);
