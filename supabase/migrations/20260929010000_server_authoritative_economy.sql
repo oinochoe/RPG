@@ -583,3 +583,27 @@ BEGIN
   RETURN QUERY SELECT v_quest.reward_xp, v_quest.reward_gold, v_quest.reward_item_id;
 END;
 $$;
+
+-- Supabase exposes every public function over REST (/rest/v1/rpc/...) to anyone holding the anon
+-- key. These are only meant to be called by the edge function with the service role, so take the
+-- default PUBLIC execute away. (RLS on characters/pending_drops already stops a logged-in player
+-- from changing anything through them — they run SECURITY INVOKER — this is the second lock.)
+REVOKE ALL ON FUNCTION public.progress_snapshot(INT, INT, INT, BOOLEAN) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.grant_progress(INT, INT, INT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.apply_kills(INT, INT, JSONB) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.allocate_stat(INT, INT, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.spend_gold(INT, INT, INT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.issue_drops(INT, INT, INT[]) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.redeem_drop(INT, INT, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.sync_character_vitals(INT, INT, INT, INT) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.claim_quest_reward(INT, INT, INT) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.progress_snapshot(INT, INT, INT, BOOLEAN) TO service_role;
+GRANT EXECUTE ON FUNCTION public.grant_progress(INT, INT, INT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.apply_kills(INT, INT, JSONB) TO service_role;
+GRANT EXECUTE ON FUNCTION public.allocate_stat(INT, INT, TEXT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.spend_gold(INT, INT, INT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.issue_drops(INT, INT, INT[]) TO service_role;
+GRANT EXECUTE ON FUNCTION public.redeem_drop(INT, INT, UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION public.sync_character_vitals(INT, INT, INT, INT) TO service_role;
+GRANT EXECUTE ON FUNCTION public.claim_quest_reward(INT, INT, INT) TO service_role;
