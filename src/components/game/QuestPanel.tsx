@@ -56,7 +56,10 @@ export function QuestPanel() {
     setPending(true);
     try {
       const result = await claim(quest.id);
+      // Local prediction first (level-up feedback), then the server's own numbers — it applied
+      // the reward itself when it marked the quest claimed.
       grantQuestReward(result.reward_xp, result.reward_gold);
+      useCombatStore.getState().adoptProgress(result.progress);
       receiveInventory(result.inventory);
     } catch (err) {
       setError(err instanceof Error ? err.message : '보상 수령 중 오류가 발생했습니다.');

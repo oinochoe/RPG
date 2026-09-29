@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CharacterProfile, MonsterInstanceSummary } from '../types/api';
+import type { CharacterProfile, MonsterInstanceSummary, ProgressSnapshot } from '../types/api';
 import * as charactersApi from '../api/characters';
 
 // Melee classes need to stand next to a monster; ranged classes should be able to fight
@@ -302,14 +302,36 @@ export function isBossOnCooldown(name: string, cooldowns: { boss_key: string; av
   return new Date(entry.available_at).getTime() > Date.now();
 }
 
+/** One monster this attack killed — what CharacterMesh hands to killReporter. */
+export interface KillInfo {
+  instanceId: number;
+  monsterTemplateId: number;
+  level: number;
+  name: string;
+  position: [number, number, number];
+}
+
+function killInfoFor(monster: MonsterCombatState): KillInfo {
+  return {
+    instanceId: monster.instanceId,
+    monsterTemplateId: monster.monsterTemplateId,
+    level: monster.level,
+    name: monster.name,
+    position: [monster.position[0], monster.position[1], monster.position[2]],
+  };
+}
+
 interface AttackResult {
   hit: boolean;
   instanceId?: number;
   damage?: number;
   killed?: boolean;
   // Only the primary/locked target's kind, even for an AOE cast that kills more than one
-  // monster — set whenever `killed` is true, for CharacterMesh to report to questStore.
+  // monster — set whenever `killed` is true.
   monsterTemplateId?: number;
+  // EVERY monster this attack killed (an AOE cast can kill several), so each one gets reported to
+  // the server for its reward, quest progress and drop — not just the primary target.
+  kills?: KillInfo[];
   leveledUp?: boolean;
   goldDropped?: number;
 }
@@ -331,6 +353,13 @@ interface CombatState {
   ready: boolean;
   monsters: Record<number, MonsterCombatState>;
   player: PlayerCombatState;
+  // Highest server progress_rev adopted so far — a response older than this is stale (responses
+  // can arrive out of order) and is ignored by adoptProgress.
+  progressRev: number;
+  // Kills counted locally (and already shown in the exp bar/gold) but not yet confirmed by the
+  // server. While > 0 a server snapshot would look like it "took back" those kills, so
+  // adoptProgress waits until they are all confirmed.
+  pendingReports: number;
   lastAttackAt: number;
   // Incremented once an aimed skill actually lands on a clicked monster (see
   // MonsterMesh's handleClick) — CharacterMesh (the only place that has both the player's
@@ -376,13 +405,23 @@ interface CombatState {
   tickMonsterMovement: (playerX: number, playerZ: number, delta: number) => void;
   allocateStat: (stat: AllocatableStat) => void;
   /**
-   * Pushes the current progress snapshot (level/experience/stats/HP/MP/skill points) to
-   * the server. Called right after allocateStat and right after a level-up inside
-   * attackNearest — no periodic/debounced sync (design spec's "simpler" scope
-   * decision). Best-effort: a failed save just means a slightly stale resume next
-   * login, same as PositionSync.tsx's handling.
+   * Saves the only progress the client still owns: current HP/MP (the server clamps them to its
+   * own maxima). Called after a level-up and after allocateStat, as before. Best-effort: a
+   * failed save just means a slightly stale resume next login, same as PositionSync.tsx.
    */
   syncProgress: () => void;
+  /**
+   * The server owns gold/exp/level/points/derived stats (see the economy design doc); the client
+   * shows local predictions and then calls this with each response's snapshot, which overwrites the
+   * economy fields. Returns false (and changes nothing) for a stale snapshot or while local kills
+   * are still awaiting confirmation. Current HP/MP stay as the client has them (clamped to the new max).
+   */
+  adoptProgress: (snapshot: ProgressSnapshot) => boolean;
+  beginKillReports: (count: number) => void;
+  endKillReports: (count: number) => void;
+  /** Re-reads the character from the server and adopts it unconditionally — used when the server
+   * refused something the local prediction had allowed (drift / tampering). */
+  resyncProgress: () => Promise<void>;
   /** Calls the server RPC and adopts its authoritative skill_level/skill_upgrade_points for
    * that one skill. */
   upgradeSkill: (skillId: number) => Promise<void>;
@@ -565,9 +604,67 @@ function resolveTarget(
   return nearest;
 }
 
+function snapshotFromProfile(profile: CharacterProfile): ProgressSnapshot {
+  return {
+    level: profile.level,
+    experience: profile.experience,
+    gold: profile.gold,
+    skill_points: profile.skill_points,
+    skill_upgrade_points: profile.skill_upgrade_points,
+    max_hp: profile.max_hp,
+    max_mp: profile.max_mp,
+    attack_power: profile.attack_power,
+    defense_power: profile.defense_power,
+    stat_str: profile.stat_str,
+    stat_dex: profile.stat_dex,
+    stat_con: profile.stat_con,
+    stat_int: profile.stat_int,
+    stat_wis: profile.stat_wis,
+    progress_rev: profile.progress_rev ?? 0,
+    exp_gained: 0,
+    gold_gained: 0,
+    leveled_up: false,
+  };
+}
+
+// Overwrites the economy fields with the server's numbers. Equipment bonuses are layered back on
+// top of the server's BASE attack/defense (the DB columns are base values, pre-equipment).
+function applySnapshot(
+  set: (partial: Partial<CombatState>) => void,
+  get: () => CombatState,
+  snapshot: ProgressSnapshot,
+): void {
+  const { player } = get();
+  set({
+    progressRev: snapshot.progress_rev,
+    player: {
+      ...player,
+      level: snapshot.level,
+      experience: snapshot.experience,
+      expToNext: expToNextForLevel(snapshot.level),
+      gold: snapshot.gold,
+      skillPoints: snapshot.skill_points,
+      skillUpgradePoints: snapshot.skill_upgrade_points,
+      maxHp: snapshot.max_hp,
+      currentHp: Math.min(player.currentHp, snapshot.max_hp),
+      maxMp: snapshot.max_mp,
+      currentMp: Math.min(player.currentMp, snapshot.max_mp),
+      attackPower: snapshot.attack_power + player.equipAttackBonus,
+      defensePower: snapshot.defense_power + player.equipDefenseBonus,
+      statStr: snapshot.stat_str,
+      statDex: snapshot.stat_dex,
+      statCon: snapshot.stat_con,
+      statInt: snapshot.stat_int,
+      statWis: snapshot.stat_wis,
+    },
+  });
+}
+
 export const useCombatStore = create<CombatState>((set, get) => ({
   ready: false,
   monsters: {},
+  progressRev: 0,
+  pendingReports: 0,
   player: {
     level: 1,
     experience: 0,
@@ -634,6 +731,8 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     }
     set({
       ready: true,
+      progressRev: character.progress_rev ?? 0,
+      pendingReports: 0,
       monsters: toMonsterCombatState(monsters, aggressive),
       player: {
         level: character.level,
@@ -722,6 +821,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       damage,
       killed,
       monsterTemplateId: killed ? target.monsterTemplateId : undefined,
+      kills: killed ? [killInfoFor(target)] : undefined,
       leveledUp,
       goldDropped,
     };
@@ -766,6 +866,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
     let totalGold = 0;
     let primaryDamage = 0;
     let primaryKilled = false;
+    const kills: KillInfo[] = [];
 
     for (const t of hitTargets) {
       const damage = Math.max(1, Math.round(currentPlayer.attackPower * multiplier * (0.8 + Math.random() * 0.4)));
@@ -787,6 +888,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
         currentPlayer = nextPlayer;
         if (leveledUp) anyLeveledUp = true;
         totalGold += goldDropped;
+        kills.push(killInfoFor(t));
       }
     }
 
@@ -815,6 +917,7 @@ export const useCombatStore = create<CombatState>((set, get) => ({
       damage,
       killed,
       monsterTemplateId: killed ? target.monsterTemplateId : undefined,
+      kills: kills.length > 0 ? kills : undefined,
       leveledUp,
       goldDropped,
     };
@@ -1020,37 +1123,44 @@ export const useCombatStore = create<CombatState>((set, get) => ({
 
     set({ player: nextPlayer });
     get().syncProgress();
+    // The server owns stat points and the derived stats: it re-checks the cost and applies the
+    // gain itself. Locally we already showed the result; adopt its answer (or, if it refused —
+    // the client was out of step — pull the truth).
+    charactersApi
+      .allocateStatOnServer(stat)
+      .then(({ progress }) => {
+        get().adoptProgress(progress);
+      })
+      .catch(() => {
+        void get().resyncProgress();
+      });
   },
 
   syncProgress: () => {
     const { player } = get();
     charactersApi
-      .syncProgress({
-        level: player.level,
-        experience: player.experience,
-        skill_points: player.skillPoints,
-        // Strip the equipment bonus back out — the DB column is a base value, pre-equipment
-        // (see the comment above init()'s equipment-bonus loop). Sending attackPower/
-        // defensePower as-is would permanently bake the currently-equipped bonus into the
-        // base on every sync, compounding further on each subsequent login.
-        attack_power: player.attackPower - player.equipAttackBonus,
-        defense_power: player.defensePower - player.equipDefenseBonus,
-        max_hp: player.maxHp,
-        current_hp: player.currentHp,
-        max_mp: player.maxMp,
-        current_mp: player.currentMp,
-        stat_str: player.statStr,
-        stat_dex: player.statDex,
-        stat_con: player.statCon,
-        stat_int: player.statInt,
-        stat_wis: player.statWis,
-        gold: player.gold,
-        skill_upgrade_points: player.skillUpgradePoints,
-      })
+      .syncProgress({ current_hp: player.currentHp, current_mp: player.currentMp })
       .catch(() => {
         // Best-effort — a missed save just means a slightly stale resume next login,
         // not worth surfacing to the player (same handling as PositionSync.tsx).
       });
+  },
+
+  adoptProgress: (snapshot) => {
+    const { progressRev, pendingReports } = get();
+    if (snapshot.progress_rev < progressRev) return false;
+    if (pendingReports > 0) return false;
+    applySnapshot(set, get, snapshot);
+    return true;
+  },
+
+  beginKillReports: (count) => set((s) => ({ pendingReports: s.pendingReports + count })),
+
+  endKillReports: (count) => set((s) => ({ pendingReports: Math.max(0, s.pendingReports - count) })),
+
+  resyncProgress: async () => {
+    const profile = await charactersApi.getActiveCharacterProfile();
+    applySnapshot(set, get, snapshotFromProfile(profile));
   },
 
   upgradeSkill: async (skillId) => {

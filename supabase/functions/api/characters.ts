@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { getAdminClient } from "./supabaseAdmin.ts";
 import { ApiError, readJsonBody } from "./errors.ts";
 import { requireAuth, AppUser } from "./authMiddleware.ts";
+import { BOSSES, parseKillBatch, type KillReport } from "./economyRules.ts";
+import { rollDropEntry } from "./drops.ts";
 
 export const charactersRoutes = new Hono<{ Variables: { appUser: AppUser } }>();
 
@@ -187,6 +189,7 @@ function toProfile(
     gold: row.gold,
     skill_points: row.skill_points,
     skill_upgrade_points: row.skill_upgrade_points,
+    progress_rev: row.progress_rev,
     stat_str: row.stat_str,
     stat_dex: row.stat_dex,
     stat_con: row.stat_con,
@@ -212,6 +215,93 @@ function toProfile(
       })),
     inventory,
   };
+}
+
+// ---- server-authoritative economy helpers (see the design doc + the economy migration) ----------
+
+interface ProgressSnapshot {
+  level: number;
+  experience: number;
+  gold: number;
+  skill_points: number;
+  skill_upgrade_points: number;
+  max_hp: number;
+  max_mp: number;
+  attack_power: number;
+  defense_power: number;
+  stat_str: number;
+  stat_dex: number;
+  stat_con: number;
+  stat_int: number;
+  stat_wis: number;
+  progress_rev: number;
+  exp_gained: number;
+  gold_gained: number;
+  leveled_up: boolean;
+}
+
+// The RPCs return columns prefixed r_ (to avoid clashing with characters' own column names).
+function toSnapshot(row: Record<string, unknown>): ProgressSnapshot {
+  return {
+    level: row.r_level as number,
+    experience: row.r_experience as number,
+    gold: row.r_gold as number,
+    skill_points: row.r_skill_points as number,
+    skill_upgrade_points: row.r_skill_upgrade_points as number,
+    max_hp: row.r_max_hp as number,
+    max_mp: row.r_max_mp as number,
+    attack_power: row.r_attack_power as number,
+    defense_power: row.r_defense_power as number,
+    stat_str: row.r_stat_str as number,
+    stat_dex: row.r_stat_dex as number,
+    stat_con: row.r_stat_con as number,
+    stat_int: row.r_stat_int as number,
+    stat_wis: row.r_stat_wis as number,
+    // bigint comes back as a JSON number (small enough here) or a string depending on the driver.
+    progress_rev: Number(row.r_progress_rev),
+    exp_gained: (row.r_exp_gained as number) ?? 0,
+    gold_gained: (row.r_gold_gained as number) ?? 0,
+    leveled_up: Boolean(row.r_leveled_up),
+  };
+}
+
+function snapshotFromRpc(data: unknown): ProgressSnapshot {
+  const row = (data as Record<string, unknown>[] | null)?.[0];
+  if (!row) throw new Error("progress RPC returned no row");
+  return toSnapshot(row);
+}
+
+async function fetchProgressSnapshot(admin: ReturnType<typeof getAdminClient>, characterId: number): Promise<ProgressSnapshot> {
+  const { data, error } = await admin.rpc("progress_snapshot", { p_character_id: characterId });
+  if (error) throw error;
+  return snapshotFromRpc(data);
+}
+
+// Maps the economy RPCs' RAISE EXCEPTION messages to the API error envelope.
+function mapEconomyRpcError(message: string | undefined): ApiError {
+  if (message?.includes("character_not_found")) {
+    return new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
+  }
+  if (message?.includes("insufficient_gold")) {
+    return new ApiError(400, "validation_failed", "insufficient_gold", "골드가 부족합니다.");
+  }
+  if (message?.includes("insufficient_points")) {
+    return new ApiError(400, "validation_failed", "insufficient_points", "스탯 포인트가 부족합니다.");
+  }
+  if (message?.includes("invalid_stat")) {
+    return new ApiError(400, "validation_failed", "invalid_stat", "알 수 없는 스탯입니다.", "stat");
+  }
+  if (message?.includes("kill_rate_limited")) {
+    return new ApiError(429, "rate_limited", "kill_rate_limited", "너무 빠르게 처치를 보고했습니다. 잠시 후 다시 시도해주세요.");
+  }
+  if (message?.includes("invalid_kills")) {
+    return new ApiError(400, "validation_failed", "invalid_kills", "처치 보고가 올바르지 않습니다.", "kills");
+  }
+  if (message?.includes("drop_not_found")) {
+    return new ApiError(404, "not_found", "drop_not_found", "이미 사라졌거나 주울 수 없는 아이템입니다.", "drop_id");
+  }
+  console.error("economy RPC failed:", message);
+  return new ApiError(500, "internal_error", "economy_failed", "처리 중 오류가 발생했습니다.");
 }
 
 // Maps set_item_equipped's RAISE EXCEPTION messages (see
@@ -333,6 +423,10 @@ async function grantInventoryItem(
   characterId: number,
   itemTemplateId: number,
   quantity: number,
+  failure: { code: string; message: string } = {
+    code: "quest_reward_grant_failed",
+    message: "퀘스트 보상 지급 중 오류가 발생했습니다.",
+  },
 ): Promise<void> {
   const { data: item, error: itemError } = await admin
     .from("item_templates")
@@ -341,7 +435,7 @@ async function grantInventoryItem(
     .maybeSingle();
   if (itemError || !item) {
     console.error("quest reward item lookup failed:", itemError?.message ?? "item not found");
-    throw new ApiError(500, "internal_error", "quest_reward_grant_failed", "퀘스트 보상 지급 중 오류가 발생했습니다.");
+    throw new ApiError(500, "internal_error", failure.code, failure.message);
   }
 
   if (item.equip_slot === null) {
@@ -353,7 +447,7 @@ async function grantInventoryItem(
       .maybeSingle();
     if (stackError) {
       console.error("quest reward stack lookup failed:", stackError.message);
-      throw new ApiError(500, "internal_error", "quest_reward_grant_failed", "퀘스트 보상 지급 중 오류가 발생했습니다.");
+      throw new ApiError(500, "internal_error", failure.code, failure.message);
     }
     if (stack) {
       const { error: updateError } = await admin
@@ -362,7 +456,7 @@ async function grantInventoryItem(
         .eq("id", stack.id);
       if (updateError) {
         console.error("quest reward stack update failed:", updateError.message);
-        throw new ApiError(500, "internal_error", "quest_reward_grant_failed", "퀘스트 보상 지급 중 오류가 발생했습니다.");
+        throw new ApiError(500, "internal_error", failure.code, failure.message);
       }
       return;
     }
@@ -377,7 +471,7 @@ async function grantInventoryItem(
     .maybeSingle();
   if (slotError) {
     console.error("quest reward slot lookup failed:", slotError.message);
-    throw new ApiError(500, "internal_error", "quest_reward_grant_failed", "퀘스트 보상 지급 중 오류가 발생했습니다.");
+    throw new ApiError(500, "internal_error", failure.code, failure.message);
   }
   const nextSlot = existing ? existing.slot_index + 1 : 0;
 
@@ -393,7 +487,7 @@ async function grantInventoryItem(
   });
   if (insertError) {
     console.error("quest reward insert failed:", insertError.message);
-    throw new ApiError(500, "internal_error", "quest_reward_grant_failed", "퀘스트 보상 지급 중 오류가 발생했습니다.");
+    throw new ApiError(500, "internal_error", failure.code, failure.message);
   }
 }
 
@@ -574,95 +668,217 @@ charactersRoutes.patch("/me/position", async (c) => {
   return c.json({}, 200);
 });
 
-const PROGRESS_FIELDS = [
-  "level",
-  "experience",
-  "skill_points",
-  "attack_power",
-  "defense_power",
-  "max_hp",
-  "current_hp",
-  "max_mp",
-  "current_mp",
-  "stat_str",
-  "stat_dex",
-  "stat_con",
-  "stat_int",
-  "stat_wis",
-  "gold",
-  "skill_upgrade_points",
-] as const;
-
-// Per-field upper bound — the type/non-negativity checks below contain typos (negative
-// values) but not runaway magnitudes. A client bug (this project already had one, from a
-// dev-time HMR mistake, not an attacker) can otherwise write arbitrary garbage like
-// level: 1043 straight into the DB with no server-side containment.
-const PROGRESS_FIELD_MAX: Record<(typeof PROGRESS_FIELDS)[number], number> = {
-  level: 999,
-  experience: 1_000_000,
-  skill_points: 999,
-  attack_power: 100_000,
-  defense_power: 100_000,
-  max_hp: 100_000,
-  current_hp: 100_000,
-  max_mp: 100_000,
-  current_mp: 100_000,
-  stat_str: 999,
-  stat_dex: 999,
-  stat_con: 999,
-  stat_int: 999,
-  stat_wis: 999,
-  gold: 999_999_999,
-  skill_upgrade_points: 999,
-};
-
-// Event-driven progress sync — called by the client right after allocateStat() and
-// right after a kill causes a level-up (see combatStore.ts's syncProgress action). No
-// periodic/debounced sync: this is the only writer of level/experience/stats/HP/MP back
-// to the row, matching the "PATCH /me/position" route's pattern (plain flat update, no
-// RPC/advisory-lock needed — no cross-row invariant to protect).
+// The ONLY progress the client may still write: current HP/MP (clamped to the server's maxima by
+// sync_character_vitals). Level/exp/gold/stats/attack/max HP+MP are server-owned now — they change
+// only through POST /me/kills, quest claims, shop calls and POST /me/stats/allocate (see the
+// economy migration). Older clients still send the full progress object; every other field is
+// deliberately ignored rather than rejected so they keep working until they reload.
 charactersRoutes.patch("/me/progress", async (c) => {
   const appUser = c.get("appUser");
   const body = await readJsonBody(c);
 
-  const update: Record<string, number> = {};
-  for (const field of PROGRESS_FIELDS) {
+  for (const field of ["current_hp", "current_mp"] as const) {
     const value = body[field];
-    if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value > 1_000_000) {
       throw new ApiError(400, "validation_failed", "invalid_progress", `${field}는 0 이상의 정수여야 합니다.`, field);
     }
-    const max = PROGRESS_FIELD_MAX[field];
-    if (value > max) {
-      throw new ApiError(400, "validation_failed", "invalid_progress", `${field}는 0 이상 ${max} 이하의 정수여야 합니다.`, field);
-    }
-    update[field] = value;
-  }
-  if (update.current_hp > update.max_hp) {
-    throw new ApiError(400, "validation_failed", "invalid_progress", "current_hp는 max_hp를 초과할 수 없습니다.", "current_hp");
-  }
-  if (update.current_mp > update.max_mp) {
-    throw new ApiError(400, "validation_failed", "invalid_progress", "current_mp는 max_mp를 초과할 수 없습니다.", "current_mp");
   }
 
   const admin = getAdminClient();
-  const { data, error } = await admin
-    .from("characters")
-    .update(update)
-    .eq("user_id", appUser.id)
-    .eq("is_active", true)
-    .is("deleted_at", null)
-    .select("id")
-    .maybeSingle();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
 
+  const { error } = await admin.rpc("sync_character_vitals", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+    p_hp: body.current_hp,
+    p_mp: body.current_mp,
+  });
   if (error) {
-    console.error("character progress update failed:", error.code, error.message);
+    if (error.message?.includes("character_not_found")) {
+      throw new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
+    }
+    console.error("character vitals update failed:", error.code, error.message);
     throw new ApiError(500, "internal_error", "progress_update_failed", "진행 상황 저장 중 오류가 발생했습니다.");
-  }
-  if (!data) {
-    throw new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
   }
 
   return c.json({}, 200);
+});
+
+// The client's report of monsters it killed. The server can't see monsters (they live in the
+// client), so this validates plausibility — known monster kind, level within what that kind can
+// ever be, boss respawn cooldown, and a rate limit (token bucket in apply_kills) — then does the
+// reward math itself: exp/gold/level-ups, quest progress, boss cooldown, and drops (rolled here
+// and handed back as single-use tickets). See the design doc's "잔여 위험" for what this can't stop.
+charactersRoutes.post("/me/kills", async (c) => {
+  const appUser = c.get("appUser");
+  const body = await readJsonBody(c);
+
+  const parsed = parseKillBatch(body.kills);
+  if (!parsed.ok) {
+    throw new ApiError(400, "validation_failed", "invalid_kills", "처치 보고가 올바르지 않습니다.", "kills");
+  }
+
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  // Bosses only pay out when their server-tracked respawn cooldown is up. Checked read-only here
+  // and recorded AFTER the rewards apply, so a rate-limit refusal doesn't burn a boss cooldown.
+  let bossCooldowns: BossCooldownRow[] = [];
+  if (parsed.kills.some((k) => k.boss_key)) {
+    try {
+      bossCooldowns = await fetchBossCooldowns(admin, characterId);
+    } catch (error) {
+      console.error("boss cooldown lookup failed during kills:", (error as Error).message);
+      throw new ApiError(500, "internal_error", "kill_report_failed", "처치 보고 처리 중 오류가 발생했습니다.");
+    }
+  }
+  const nowMs = Date.now();
+  const bossOnCooldown = (bossKey: string) => {
+    const entry = bossCooldowns.find((cd) => cd.boss_key === bossKey);
+    return !!entry?.available_at && new Date(entry.available_at).getTime() > nowMs;
+  };
+
+  const results: Record<string, unknown>[] = [];
+  const accepted: { index: number; kill: KillReport }[] = [];
+  const seenBosses = new Set<string>();
+  parsed.kills.forEach((kill, index) => {
+    if (kill.boss_key && (bossOnCooldown(kill.boss_key) || seenBosses.has(kill.boss_key))) {
+      results[index] = { index, accepted: false, reason: "boss_on_cooldown" };
+      return;
+    }
+    if (kill.boss_key) seenBosses.add(kill.boss_key);
+    accepted.push({ index, kill });
+  });
+
+  if (accepted.length === 0) {
+    const progress = await fetchProgressSnapshot(admin, characterId).catch((error) => {
+      console.error("progress snapshot failed:", (error as Error).message);
+      throw new ApiError(500, "internal_error", "kill_report_failed", "처치 보고 처리 중 오류가 발생했습니다.");
+    });
+    return c.json({ progress, results, quests_updated: [], boss_cooldowns: null });
+  }
+
+  const { data: applied, error: applyError } = await admin.rpc("apply_kills", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+    p_kills: accepted.map((a) => ({ level: a.kill.level })),
+  });
+  if (applyError) throw mapEconomyRpcError(applyError.message);
+  const progress = snapshotFromRpc(applied);
+
+  // Record boss kills (starts the respawn cooldown). A race that already recorded one just means
+  // the cooldown is already running — nothing to undo, the reward has been given once.
+  let bossRecorded = false;
+  for (const { kill } of accepted) {
+    if (!kill.boss_key) continue;
+    const { error } = await admin.rpc("record_boss_kill", {
+      p_user_id: appUser.id,
+      p_character_id: characterId,
+      p_boss_key: kill.boss_key,
+    });
+    if (error && !error.message?.includes("boss_on_cooldown")) {
+      console.error("record_boss_kill failed during kills:", error.message);
+    }
+    bossRecorded = bossRecorded || !error;
+  }
+
+  // Quest progress: one report per accepted kill, merged by quest (later rows are newer).
+  const questsUpdated = new Map<number, unknown>();
+  for (const { kill } of accepted) {
+    const { data, error } = await admin.rpc("report_quest_kill", {
+      p_user_id: appUser.id,
+      p_character_id: characterId,
+      p_monster_template_id: kill.template_id,
+    });
+    if (error) {
+      console.error("report_quest_kill failed during kills:", error.message);
+      continue;
+    }
+    for (const row of (data as { quest_template_id: number }[] | null) ?? []) {
+      questsUpdated.set(row.quest_template_id, row);
+    }
+  }
+
+  // Drops: rolled here, issued as tickets (pending_drops), described from item_templates.
+  const rolls: { index: number; itemId: number }[] = [];
+  for (const { index, kill } of accepted) {
+    const bossName = kill.boss_key ? BOSSES[kill.boss_key].name : "";
+    const entry = rollDropEntry(kill.template_id, bossName);
+    if (entry) rolls.push({ index, itemId: entry.itemTemplateId });
+  }
+  const dropByIndex = new Map<number, Record<string, unknown>>();
+  if (rolls.length > 0) {
+    const { data: tickets, error: ticketError } = await admin.rpc("issue_drops", {
+      p_user_id: appUser.id,
+      p_character_id: characterId,
+      p_item_ids: rolls.map((r) => r.itemId),
+    });
+    if (ticketError) {
+      console.error("issue_drops failed:", ticketError.message);
+    } else {
+      const ids = [...new Set(rolls.map((r) => r.itemId))];
+      const { data: items, error: itemsError } = await admin
+        .from("item_templates")
+        .select("id, name, item_type")
+        .in("id", ids);
+      if (itemsError) console.error("drop item lookup failed:", itemsError.message);
+      const itemById = new Map((items ?? []).map((it: { id: number; name: string; item_type: string }) => [it.id, it]));
+      for (const t of (tickets as { r_drop_id: string; r_item_template_id: number; r_ordinal: number }[]) ?? []) {
+        const roll = rolls[t.r_ordinal - 1];
+        const item = itemById.get(t.r_item_template_id);
+        if (!roll || !item) continue;
+        dropByIndex.set(roll.index, {
+          drop_id: t.r_drop_id,
+          item_template_id: t.r_item_template_id,
+          item_name: item.name,
+          item_type: item.item_type,
+        });
+      }
+    }
+  }
+
+  for (const { index } of accepted) {
+    const drop = dropByIndex.get(index);
+    results[index] = drop ? { index, accepted: true, drop } : { index, accepted: true };
+  }
+
+  let bossCooldownsOut: BossCooldownRow[] | null = null;
+  if (bossRecorded) {
+    try {
+      bossCooldownsOut = await fetchBossCooldowns(admin, characterId);
+    } catch (error) {
+      console.error("boss cooldown refresh failed:", (error as Error).message);
+    }
+  }
+
+  return c.json({
+    progress,
+    results,
+    quests_updated: [...questsUpdated.values()],
+    boss_cooldowns: bossCooldownsOut,
+  });
+});
+
+// Spend stat points on one stat (server-side allocate_stat: cost, derived gains). The client
+// still predicts locally and then adopts the returned snapshot.
+charactersRoutes.post("/me/stats/allocate", async (c) => {
+  const appUser = c.get("appUser");
+  const { stat } = await readJsonBody(c);
+  if (typeof stat !== "string" || !["str", "dex", "con", "int", "wis"].includes(stat)) {
+    throw new ApiError(400, "validation_failed", "invalid_stat", "알 수 없는 스탯입니다.", "stat");
+  }
+
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  const { data, error } = await admin.rpc("allocate_stat", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+    p_stat: stat,
+  });
+  if (error) throw mapEconomyRpcError(error.message);
+
+  return c.json({ progress: snapshotFromRpc(data) });
 });
 
 charactersRoutes.post("/me/skills/upgrade", async (c) => {
@@ -757,30 +973,41 @@ charactersRoutes.post("/me/quests/:id/claim", async (c) => {
   }
 
   const inventory = await fetchInventory(admin, characterId);
+  // The claim RPC already applied the xp/gold (level-ups included); hand back the resulting state.
+  const progress = await fetchProgressSnapshot(admin, characterId).catch((error) => {
+    console.error("progress snapshot failed after quest claim:", (error as Error).message);
+    throw new ApiError(500, "internal_error", "quest_action_failed", "퀘스트 처리 중 오류가 발생했습니다.");
+  });
   return c.json({
     reward_xp: row.reward_xp,
     reward_gold: row.reward_gold,
     reward_item_id: row.reward_item_id,
     inventory,
+    progress,
   });
 });
 
-// Free item pickup from a world monster drop (see the client's lootStore.ts DROP_TABLE) — no
-// gold cost, unlike /me/inventory/buy. Like the rest of this project's combat/economy routes
-// (see the buy route's own comment), this trusts the client's claim that a drop with this
-// item_template_id legitimately existed in the world; monster drops were never made
-// server-authoritative any more than monster instances themselves were.
+// Picking up a world drop. The client no longer says WHICH item — it presents the ticket
+// (`drop_id`) the server issued when it rolled that drop (POST /me/kills), and the server grants
+// exactly the item on the ticket. Tickets are single-use, tied to one character and expire.
 charactersRoutes.post("/me/inventory/loot", async (c) => {
   const appUser = c.get("appUser");
-  const { item_template_id } = await readJsonBody(c);
-  if (typeof item_template_id !== "number" || !Number.isInteger(item_template_id)) {
-    throw new ApiError(400, "validation_failed", "invalid_request", "item_template_id는 정수여야 합니다.", "item_template_id");
+  const { drop_id } = await readJsonBody(c);
+  if (typeof drop_id !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(drop_id)) {
+    throw new ApiError(400, "validation_failed", "invalid_request", "drop_id가 올바르지 않습니다.", "drop_id");
   }
 
   const admin = getAdminClient();
   const characterId = await getActiveCharacterId(admin, appUser.id);
 
-  await grantInventoryItem(admin, characterId, item_template_id, 1);
+  const { data: itemId, error: redeemError } = await admin.rpc("redeem_drop", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+    p_drop_id: drop_id,
+  });
+  if (redeemError) throw mapEconomyRpcError(redeemError.message);
+
+  await grantInventoryItem(admin, characterId, itemId as number, 1);
 
   const inventory = await fetchInventory(admin, characterId);
   return c.json({ items: inventory }, 201);
@@ -907,11 +1134,10 @@ charactersRoutes.get("/me/inventory", async (c) => {
   }
 });
 
-// Shop catalog and buy/sell. Gold itself lives client-side only (combatStore.player.gold —
-// see the inventory/equipment design doc's note that combat/currency was never made
-// server-authoritative), so these routes deliberately do NOT validate or touch gold at
-// all — they only add/remove inventory rows. The client checks the price against its own
-// gold before calling buy, and adjusts its local gold after either call succeeds.
+// Shop catalog and buy/sell. Gold is server-owned (characters.gold): buy pays through the
+// spend_gold RPC (refused when the character can't afford it) and sell credits the item's
+// sell_price via grant_progress. The client still adjusts its local wallet right away so the UI
+// feels instant, then adopts the `progress` snapshot these responses carry.
 // 대장장이 sells equipment (weapon/armor), 상인 sells everything else (consumables etc. —
 // none seeded yet, so the merchant's shop is genuinely empty for now, matching reality,
 // rather than showing the blacksmith's items under both NPCs).
@@ -958,7 +1184,7 @@ charactersRoutes.post("/me/inventory/buy", async (c) => {
 
   const { data: item, error: itemError } = await admin
     .from("item_templates")
-    .select("id, equip_slot")
+    .select("id, equip_slot, buy_price")
     .eq("id", item_template_id)
     .gt("buy_price", 0)
     .maybeSingle();
@@ -976,64 +1202,35 @@ charactersRoutes.post("/me/inventory/buy", async (c) => {
     throw new ApiError(400, "validation_failed", "not_stackable", "장비 아이템은 한 번에 하나만 구매할 수 있습니다.", "quantity");
   }
 
-  // Non-equippable items (consumables) stack onto an existing row instead of cluttering
-  // the list with one row per purchase — equippable gear always gets its own row since
-  // each piece may end up with its own enchant_level down the line.
-  if (item.equip_slot === null) {
-    const { data: stack, error: stackError } = await admin
-      .from("character_inventory")
-      .select("id, quantity")
-      .eq("character_id", characterId)
-      .eq("item_template_id", item_template_id)
-      .maybeSingle();
-    if (stackError) {
-      console.error("inventory stack lookup failed during buy:", stackError.message);
-      throw new ApiError(500, "internal_error", "buy_failed", "아이템 구매 중 오류가 발생했습니다.");
-    }
-    if (stack) {
-      const { error: updateError } = await admin
-        .from("character_inventory")
-        .update({ quantity: stack.quantity + requestedQuantity })
-        .eq("id", stack.id);
-      if (updateError) {
-        console.error("inventory stack update failed during buy:", updateError.message);
-        throw new ApiError(500, "internal_error", "buy_failed", "아이템 구매 중 오류가 발생했습니다.");
-      }
-      const inventory = await fetchInventory(admin, characterId);
-      return c.json({ items: inventory }, 201);
-    }
-  }
-
-  const { data: existing, error: slotError } = await admin
-    .from("character_inventory")
-    .select("slot_index")
-    .eq("character_id", characterId)
-    .order("slot_index", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (slotError) {
-    console.error("inventory slot lookup failed:", slotError.message);
-    throw new ApiError(500, "internal_error", "buy_failed", "아이템 구매 중 오류가 발생했습니다.");
-  }
-  const nextSlot = existing ? existing.slot_index + 1 : 0;
-
-  const { error: insertError } = await admin.from("character_inventory").insert({
-    character_id: characterId,
-    item_template_id,
-    storage_type: "inventory",
-    slot_index: nextSlot,
-    quantity: item.equip_slot === null ? requestedQuantity : 1,
-    enchant_level: 0,
-    is_equipped: false,
-    equipped_slot: null,
+  // Gold is server-owned now: pay first (atomic check-and-deduct under the character lock, so two
+  // rapid buys can't both spend the same gold), then hand over the item — refunding if that fails.
+  const cost = (item.buy_price as number) * requestedQuantity;
+  const { data: paid, error: payError } = await admin.rpc("spend_gold", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+    p_amount: cost,
   });
-  if (insertError) {
-    console.error("inventory insert failed during buy:", insertError.message);
-    throw new ApiError(500, "internal_error", "buy_failed", "아이템 구매 중 오류가 발생했습니다.");
+  if (payError) throw mapEconomyRpcError(payError.message);
+  const progress = snapshotFromRpc(paid);
+
+  try {
+    // Consumables stack onto an existing row; equippable gear always gets its own row.
+    await grantInventoryItem(admin, characterId, item_template_id, requestedQuantity, {
+      code: "buy_failed",
+      message: "아이템 구매 중 오류가 발생했습니다.",
+    });
+  } catch (error) {
+    const { error: refundError } = await admin.rpc("grant_progress", {
+      p_character_id: characterId,
+      p_exp: 0,
+      p_gold: cost,
+    });
+    if (refundError) console.error("buy refund failed (gold lost):", refundError.message);
+    throw error;
   }
 
   const inventory = await fetchInventory(admin, characterId);
-  return c.json({ items: inventory }, 201);
+  return c.json({ items: inventory, progress }, 201);
 });
 
 // Shared by sell/use: decrements a stack by `amount` (default 1), deleting the row once it
@@ -1083,6 +1280,22 @@ charactersRoutes.post("/me/inventory/:id/sell", async (c) => {
   const admin = getAdminClient();
   const characterId = await getActiveCharacterId(admin, appUser.id);
 
+  // The sale price comes from the item template, never from the client.
+  const { data: row, error: rowError } = await admin
+    .from("character_inventory")
+    .select("id, item_templates(sell_price)")
+    .eq("id", inventoryId)
+    .eq("character_id", characterId)
+    .maybeSingle();
+  if (rowError) {
+    console.error("inventory lookup failed during sell:", rowError.message);
+    throw new ApiError(500, "internal_error", "sell_failed", "아이템 판매 중 오류가 발생했습니다.");
+  }
+  if (!row) {
+    throw new ApiError(404, "not_found", "item_not_found", "해당 아이템을 찾을 수 없습니다.", "id");
+  }
+  const sellPrice = ((row.item_templates as unknown as { sell_price: number } | null)?.sell_price ?? 0) as number;
+
   let result: 'ok' | 'not_found' | 'insufficient';
   try {
     result = await decrementOrDeleteInventoryRow(admin, inventoryId, characterId, requestedQuantity);
@@ -1097,8 +1310,20 @@ charactersRoutes.post("/me/inventory/:id/sell", async (c) => {
     throw new ApiError(400, "validation_failed", "insufficient_quantity", "보유한 수량보다 많이 판매할 수 없습니다.", "quantity");
   }
 
+  const { data: credited, error: creditError } = await admin.rpc("grant_progress", {
+    p_character_id: characterId,
+    p_exp: 0,
+    p_gold: sellPrice * requestedQuantity,
+  });
+  if (creditError) {
+    // The item is already gone; this should be practically unreachable (a DB failure between two
+    // statements) — log loudly so it can be reconciled by hand.
+    console.error("sell credit failed (item removed, gold NOT granted):", creditError.message, { characterId, inventoryId, sellPrice, requestedQuantity });
+    throw new ApiError(500, "internal_error", "sell_failed", "아이템 판매 중 오류가 발생했습니다.");
+  }
+
   const inventory = await fetchInventory(admin, characterId);
-  return c.json({ items: inventory, sold_quantity: requestedQuantity });
+  return c.json({ items: inventory, sold_quantity: requestedQuantity, progress: snapshotFromRpc(credited) });
 });
 
 // Consuming a potion or scroll. Like buy/sell, doesn't touch HP/MP/position itself — those

@@ -8,5 +8,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // supabase/tests/** are Deno tests (run with `npx deno test`, see HANDOFF.md), not vitest ones.
+    exclude: ['node_modules/**', 'dist/**', 'supabase/tests/**'],
   },
 });

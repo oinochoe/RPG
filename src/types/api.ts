@@ -73,8 +73,63 @@ export interface InventorySlot {
   enchant_scroll_type: 'weapon' | 'armor' | 'blessed' | 'cursed' | null;
 }
 
+/**
+ * The server-owned economy state (gold, exp/level, stat/skill points, derived stats). Every
+ * economy response carries one; the client adopts it over its own local prediction (see
+ * combatStore.adoptProgress). `progress_rev` only ever grows, so a stale response can be told apart.
+ */
+export interface ProgressSnapshot {
+  level: number;
+  experience: number;
+  gold: number;
+  skill_points: number;
+  skill_upgrade_points: number;
+  max_hp: number;
+  max_mp: number;
+  attack_power: number;
+  defense_power: number;
+  stat_str: number;
+  stat_dex: number;
+  stat_con: number;
+  stat_int: number;
+  stat_wis: number;
+  progress_rev: number;
+  // What this particular request changed (0/false for calls that only read).
+  exp_gained: number;
+  gold_gained: number;
+  leveled_up: boolean;
+}
+
 export interface InventoryListResponse {
   items: InventorySlot[];
+  // Present on shop responses (buy/sell), which change gold.
+  progress?: ProgressSnapshot;
+}
+
+/** One monster the client reports having killed (POST /characters/me/kills). */
+export interface KillReport {
+  template_id: number;
+  level: number;
+  boss_key?: string;
+}
+
+export interface DropTicket {
+  drop_id: string;
+  item_template_id: number;
+  item_name: string;
+  item_type: string;
+}
+
+export type KillResult =
+  | { index: number; accepted: true; drop?: DropTicket }
+  | { index: number; accepted: false; reason: string };
+
+export interface KillReportResponse {
+  progress: ProgressSnapshot;
+  results: KillResult[];
+  quests_updated: ActiveQuest[];
+  // Non-null only when a tracked boss kill was recorded.
+  boss_cooldowns: BossCooldown[] | null;
 }
 
 export type EnchantOutcome = 'success' | 'fail' | 'destroyed' | 'cursed';
@@ -141,6 +196,8 @@ export interface CharacterProfile {
   attack_power: number;
   defense_power: number;
   gold: number;
+  // Optional only so older fixtures compile; the server always sends it.
+  progress_rev?: number;
   skill_points: number;
   skill_upgrade_points: number;
   stat_str: number;

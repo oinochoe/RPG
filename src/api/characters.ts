@@ -1,13 +1,15 @@
 import { apiRequest } from './client';
 import type {
   ActiveQuest,
-  BossCooldown,
   CharacterClass,
   CharacterProfile,
   CharacterSummary,
   EnchantItemResponse,
   InventoryListResponse,
+  KillReport,
+  KillReportResponse,
   PaginatedResponse,
+  ProgressSnapshot,
   ShopListResponse,
 } from '../types/api';
 
@@ -51,27 +53,27 @@ export function updateCharacterPosition(position: CharacterPositionUpdate): Prom
   return apiRequest('/characters/me/position', { method: 'PATCH', body: position });
 }
 
-export interface CharacterProgressUpdate {
-  level: number;
-  experience: number;
-  skill_points: number;
-  attack_power: number;
-  defense_power: number;
-  max_hp: number;
+/**
+ * The only progress the client still writes: current HP/MP (the server clamps to its own maxima).
+ * Level, exp, gold, stats and the derived attack/HP/MP maxima are server-owned — they change through
+ * reportKills, quest claims, shop calls and allocateStat (see the design doc).
+ */
+export interface CharacterVitalsUpdate {
   current_hp: number;
-  max_mp: number;
   current_mp: number;
-  stat_str: number;
-  stat_dex: number;
-  stat_con: number;
-  stat_int: number;
-  stat_wis: number;
-  gold: number;
-  skill_upgrade_points: number;
 }
 
-export function syncProgress(progress: CharacterProgressUpdate): Promise<void> {
-  return apiRequest('/characters/me/progress', { method: 'PATCH', body: progress });
+export function syncProgress(vitals: CharacterVitalsUpdate): Promise<void> {
+  return apiRequest('/characters/me/progress', { method: 'PATCH', body: vitals });
+}
+
+/** Reports monsters the client killed; the server validates and returns the authoritative result. */
+export function reportKills(kills: KillReport[]): Promise<KillReportResponse> {
+  return apiRequest('/characters/me/kills', { method: 'POST', body: { kills } });
+}
+
+export function allocateStatOnServer(stat: 'str' | 'dex' | 'con' | 'int' | 'wis'): Promise<{ progress: ProgressSnapshot }> {
+  return apiRequest('/characters/me/stats/allocate', { method: 'POST', body: { stat } });
 }
 
 export function getInventory(): Promise<InventoryListResponse> {
@@ -126,34 +128,22 @@ export function acceptQuest(questTemplateId: number): Promise<ActiveQuest> {
   return apiRequest(`/characters/me/quests/${questTemplateId}/accept`, { method: 'POST' });
 }
 
-export function reportQuestKill(monsterTemplateId: number): Promise<{ updated: ActiveQuest[] }> {
-  return apiRequest('/characters/me/quests/progress', {
-    method: 'POST',
-    body: { monster_template_id: monsterTemplateId },
-  });
-}
-
 export interface ClaimQuestResponse {
   reward_xp: number;
   reward_gold: number;
   reward_item_id: number | null;
   inventory: InventoryListResponse['items'];
+  progress: ProgressSnapshot;
 }
 
 export function claimQuest(questTemplateId: number): Promise<ClaimQuestResponse> {
   return apiRequest(`/characters/me/quests/${questTemplateId}/claim`, { method: 'POST' });
 }
 
-export function lootItem(itemTemplateId: number): Promise<InventoryListResponse> {
+/** Picks up a world drop by the ticket the server issued when it rolled that drop. */
+export function lootItem(dropId: string): Promise<InventoryListResponse> {
   return apiRequest('/characters/me/inventory/loot', {
     method: 'POST',
-    body: { item_template_id: itemTemplateId },
-  });
-}
-
-export function reportBossKill(bossKey: string): Promise<{ boss_cooldowns: BossCooldown[] }> {
-  return apiRequest('/characters/me/boss-kill', {
-    method: 'POST',
-    body: { boss_key: bossKey },
+    body: { drop_id: dropId },
   });
 }

@@ -6,6 +6,8 @@ import { useCharacterStore } from "../../stores/characterStore";
 import { playerStuck } from "./playerTransform";
 import { useDraggablePanel } from "./useDraggablePanel";
 import { useTooltip } from "./Tooltip";
+import { useTutorialStore } from "../../lib/tutorial";
+import { useIsTouch } from "../../lib/device";
 
 const PANEL_WIDTH = 280;
 const STUCK_POLL_MS = 300;
@@ -38,6 +40,7 @@ export function SystemMenu() {
   const [showKeybinds, setShowKeybinds] = useState(false);
   const [isStuck, setIsStuck] = useState(false);
   const navigate = useNavigate();
+  const isTouch = useIsTouch();
   const { frameStyle, onHeaderPointerDown } = useDraggablePanel(() => ({
     x: window.innerWidth / 2 - PANEL_WIDTH / 2,
     y: Math.max(16, window.innerHeight / 2 - 180),
@@ -122,6 +125,25 @@ export function SystemMenu() {
       </div>
 
       <button
+        onClick={() => {
+          closeSystemMenu();
+          useTutorialStore.getState().open();
+        }}
+        style={{
+          width: "100%",
+          padding: "6px 0",
+          borderRadius: 6,
+          border: "1px solid rgba(232, 201, 122, 0.5)",
+          background: "rgba(232, 201, 122, 0.12)",
+          color: "#e8c97a",
+          fontSize: 12,
+          cursor: "pointer",
+          marginBottom: 6,
+        }}
+      >
+        게임 방법 (도움말)
+      </button>
+      <button
         onClick={() => navigate("/characters")}
         style={{
           width: "100%",
@@ -179,6 +201,7 @@ export function SystemMenu() {
         {stuckTooltip}
       </button>
 
+      {!isTouch && (
       <button
         onClick={() => setShowKeybinds((s) => !s)}
         style={{
@@ -195,7 +218,8 @@ export function SystemMenu() {
       >
         단축키 안내 {showKeybinds ? "▲" : "▼"}
       </button>
-      {showKeybinds && (
+      )}
+      {!isTouch && showKeybinds && (
         <div style={{ marginTop: 8 }}>
           {KEYBINDS.map(([label, key]) => (
             <div

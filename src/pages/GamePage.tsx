@@ -20,6 +20,7 @@ import { ShopPanel } from '../components/game/ShopPanel';
 import { QuestPanel } from '../components/game/QuestPanel';
 import { QuestLogPanel } from '../components/game/QuestLogPanel';
 import { SystemMenu } from '../components/game/SystemMenu';
+import { TutorialModal } from '../components/game/TutorialModal';
 import { LoadingScreen } from '../components/ui/spinner';
 import { translateApiError } from './errorMessages';
 import { useIsTouch } from '../lib/device';
@@ -152,6 +153,7 @@ export function GamePage() {
       <QuestPanel />
       <QuestLogPanel />
       <SystemMenu />
+      <TutorialModal />
     </>
   );
 }

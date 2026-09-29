@@ -411,11 +411,10 @@ interface QuestState {
    * the thrown error itself via a separate try/catch at the call site for its own error UI;
    * this only updates local state on success. */
   accept: (questId: number) => Promise<void>;
-  /** Best-effort, fire-and-forget from CharacterMesh's kill handling — a failed report is
-   * simply lost progress for that one kill (next kill's report isn't a retry), matching this
-   * project's established "best-effort sync, log and move on" pattern (see combatStore's
-   * syncProgress). Never throws. */
-  reportKill: (monsterTemplateId: number) => void;
+  /** Merges quest progress rows the server returned with a kill report (POST /me/kills) — the
+   * server bumps every in-progress quest that targets the killed monster, so this is just the
+   * resulting rows. */
+  applyKillUpdates: (updated: ActiveQuest[]) => void;
   /** Throws on failure (insufficient progress, already claimed, etc.) — callers award the
    * XP/gold themselves via combatStore's grantQuestReward once this resolves. */
   claim: (questId: number) => Promise<charactersApi.ClaimQuestResponse>;
@@ -436,20 +435,13 @@ export const useQuestStore = create<QuestState>((set) => ({
     set((s) => ({ quests: { ...s.quests, [questId]: row } }));
   },
 
-  reportKill: (monsterTemplateId) => {
-    charactersApi
-      .reportQuestKill(monsterTemplateId)
-      .then(({ updated }) => {
-        if (updated.length === 0) return;
-        set((s) => {
-          const quests = { ...s.quests };
-          for (const row of updated) quests[row.quest_template_id] = row;
-          return { quests };
-        });
-      })
-      .catch(() => {
-        // Best-effort — see the reportKill doc comment above.
-      });
+  applyKillUpdates: (updated) => {
+    if (updated.length === 0) return;
+    set((s) => {
+      const quests = { ...s.quests };
+      for (const row of updated) quests[row.quest_template_id] = row;
+      return { quests };
+    });
   },
 
   claim: async (questId) => {

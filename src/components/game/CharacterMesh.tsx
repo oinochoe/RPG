@@ -14,9 +14,9 @@ import { talkToNearby, pickupNearby } from './interactions';
 import { resolveMovement, PLAYER_COLLISION_RADIUS } from './worldColliders';
 import { OFFSET as CAMERA_OFFSET } from './CameraRig';
 import { playSound, playFootstep } from '../../lib/sound';
-import { useCombatStore, findSkillDef, BOSS_KEY_BY_NAME, HASTE_MOVE_SPEED_MULTIPLIER, SLOW_MOVE_SPEED_MULTIPLIER } from '../../stores/combatStore';
-import { useQuestStore } from '../../stores/questStore';
-import { useLootStore, pickupDrop } from '../../stores/lootStore';
+import { useCombatStore, findSkillDef, HASTE_MOVE_SPEED_MULTIPLIER, SLOW_MOVE_SPEED_MULTIPLIER } from '../../stores/combatStore';
+import { pickupDrop } from '../../stores/lootStore';
+import { reportKills } from '../../stores/killReporter';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
 import type { CharacterProfile } from '../../types/api';
@@ -498,17 +498,9 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     if (result.killed && result.goldDropped) playSound('coin', 0.4);
     const variant = PROJECTILE_VARIANT[character.character_class];
     const monster = result.instanceId != null ? useCombatStore.getState().monsters[result.instanceId] : undefined;
-    if (result.killed && result.monsterTemplateId !== undefined) {
-      useQuestStore.getState().reportKill(result.monsterTemplateId);
-      if (monster) useLootStore.getState().rollDrop(result.monsterTemplateId, monster.name, monster.position);
-      const bossKey = monster ? BOSS_KEY_BY_NAME[monster.name] : undefined;
-      if (bossKey && monster) {
-        useCharacterStore.getState().reportBossKill(bossKey, monster.name).catch(() => {
-          // Best-effort — worst case the boss just looks available again until the next
-          // reload/re-entry re-checks boss_cooldowns from a fresh profile fetch.
-        });
-      }
-    }
+    // Every monster this attack killed (an AoE can kill several) goes to the server, which decides
+    // the exp/gold/level-ups, quest progress, boss cooldown and drops — see killReporter.
+    if (result.kills && result.kills.length > 0) reportKills(result.kills);
     if (!variant) {
       beginSwing();
       playSound(isSkill ? 'hitHeavy' : 'hit', 0.5);

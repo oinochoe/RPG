@@ -7,11 +7,12 @@
 공개 배포(roleplaying.kr + Vercel + Resend 메일 가입)까지 완료된 상태. 남은 일은 이 순서로 진행.
 
 1. ~~**비밀번호 찾기**~~ — **구현 완료(2026-09-29)**, 배포 시 아래 "비밀번호 찾기 배포 절차" 필요.
-2. **서버에서 골드·경험치 검증(치트 방지)** — 지금 골드/경험치/전투는 클라이언트가 계산해서
-   서버에 저장하는 구조라 개발자 도구로 값 조작이 가능. 랭킹 등 경쟁 요소를 넣기 전에 필수.
-   (`PATCH /characters/me/progress` 의 상한 검증만 있음 — 킬 보고 기반 서버 계산으로 전환 필요)
-3. **첫 접속 안내(튜토리얼)** — 조작법(이동/공격/스킬/가방/퀘스트) 안내. 모바일은 조이스틱/행동 버튼 설명 포함.
-4. **`rpg-noel.vercel.app` → `roleplaying.kr` 자동 리다이렉트** (Vercel Domains에서 설정).
+2. ~~**서버에서 골드·경험치 검증(치트 방지)**~~ — **구현 완료(2026-09-29), 경제만 서버 권위(B안).** 설계/한계는
+   `docs/superpowers/specs/2026-09-29-server-authoritative-economy-design.md`, 배포 절차는 아래 "경제 서버 권위 배포 절차".
+   남은 위험: API를 직접 호출하는 스크립트가 킬을 가장해 파밍하는 것(속도/레벨 상한으로 이득만 제한).
+   완전히 막으려면 전투 전체를 서버가 관리하는 C안이 필요(몬스터 인스턴스/데미지/이동 검증).
+3. ~~**첫 접속 안내(튜토리얼)**~~ — **구현 완료(2026-09-29)**. 첫 진입 시 자동 표시, 메뉴의 '게임 방법'에서 재열람. 내용은 `src/lib/tutorial.ts`(기기별 문구), 창은 `TutorialModal.tsx`.
+4. ~~**`rpg-noel.vercel.app` → `www.roleplaying.kr` 자동 리다이렉트**~~ — `vercel.json`의 `redirects`로 설정함(임시 307). 기준(Primary) 도메인은 `www.roleplaying.kr`, 루트 `roleplaying.kr`은 Vercel Domains에서 www로 308. `vercel.json`에 www↔루트 리다이렉트를 넣으면 루프가 생기니 넣지 말 것. **배포 후 실제로 이동하는지 확인 필요**(로컬에서 검증 불가). 잘 되면 `permanent: true`로 바꿔도 됨.
 5. **모바일 후속 개선** — 실제 기기 테스트 피드백 반영(아래 "모바일 지원" 참고).
 6. **콘텐츠** — 업적, 도감, 일일 퀘스트, 랭킹(2번 이후), 파티/채팅은 멀티플레이 이후 별도 설계.
 7. **로그인 화면 번들 추가 경량화** — 게임 청크(GamePage)가 아직 큼(~1.1MB). 몬스터/NPC GLTF preload 분할 검토.
@@ -26,12 +27,44 @@
    `supabase/templates/recovery.html` 내용으로 교체 (제목: `[RPG] 비밀번호 재설정 안내`).
    링크가 `{{ .SiteURL }}/reset-password?token={{ .TokenHash }}` 여야 클라이언트 페이지로 옴.
    (`config.toml`의 `[auth.email.template.recovery]`는 로컬 개발용, 라이브에는 대시보드에서 직접 적용)
-3. Site URL이 `https://roleplaying.kr`(끝에 `/` 없이)이고 Redirect URLs에 `https://roleplaying.kr/**`가 있는지 확인.
+3. Site URL이 `https://www.roleplaying.kr`(끝에 `/` 없이)이고 Redirect URLs에 `https://www.roleplaying.kr/**`가 있는지 확인.
 4. 확인: 로그인 화면 → "비밀번호를 잊으셨나요?" → 가입한 메일 입력 → 메일 수신 → 링크 → 새 비밀번호 →
    새 비밀번호로 로그인. (링크는 1시간 유효, 1회용. 비밀번호 변경 시 그 계정의 모든 세션이 로그아웃됨.)
 
 설계 메모: 존재하지 않는 이메일에도 똑같이 "메일을 보냈습니다"를 보여줌(계정 유무 노출 방지).
 약한 비밀번호는 토큰을 소모하기 전에 거절(클라이언트+서버 모두). 메일 발송 한도는 Supabase Rate Limits를 따름.
+
+## 경제 서버 권위 배포 절차 (2026-09-29)
+
+골드·경험치/레벨·스탯 포인트·파생 능력치·아이템 지급은 이제 **서버(DB)가 유일한 원본**이다.
+클라이언트는 화면 반응성을 위해 로컬에서 먼저 예측하고, 서버 응답의 `progress` 스냅샷으로 덮어쓴다.
+
+**배포 순서 (중요):**
+1. `supabase db push` — 마이그레이션 `20260929010000_server_authoritative_economy.sql`
+   (progress_rev/킬 토큰 컬럼, pending_drops 테이블, grant_progress/apply_kills/allocate_stat/spend_gold/
+   issue_drops/redeem_drop/sync_character_vitals RPC, claim_quest_reward가 보상을 직접 적용)
+2. `supabase functions deploy api`
+3. PR 머지 → Vercel 배포(새 클라이언트)
+
+1~2와 3 사이에는 구 클라이언트가 새 서버와 섞인다: 구 클라이언트의 진행 저장(레벨/골드 등)은 무시되고
+구 클라이언트의 아이템 줍기는 거절된다. 새로고침하면 해결.
+
+**주의할 동작 변화**
+- `PATCH /characters/me/progress`는 `current_hp`/`current_mp`만 받는다. 레벨/경험치/골드/능력치는 서버가
+  킬 보고(`POST /me/kills`), 퀘스트 보상, 상점, 스탯 배분(`POST /me/stats/allocate`)으로만 바꾼다.
+- 드랍은 서버가 굴리고 1회용 티켓(`pending_drops`, 5분 유효)을 발급한다. 드랍 표는 이제
+  `supabase/functions/api/drops.ts`에 있다(예전 `lootStore.ts`). 확률을 바꾸려면 여기를 고치고 함수를 재배포.
+- 몬스터 레벨 상한/보스 표는 `economyRules.ts`. **몬스터나 던전 층을 추가하면(레벨이 상한을 넘으면) 정상 처치도
+  거절되므로** 이 표를 같이 고쳐야 한다 — `src/stores/serverEconomy.test.ts`가 어긋나면 실패해 알려준다.
+- 킬 속도 제한: 초당 1.5킬, 순간 최대 25킬(SQL `apply_kills`의 상수). 광역 스킬로 한 번에 많이 잡아도 통과하는 값.
+
+**테스트**
+- 클라이언트/규칙: `npm test` (서버 규칙과 클라이언트 예측의 일치, 몬스터 레벨 상한, 드랍 확률 포함)
+- 서버 라우트(가짜 DB): `npx deno test --no-check --config supabase/tests/api/deno.json --allow-env --allow-read supabase/tests/api`
+- 서버 타입체크: `cd supabase/functions/api && npx deno check --config deno.json index.ts`
+  (기존에 `fetchInventory`의 supabase-js 타입 추론 오류 9개가 있음 — 새 오류가 늘지 않는지만 확인)
+- SQL은 로컬 Postgres에 전체 마이그레이션을 적용해 RPC를 직접 호출해 검증했다(레벨업, 토큰 버킷, 스탯 비용,
+  골드 부족/상한, 드랍 티켓, 퀘스트 보상). 새 RPC를 고치면 같은 방식으로 확인할 것.
 
 ## 모바일 지원 (2026-09-29)
 
@@ -61,8 +94,8 @@ Supabase 기본 메일 발송기는 **프로젝트 팀원 이메일로만** 발�
 
 ### 2. Supabase Auth URL
 Dashboard → Authentication → URL Configuration
-- Site URL: `https://roleplaying.kr` (끝에 `/` 붙이지 말 것)
-- Redirect URLs: `https://roleplaying.kr/**`, `https://rpg-noel.vercel.app/**` (로컬 개발용 `http://localhost:5173/**`도 유지)
+- Site URL: `https://www.roleplaying.kr` (끝에 `/` 붙이지 말 것)
+- Redirect URLs: `https://www.roleplaying.kr/**`, `https://rpg-noel.vercel.app/**` (로컬 개발용 `http://localhost:5173/**`도 유지)
 
 ### 3. 메일 발송(SMTP) 설정 — Resend 기준
 1. resend.com 가입(무료: 일 100통/월 3,000통) → Domains에서 본인 도메인 추가 → 안내된
