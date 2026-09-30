@@ -113,6 +113,26 @@ DB/함수와 클라이언트 사이에는 잠깐 구 클라이언트와 새 서�
 - 지형 색을 바꾸면 미니맵/월드맵의 같은 색도 함께 바꿀 것(3D 지형과 지도가 서로 맞춰져 있다).
 - 외곽선은 메시를 한 벌 더 그린다. 폰이 느리면 `toonGLTF.ts`의 `outline`을 끄거나 몬스터 렌더 반경을 줄일 것.
 
+## 전투 연출 (타격감)
+
+설계는 `docs/superpowers/specs/2026-09-30-combat-feel-design.md`. 전투 규칙(데미지 계산)은 건드리지 않고 결과를 구경만 한다. 구조:
+
+- `combatStore`의 HP 감소 -> `combatFx.ts`의 `startCombatFxWatcher`/`diffHits`가 diff -> `HitEvent`(`hit`/`kill`/`playerHit`) 버스 -> 구독자:
+  - `CombatFxRoot.tsx`: 화면 흔들림(`CameraRig`가 `sampleShake`로 매 프레임 오프셋을 더함)
+  - `hitReaction.ts`: 몬스터 하얀 번쩍임 + 히트스톱(`useHitReaction`)
+  - `HitSparks.tsx` + `sparkPool.ts`: 96칸 `InstancedMesh` 파티클 풀
+  - `DamageNumbers.tsx` + `damageNumberSpec.ts`: 데미지 숫자(동시 12개 상한). 파일명은 계획서의 `damageNumbers.ts`가 아니라
+    `damageNumberSpec.ts`다(Windows는 대소문자를 구분하지 않아 `DamageNumbers.tsx`와 충돌).
+- 규칙:
+  - **새 연출은 `subscribeHit`으로만 붙인다. `combatStore`는 건드리지 않는다.** 구독자가 던진 예외는 버스가 삼킨다.
+  - three.js 재질/라이트 색은 hex만(CSS 변수 금지). `pointLight` 추가 금지, 발광은 `toneMapped={false}` + 기존 Bloom.
+  - 파티클은 `SparkPool`을 재사용한다. 타격마다 새로 할당하지 말 것(초과 시 가장 오래된 칸을 덮어씀).
+  - 궁수/마법사는 데미지가 즉시 적용되고 투사체가 늦게 도착하므로, `CharacterMesh`가 `setHitLeadMs`로 지연을 알려 몬스터 대상 이벤트를 늦춘다(플레이어 피격은 지연 없음).
+  - "강타" = `damage > attackPower * 1.25`(`isHeavyHit`). 사망(`kill`)은 항상 강타. 사망 연출은 큰 스파크 + 흔들림 + 그 몬스터의 히트스톱(전역 슬로모션은 뺐다).
+  - 화면 흔들림은 시스템 메뉴에서 끌 수 있다(`fxSettings.ts`, localStorage 키 `rpg.fx.shake`, 저장소가 막혀도 기본 켜짐).
+- 알려진 한계: 사망 타격의 숫자는 남은 HP만큼만 나온다(스토어가 오버킬을 0으로 자름). 실제 크리티컬 시스템은 없다.
+  **폰 실기기 성능은 아직 확인하지 못했다**(자동화로 검증 불가).
+
 ## 경제 서버 권위 (동작/주의)
 
 골드·경험치/레벨·스탯 포인트·파생 능력치·아이템 지급은 **서버(DB)가 유일한 원본**이다. 클라이언트는 화면
