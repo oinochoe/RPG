@@ -38,7 +38,8 @@ export function LightRig() {
     <>
       <directionalLight
         ref={lightRef}
-        intensity={2}
+        color="#fff1d6"
+        intensity={1.5}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-35}

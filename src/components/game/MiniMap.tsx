@@ -51,7 +51,7 @@ function MiniFieldView({ player, facing }: { player: { x: number; z: number }; f
       viewBox={`${player.x - half} ${player.z - half} ${half * 2} ${half * 2}`}
       style={{ display: 'block' }}
     >
-      <rect x={-BACKDROP_HALF} y={-BACKDROP_HALF} width={BACKDROP_HALF * 2} height={BACKDROP_HALF * 2} fill="#3f6b34" />
+      <rect x={-BACKDROP_HALF} y={-BACKDROP_HALF} width={BACKDROP_HALF * 2} height={BACKDROP_HALF * 2} fill="#69bb4a" />
       <rect x={DESERT_X_START} y={-BACKDROP_HALF} width={DESERT_X_END - DESERT_X_START} height={BACKDROP_HALF * 2} fill="#d9b877" />
       {/* The 4 outer-ring danger zones — same colors as WorldMap.tsx's full map, just without
           the text labels (no room in a 190px corner view). 3 of the 4 trace the same curved
@@ -59,11 +59,11 @@ function MiniFieldView({ player, facing }: { player: { x: number; z: number }; f
           with the player, unlike WorldMap's fixed viewBox), recomputed only across the locally
           visible window rather than the full field. 구울 평원 keeps its flat rect (see
           WorldMap.tsx's own comment on why). */}
-      <path d={curvedBandPathD(fairyForestEdgeAt, player.x - half - 5, player.x + half + 5, 3000, 'x', 5)} fill="#3f6b4a" />
-      <path d={curvedBandPathD(orcVillageEdgeAt, player.x - half - 5, player.x + half + 5, -3000, 'x', 5)} fill="#6b4a3a" />
-      <path d={curvedBandPathD(boneFieldEdgeAt, player.z - half - 5, player.z + half + 5, -3000, 'z', 5)} fill="#9c9484" />
-      <rect x={DESERT_X_END} y={-BACKDROP_HALF} width={BACKDROP_HALF} height={BACKDROP_HALF * 2} fill="#3a4a3a" />
-      <path d={riverPathD(player.z - half - 5, player.z + half + 5)} fill="#2f7fa8" />
+      <path d={curvedBandPathD(fairyForestEdgeAt, player.x - half - 5, player.x + half + 5, 3000, 'x', 5)} fill="#4f9a62" />
+      <path d={curvedBandPathD(orcVillageEdgeAt, player.x - half - 5, player.x + half + 5, -3000, 'x', 5)} fill="#8e6248" />
+      <path d={curvedBandPathD(boneFieldEdgeAt, player.z - half - 5, player.z + half + 5, -3000, 'z', 5)} fill="#c2b8a2" />
+      <rect x={DESERT_X_END} y={-BACKDROP_HALF} width={BACKDROP_HALF} height={BACKDROP_HALF * 2} fill="#55694f" />
+      <path d={riverPathD(player.z - half - 5, player.z + half + 5)} fill="#3a9ad0" />
       <rect
         x={RIVER_X_CENTER - RIVER_HALF_WIDTH - 1.5}
         y={-5}

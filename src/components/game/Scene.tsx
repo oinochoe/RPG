@@ -26,6 +26,7 @@ import {
 } from './MonsterMesh';
 import { CameraRig } from './CameraRig';
 import { LightRig } from './LightRig';
+import { OutlineViewport } from './outline';
 import { playerPosition } from './playerTransform';
 import { useCombatStore } from '../../stores/combatStore';
 import { useQuestStore } from '../../stores/questStore';
@@ -225,6 +226,7 @@ export function Scene({
     <>
       <CameraRig />
       <LightRig />
+      <OutlineViewport />
 
       <color attach="background" args={[isDungeon ? DUNGEON_FOG_COLOR : FIELD_FOG_COLOR]} />
       <fog
@@ -232,7 +234,7 @@ export function Scene({
         args={isDungeon ? [DUNGEON_FOG_COLOR, 14, 40] : [FIELD_FOG_COLOR, 34, 145]}
       />
 
-      <hemisphereLight args={['#e8f4ff', '#3f6b34', isDungeon ? 0.08 : 0.32]} />
+      <hemisphereLight args={['#ffffff', '#a8d888', isDungeon ? 0.08 : 0.6]} />
       <ambientLight intensity={isDungeon ? 0.12 : 0.35} />
 
       {isDungeon && currentDungeonId ? (
@@ -283,7 +285,7 @@ export function Scene({
 
       <EffectComposer multisampling={0}>
         <Bloom luminanceThreshold={0.85} luminanceSmoothing={0.6} intensity={0.15} mipmapBlur />
-        <Vignette eskil={false} offset={0.3} darkness={0.4} />
+        <Vignette eskil={false} offset={0.35} darkness={0.22} />
       </EffectComposer>
     </>
   );

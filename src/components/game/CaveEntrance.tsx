@@ -1,4 +1,5 @@
 import { DUNGEON_ENTRANCES, type DungeonId } from './worldColliders';
+import { getToonGradient } from './toon';
 import { DUNGEON_META } from './Dungeon';
 import { NameTag } from './NameTag';
 
@@ -15,15 +16,15 @@ function SingleCaveEntrance({ dungeonId }: { dungeonId: DungeonId }) {
     <group position={[point[0], 0, point[1]]}>
       <mesh castShadow receiveShadow position={[-2.2, 1.1, -1.2]}>
         <dodecahedronGeometry args={[2, 0]} />
-        <meshStandardMaterial color="#6b655a" roughness={0.95} flatShading />
+        <meshToonMaterial color="#6b655a" gradientMap={getToonGradient()} />
       </mesh>
       <mesh castShadow receiveShadow position={[2.2, 1.3, -1.2]}>
         <dodecahedronGeometry args={[2.2, 0]} />
-        <meshStandardMaterial color="#5e584e" roughness={0.95} flatShading />
+        <meshToonMaterial color="#5e584e" gradientMap={getToonGradient()} />
       </mesh>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
         <circleGeometry args={[1.6, 24]} />
-        <meshStandardMaterial color="#0a0a0c" roughness={1} />
+        <meshToonMaterial color="#0a0a0c" gradientMap={getToonGradient()} />
       </mesh>
       <pointLight position={[0, 1, 0.5]} color="#ff9a3c" intensity={0.5} distance={5} />
       <NameTag position={[0, 2.6, -1.2]} label={name} accent="#c084fc" />

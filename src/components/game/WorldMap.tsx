@@ -137,8 +137,8 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
     >
       <defs>
         <radialGradient id="fieldGrass" cx="50%" cy="50%" r="75%">
-          <stop offset="0%" stopColor="#4d7a3d" />
-          <stop offset="100%" stopColor="#2a4423" />
+          <stop offset="0%" stopColor="#7ccd58" />
+          <stop offset="100%" stopColor="#4f9a3a" />
         </radialGradient>
         <linearGradient id="fieldDesert" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stopColor="#c9a865" />
@@ -172,15 +172,15 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
           4 trace a curved frontier (curvedBandPathD, same edge function the actual zone check
           uses) instead of a flat rect — a dead-straight border read as flat/artificial. 구울
           평원 keeps a flat rect since its inner edge is the desert's own straight biome line. */}
-      <path d={FAIRY_FOREST_PATH} fill="#3f6b4a" opacity={0.75} />
+      <path d={FAIRY_FOREST_PATH} fill="#4f9a62" opacity={0.75} />
       <text x={(-VIEW_HALF + DESERT_X_END) / 2} y={(OUTER_ZONE_BOUND + VIEW_HALF) / 2} fill="#eaffe0" fontSize={7} textAnchor="middle" fontWeight={700}>
         요정의 숲
       </text>
-      <path d={ORC_VILLAGE_PATH} fill="#6b4a3a" opacity={0.75} />
+      <path d={ORC_VILLAGE_PATH} fill="#8e6248" opacity={0.75} />
       <text x={(-VIEW_HALF + DESERT_X_END) / 2} y={-(OUTER_ZONE_BOUND + VIEW_HALF) / 2} fill="#ffe8d0" fontSize={7} textAnchor="middle" fontWeight={700}>
         오크 마을
       </text>
-      <path d={BONE_FIELD_PATH} fill="#9c9484" opacity={0.75} />
+      <path d={BONE_FIELD_PATH} fill="#c2b8a2" opacity={0.75} />
       <text x={(-VIEW_HALF - OUTER_ZONE_BOUND) / 2} y={0} fill="#2a241c" fontSize={7} textAnchor="middle" fontWeight={700}>
         해골 평원
       </text>
@@ -189,13 +189,13 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
         y={-VIEW_HALF}
         width={VIEW_HALF - DESERT_X_END}
         height={VIEW_HALF * 2}
-        fill="#3a4a3a"
+        fill="#55694f"
         opacity={0.8}
       />
       <text x={(DESERT_X_END + VIEW_HALF) / 2} y={0} fill="#d0f0c0" fontSize={7} textAnchor="middle" fontWeight={700}>
         구울 평원
       </text>
-      <path d={RIVER_PATH} fill="#2f7fa8" />
+      <path d={RIVER_PATH} fill="#3a9ad0" />
       {/* The one crossing point in the river's collider chain (see worldColliders.ts's
           riverColliders/BRIDGE_Z/BRIDGE_GAP_HALF) — drawn as a short wooden deck spanning the
           river's width so the map actually shows where to cross instead of just a solid blue

@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react';
-import { useGLTF } from '@react-three/drei';
+import { useGLTF } from './toonGLTF';
 import * as THREE from 'three';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { setMoveTarget } from './moveTarget';

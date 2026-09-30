@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, type RefObject } from 'react';
-import { useGLTF, useAnimations } from '@react-three/drei';
+import { useAnimations } from '@react-three/drei';
+import { useGLTF } from './toonGLTF';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
 import { NameTag } from './NameTag';
@@ -33,7 +34,7 @@ function isStandaloneKind(kind: NpcKind): kind is StandaloneNpcKind {
 }
 
 function RetargetedNpcModel({ kind, modelGroupRef }: { kind: RetargetedNpcKind; modelGroupRef: RefObject<THREE.Group | null> }) {
-  const characterGltf = useGLTF(RETARGETED_NPC_MODEL[kind]);
+  const characterGltf = useGLTF(RETARGETED_NPC_MODEL[kind], { outline: true });
   const generalGltf = useGLTF(RIG_GENERAL);
 
   const scene = useMemo(() => cloneSkeleton(characterGltf.scene), [characterGltf.scene]);

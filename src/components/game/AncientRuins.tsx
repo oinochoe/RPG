@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { getToonGradient } from './toon';
 import { NameTag } from './NameTag';
 import { RUINS_POSITION } from './worldColliders';
 
@@ -38,7 +39,7 @@ function Column({ def }: { def: ColumnDef }) {
       rotation={[def.tiltX, 0, def.tiltZ]}
     >
       <cylinderGeometry args={[0.45, 0.55, def.height, 8]} />
-      <meshStandardMaterial color="#4a463e" roughness={0.95} flatShading />
+      <meshToonMaterial color="#4a463e" gradientMap={getToonGradient()} />
     </mesh>
   );
 }
@@ -51,7 +52,7 @@ export function AncientRuins() {
     <group position={[RUINS_POSITION[0], 0, RUINS_POSITION[1]]}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]} receiveShadow>
         <circleGeometry args={[5.5, 32]} />
-        <meshStandardMaterial color="#2e2b26" roughness={1} />
+        <meshToonMaterial color="#2e2b26" gradientMap={getToonGradient()} />
       </mesh>
       {COLUMNS.map((def, i) => (
         <Column key={i} def={def} />

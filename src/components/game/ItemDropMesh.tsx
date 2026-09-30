@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
+import { useGLTF } from './toonGLTF';
 import * as THREE from 'three';
 import { NameTag } from './NameTag';
 import { playerPosition, triggerPickupAnim } from './playerTransform';

@@ -126,7 +126,7 @@ export function GamePage() {
         // the field stutter on a mid-range phone.
         shadows={isTouch ? 'basic' : 'soft'}
         dpr={isTouch ? [1, 1.5] : [1, 2]}
-        gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1 }}
+        gl={{ toneMapping: THREE.NoToneMapping }}
         onContextMenu={(e) => e.preventDefault()}
         // 100dvh, not 100vh: on mobile browsers 100vh is the height WITHOUT the URL bar
         // showing, so the bottom of the game (hotbar, joystick) hid behind the browser chrome.

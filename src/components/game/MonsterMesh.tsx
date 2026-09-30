@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
-import { Html, Sparkles, useAnimations, useGLTF } from '@react-three/drei';
+import { Html, Sparkles, useAnimations } from '@react-three/drei';
+import { useGLTF } from './toonGLTF';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
 import { NameTag } from './NameTag';
@@ -294,8 +295,8 @@ function swingEase(t: number): { phase: 'strike' | 'recovery'; localT: number } 
 
 function RiggedSkeletonMonsterBody({ combat, tint }: { combat: MonsterCombatState; tint?: THREE.ColorRepresentation }) {
   const modelGroupRef = useRef<THREE.Group>(null);
-  const characterGltf = useGLTF(SKELETON_MODEL_URL);
-  const weaponGltf = useGLTF(SKELETON_WEAPON_URL);
+  const characterGltf = useGLTF(SKELETON_MODEL_URL, { outline: true });
+  const weaponGltf = useGLTF(SKELETON_WEAPON_URL, { outline: true });
   const generalGltf = useGLTF(SKELETON_RIG_GENERAL);
   const movementGltf = useGLTF(SKELETON_RIG_MOVEMENT);
 
@@ -442,7 +443,7 @@ function RiggedMonsterBody({
   tint?: THREE.ColorRepresentation;
 }) {
   const modelGroupRef = useRef<THREE.Group>(null);
-  const gltf = useGLTF(config.modelUrl);
+  const gltf = useGLTF(config.modelUrl, { outline: true });
   const scene = useMemo(() => cloneSkeleton(gltf.scene), [gltf.scene]);
   const { actions } = useAnimations(gltf.animations, scene);
   const currentAction = useRef<string | null>(null);

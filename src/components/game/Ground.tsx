@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef } from 'react';
-import { useGLTF } from '@react-three/drei';
+import { getToonGradient } from './toon';
+import { useGLTF } from './toonGLTF';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import {
@@ -114,7 +115,7 @@ function Rocks({ decorations }: { decorations: Decoration[] }) {
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, rocks.length]} castShadow receiveShadow>
       <dodecahedronGeometry args={[1, 0]} />
-      <meshStandardMaterial color="#7c7566" roughness={0.95} flatShading />
+      <meshToonMaterial color="#7c7566" gradientMap={getToonGradient()} />
     </instancedMesh>
   );
 }
@@ -139,7 +140,7 @@ function GrassTufts({ decorations }: { decorations: Decoration[] }) {
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, tufts.length]} castShadow>
       <coneGeometry args={[0.22, 0.5, 5]} />
-      <meshStandardMaterial color="#5fae4a" roughness={0.75} flatShading />
+      <meshToonMaterial color="#5fae4a" gradientMap={getToonGradient()} />
     </instancedMesh>
   );
 }
@@ -188,7 +189,7 @@ function DesertPatch() {
       receiveShadow
     >
       <planeGeometry args={[DESERT_WIDTH, GROUND_SIZE]} />
-      <meshStandardMaterial map={sandTexture} roughness={1} metalness={0} />
+      <meshToonMaterial map={sandTexture} gradientMap={getToonGradient()} />
     </mesh>
   );
 }
@@ -265,7 +266,7 @@ function ForestFloorPatch() {
   );
   return (
     <mesh position={[0, 0.012, 0]} geometry={geometry} receiveShadow>
-      <meshStandardMaterial map={texture} roughness={0.95} metalness={0} side={THREE.DoubleSide} />
+      <meshToonMaterial map={texture} side={THREE.DoubleSide} gradientMap={getToonGradient()} />
     </mesh>
   );
 }
@@ -280,7 +281,7 @@ function OrcDirtPatch() {
   );
   return (
     <mesh position={[0, 0.012, 0]} geometry={geometry} receiveShadow>
-      <meshStandardMaterial map={texture} roughness={1} metalness={0} side={THREE.DoubleSide} />
+      <meshToonMaterial map={texture} side={THREE.DoubleSide} gradientMap={getToonGradient()} />
     </mesh>
   );
 }
@@ -295,7 +296,7 @@ function BoneFieldPatch() {
   );
   return (
     <mesh position={[0, 0.012, 0]} geometry={geometry} receiveShadow>
-      <meshStandardMaterial map={texture} roughness={1} metalness={0} side={THREE.DoubleSide} />
+      <meshToonMaterial map={texture} side={THREE.DoubleSide} gradientMap={getToonGradient()} />
     </mesh>
   );
 }
@@ -311,7 +312,7 @@ function GhoulFieldPatch() {
   return (
     <mesh position={[DESERT_X_END + width / 2, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
       <planeGeometry args={[width, GROUND_SIZE]} />
-      <meshStandardMaterial map={texture} roughness={1} metalness={0} />
+      <meshToonMaterial map={texture} gradientMap={getToonGradient()} />
     </mesh>
   );
 }
@@ -378,14 +379,13 @@ function RiverStrip() {
 
   return (
     <mesh position={[0, 0.02, 0]} geometry={geometry}>
-      <meshStandardMaterial
+      <meshToonMaterial
         map={waterTexture}
         vertexColors
-        roughness={0.3}
-        metalness={0.1}
         transparent
         opacity={0.92}
         side={THREE.DoubleSide}
+        gradientMap={getToonGradient()}
       />
     </mesh>
   );
@@ -417,7 +417,7 @@ export function Ground() {
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow onClick={handleGroundClick}>
         <planeGeometry args={[GROUND_SIZE, GROUND_SIZE]} />
-        <meshStandardMaterial map={grassTexture} roughness={0.9} metalness={0} />
+        <meshToonMaterial map={grassTexture} gradientMap={getToonGradient()} />
       </mesh>
       <DesertPatch />
       <GhoulFieldPatch />

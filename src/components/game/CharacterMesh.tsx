@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { useGLTF, useAnimations, useTexture } from '@react-three/drei';
+import { useAnimations, useTexture } from '@react-three/drei';
+import { useGLTF } from './toonGLTF';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
 import { NameTag } from './NameTag';
@@ -310,9 +311,9 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   const equippedBodyArmor = liveInventory.find((item) => item.is_equipped && item.equip_slot === 'body_armor');
   const armorTint = equippedBodyArmor ? armorTintForLevel(equippedBodyArmor.required_level) : undefined;
 
-  const characterGltf = useGLTF(CHARACTER_MODEL[character.character_class]);
-  const weaponGltf = useGLTF(weaponModelUrl);
-  const shieldGltf = useGLTF(shieldModelUrl ?? DEFAULT_SHIELD_MODEL);
+  const characterGltf = useGLTF(CHARACTER_MODEL[character.character_class], { outline: true });
+  const weaponGltf = useGLTF(weaponModelUrl, { outline: true });
+  const shieldGltf = useGLTF(shieldModelUrl ?? DEFAULT_SHIELD_MODEL, { outline: true });
   const generalGltf = useGLTF(RIG_GENERAL);
   const movementGltf = useGLTF(RIG_MOVEMENT);
 

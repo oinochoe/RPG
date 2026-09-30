@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useMemo } from 'react';
-import { useGLTF } from '@react-three/drei';
+import { getToonGradient } from './toon';
+import { useGLTF } from './toonGLTF';
 import * as THREE from 'three';
 import { useCobblestoneTexture } from './proceduralTextures';
 import { VILLAGES, type VillageZone } from './worldColliders';
@@ -211,15 +212,15 @@ function Fountain({ zone }: { zone: VillageZone }) {
     <group position={[zone.center[0], 0, zone.center[1]]}>
       <mesh receiveShadow castShadow position={[0, 0.25, 0]}>
         <cylinderGeometry args={[1.3, 1.4, 0.5, 20]} />
-        <meshStandardMaterial color="#9aa3ad" roughness={0.6} />
+        <meshToonMaterial color="#9aa3ad" gradientMap={getToonGradient()} />
       </mesh>
       <mesh position={[0, 0.55, 0]}>
         <cylinderGeometry args={[1.05, 1.05, 0.15, 20]} />
-        <meshStandardMaterial color="#6fa8d6" roughness={0.2} metalness={0.1} emissive="#2a5f8a" emissiveIntensity={0.2} />
+        <meshToonMaterial color="#6fa8d6" emissive="#2a5f8a" emissiveIntensity={0.2} gradientMap={getToonGradient()} />
       </mesh>
       <mesh castShadow position={[0, 0.9, 0]}>
         <cylinderGeometry args={[0.16, 0.2, 0.7, 10]} />
-        <meshStandardMaterial color="#9aa3ad" roughness={0.6} />
+        <meshToonMaterial color="#9aa3ad" gradientMap={getToonGradient()} />
       </mesh>
       <pointLight position={[0, 1.2, 0]} color="#bfe3ff" intensity={0.4} distance={5} />
     </group>
@@ -233,7 +234,7 @@ function VillagePlaza({ zone, config }: { zone: VillageZone; config: VillageConf
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[zone.center[0], 0.005, zone.center[1]]} receiveShadow>
         <planeGeometry args={[zone.size, zone.size]} />
-        <meshStandardMaterial map={cobbleTexture} roughness={0.95} metalness={0} />
+        <meshToonMaterial map={cobbleTexture} gradientMap={getToonGradient()} />
       </mesh>
 
       <Fountain zone={zone} />

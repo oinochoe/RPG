@@ -20,10 +20,8 @@
 - [ ] **모바일 후속 개선** — 실제 기기 테스트 피드백 반영(아래 "모바일 지원" 참고).
 - [ ] **콘텐츠** — 업적, 도감, 일일 퀘스트, 랭킹(경제가 서버 권위가 됐으니 가능). 파티/채팅은 멀티플레이 이후 별도 설계.
 
-### 비주얼 (밝은 UI는 끝, 월드가 남음)
-- [ ] **3D 월드의 톤 맞추기(툰 룩).** UI는 밝은 톤으로 바뀌었지만 지형/조명/안개/몬스터·캐릭터 재질은 아직 옛 톤이다.
-      `meshStandardMaterial`을 툰 셰이딩 + 외곽선 + 색감 보정으로 바꾸는 트랙(모델은 그대로 두고 재질만).
-- [ ] **아이템 아이콘(`itemIcons.tsx`)과 지도 그림(`WorldMap`/`MiniMap`의 SVG) 색을 새 팔레트로.**
+### 비주얼 (밝은 UI와 3D 툰 룩은 끝, 세부가 남음)
+- [ ] **아이템 아이콘(`itemIcons.tsx`)과 아이템 드랍 빛 색, 지도 그림 바깥 프레임·일부 구역 덮개(`WorldMap`)를 새 팔레트로.**
 - [ ] **전투 이펙트/타격감**(스킬별 파티클, 히트 멈춤, 카메라 흔들림) — 새 토큰 색을 쓸 것.
 ### 성능
 - [ ] **게임 청크(GamePage) 경량화** — 아직 큼(~1.1MB). 몬스터/NPC GLTF preload 분할 검토.
@@ -88,6 +86,16 @@ DB/함수와 클라이언트 사이에는 잠깐 구 클라이언트와 새 서�
   포털로 `document.body`에 고정 좌표로 그린다(패널의 overflow에 영향받지 않음). 직접 만들지 말 것.
 - **폰 HUD 크기(`hudLayout.ts`)를 바꾸면** 패널이 HUD를 가리지 않는지(`TOUCH_TOP_INSET`, `TOUCH_LEFT_COLUMN`) 폰 폭에서 확인.
 - Google Fonts(Jua, Noto Sans KR)를 `index.html`에서 불러온다. 오프라인이면 시스템 글꼴로 대체된다.
+
+## 3D 월드 (툰 룩)
+
+설계는 `docs/superpowers/specs/2026-09-30-toon-look-design.md`. 규칙:
+
+- **모델은 `components/game/toonGLTF`의 `useGLTF`로 불러온다**(drei 것을 직접 쓰지 말 것). 캐릭터·몬스터·NPC는
+  `useGLTF(url, { outline: true })`, 나무·건물·소품은 외곽선 없이.
+- **새 절차적 메시는 `meshToonMaterial` + `gradientMap={getToonGradient()}`.** 톤매핑은 꺼져 있으니(`NoToneMapping`) 색은 보이는 그대로다.
+- 지형 색을 바꾸면 미니맵/월드맵의 같은 색도 함께 바꿀 것(3D 지형과 지도가 서로 맞춰져 있다).
+- 외곽선은 메시를 한 벌 더 그린다. 폰이 느리면 `toonGLTF.ts`의 `outline`을 끄거나 몬스터 렌더 반경을 줄일 것.
 
 ## 경제 서버 권위 (동작/주의)
 

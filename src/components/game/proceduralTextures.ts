@@ -12,7 +12,7 @@ export function useGrassTexture(): THREE.Texture {
     const ctx = canvas.getContext('2d')!;
     const rng = mulberry32(1337);
 
-    ctx.fillStyle = '#5a9645';
+    ctx.fillStyle = '#69bb4a';
     ctx.fillRect(0, 0, size, size);
 
     // Broad mottled patches for large-scale color variation (reads clearly even minified/mipmapped).
@@ -20,7 +20,7 @@ export function useGrassTexture(): THREE.Texture {
       const x = rng() * size;
       const y = rng() * size;
       const r = 30 + rng() * 70;
-      const color = rng() < 0.5 ? 'rgba(70, 130, 52, 0.55)' : 'rgba(120, 172, 78, 0.5)';
+      const color = rng() < 0.5 ? 'rgba(74, 152, 52, 0.5)' : 'rgba(140, 208, 82, 0.5)';
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.ellipse(x, y, r, r * 0.65, rng() * Math.PI, 0, Math.PI * 2);
@@ -35,8 +35,8 @@ export function useGrassTexture(): THREE.Texture {
       const shade = rng();
       const color =
         shade < 0.5
-          ? `rgba(58, 104, 45, ${0.3 + rng() * 0.35})`
-          : `rgba(142, 194, 96, ${0.25 + rng() * 0.3})`;
+          ? `rgba(78, 150, 54, ${0.25 + rng() * 0.3})`
+          : `rgba(170, 226, 104, ${0.25 + rng() * 0.3})`;
       ctx.fillStyle = color;
       ctx.beginPath();
       ctx.ellipse(x, y, r, r * 0.6, rng() * Math.PI, 0, Math.PI * 2);
@@ -169,7 +169,7 @@ export function useForestFloorTexture(): THREE.Texture {
     const ctx = canvas.getContext('2d')!;
     const rng = mulberry32(6100);
 
-    ctx.fillStyle = '#3f6b4a';
+    ctx.fillStyle = '#4f9a62';
     ctx.fillRect(0, 0, size, size);
 
     for (let i = 0; i < 70; i++) {
@@ -223,7 +223,7 @@ export function useOrcDirtTexture(): THREE.Texture {
     const ctx = canvas.getContext('2d')!;
     const rng = mulberry32(6200);
 
-    ctx.fillStyle = '#6b4a3a';
+    ctx.fillStyle = '#8e6248';
     ctx.fillRect(0, 0, size, size);
 
     for (let i = 0; i < 55; i++) {
@@ -273,7 +273,7 @@ export function useBoneFieldTexture(): THREE.Texture {
     const ctx = canvas.getContext('2d')!;
     const rng = mulberry32(6300);
 
-    ctx.fillStyle = '#9c9484';
+    ctx.fillStyle = '#c2b8a2';
     ctx.fillRect(0, 0, size, size);
 
     for (let i = 0; i < 60; i++) {
@@ -335,7 +335,7 @@ export function useGhoulFieldTexture(): THREE.Texture {
     const ctx = canvas.getContext('2d')!;
     const rng = mulberry32(6400);
 
-    ctx.fillStyle = '#3a4a3a';
+    ctx.fillStyle = '#55694f';
     ctx.fillRect(0, 0, size, size);
 
     for (let i = 0; i < 65; i++) {
@@ -388,7 +388,7 @@ export function useCobblestoneTexture(): THREE.Texture {
     const ctx = canvas.getContext('2d')!;
     const rng = mulberry32(2024);
 
-    ctx.fillStyle = '#8a7f72';
+    ctx.fillStyle = '#cdbc9d';
     ctx.fillRect(0, 0, size, size);
 
     const cellSize = 42;
