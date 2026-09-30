@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useRef, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, type RefObject, useLayoutEffect } from 'react';
+import { useThree } from '@react-three/fiber';
+import { cameraZoomFor } from './CameraRig';
+import { clickToTalk } from './interactions';
+import type { TalkTarget } from './moveTarget';
 import { useAnimations } from '@react-three/drei';
 import { useGLTF } from './toonGLTF';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -47,7 +51,10 @@ function RetargetedNpcModel({ kind, modelGroupRef }: { kind: RetargetedNpcKind; 
     };
   }, [actions]);
 
-  useEffect(() => {
+  // Layout effect on purpose: the model file is several times larger than the size it is shown at (a
+  // Cactoro is ~6x too big), so this must run before the first frame is drawn. A regular effect ran after
+  // it, and a monster that had just appeared flashed at its raw file size for a frame.
+  useLayoutEffect(() => {
     if (!modelGroupRef.current) return;
     const box = new THREE.Box3().setFromObject(scene);
     const size = new THREE.Vector3();
@@ -78,7 +85,7 @@ function StandaloneNpcModel({ kind, modelGroupRef }: { kind: StandaloneNpcKind; 
     };
   }, [actions, idleClip]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!modelGroupRef.current) return;
     const box = new THREE.Box3().setFromObject(scene);
     const size = new THREE.Vector3();
@@ -98,21 +105,43 @@ function StandaloneNpcModel({ kind, modelGroupRef }: { kind: StandaloneNpcKind; 
 
 /** A stationary villager — just idles in place, no dialogue/shop logic of its own (see
  * QuestProximity.tsx/ShopProximity.tsx for what actually reacts to standing near one). */
+// Minimum radius of the tap area on screen, in CSS pixels (a comfortable fingertip).
+const HIT_RADIUS_PX = 26;
+
 export function NPC({
   position,
   name,
   kind,
   facingY = 0,
+  talk,
 }: {
   position: [number, number, number];
   name: string;
   kind: NpcKind;
   facingY?: number;
+  /** What clicking this NPC opens. Omit for a purely decorative NPC. */
+  talk?: TalkTarget;
 }) {
   const modelGroupRef = useRef<THREE.Group>(null);
+  const viewportWidth = useThree((s) => s.size.width);
+  const hitRadius = Math.max(0.7, HIT_RADIUS_PX / cameraZoomFor(viewportWidth));
 
   return (
     <group position={position} rotation={[0, facingY, 0]}>
+      {talk && (
+        // Invisible tap target covering the whole figure: click (or tap) an NPC to talk to them.
+        <mesh
+          visible={false}
+          position={[0, TARGET_HEIGHT / 2, 0]}
+          onClick={(event) => {
+            event.stopPropagation();
+            clickToTalk(talk, [position[0], position[2]]);
+          }}
+        >
+          <cylinderGeometry args={[hitRadius, hitRadius, TARGET_HEIGHT, 8]} />
+          <meshBasicMaterial />
+        </mesh>
+      )}
       <group ref={modelGroupRef}>
         {isStandaloneKind(kind) ? (
           <StandaloneNpcModel kind={kind} modelGroupRef={modelGroupRef} />

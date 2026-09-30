@@ -3,6 +3,7 @@ import { useCharacterStore, HOTBAR_SIZE } from '../../stores/characterStore';
 import { useCombatStore, findSkillDef, type SkillDef } from '../../stores/combatStore';
 import { useTooltip } from './Tooltip';
 import { ItemIcon } from './itemIcons';
+import { castSkillOnTouch } from './engage';
 import { cn } from '../../lib/utils';
 import type { InventorySlot } from '../../types/api';
 
@@ -80,9 +81,12 @@ export function Hotbar({ compact = false }: { compact?: boolean }) {
             skillCooldownUntil={skill ? player.skillCooldowns[skill.id] ?? 0 : 0}
             onUse={() => {
               // toggleAimSkill has its own usability guard (and always allows turning aim
-              // back off), so skill slots skip the local `usable` check entirely there.
-              if (skill) toggleAimSkill(skill.id);
-              else useHotbarSlot(i);
+              // back off), so skill slots skip the local `usable` check entirely there. On a phone
+              // (compact) the skill fires at the current/nearest monster right away.
+              if (skill) {
+                if (compact) castSkillOnTouch(skill.id);
+                else toggleAimSkill(skill.id);
+              } else useHotbarSlot(i);
             }}
             onClear={() => {
               if (assignment != null) setHotbarSlot(i, null);

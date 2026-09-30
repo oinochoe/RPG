@@ -227,7 +227,7 @@ function Fountain({ zone }: { zone: VillageZone }) {
   );
 }
 
-function VillagePlaza({ zone, config }: { zone: VillageZone; config: VillageConfig }) {
+function VillagePlaza({ zone, config, villageIndex }: { zone: VillageZone; config: VillageConfig; villageIndex: number }) {
   const cobbleTexture = useCobblestoneTexture();
 
   return (
@@ -249,6 +249,7 @@ function VillagePlaza({ zone, config }: { zone: VillageZone; config: VillageConf
             position={[zone.center[0] + npc.offset[0], 0, zone.center[1] + npc.offset[1]]}
             name={npc.name}
             kind={npc.kind}
+            talk={{ type: 'shop', kind: npc.kind, villageIndex }}
           />
         ))}
         {config.flavorNpcs.map((npc, i) => (
@@ -258,6 +259,7 @@ function VillagePlaza({ zone, config }: { zone: VillageZone; config: VillageConf
             name={npc.name}
             kind={npc.kind}
             facingY={npc.facingY}
+            talk={{ type: 'quest', name: npc.name }}
           />
         ))}
         {config.props?.map((prop, i) => <Prop key={i} zone={zone} prop={prop} />)}
@@ -274,7 +276,7 @@ export function Village() {
   return (
     <group>
       {VILLAGES.map((zone, i) => (
-        <VillagePlaza key={i} zone={zone} config={VILLAGE_CONFIGS[i]} />
+        <VillagePlaza key={i} zone={zone} config={VILLAGE_CONFIGS[i]} villageIndex={i} />
       ))}
     </group>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Html, Sparkles, useAnimations } from '@react-three/drei';
 import { useGLTF } from './toonGLTF';
@@ -349,7 +349,10 @@ function RiggedSkeletonMonsterBody({ combat, tint }: { combat: MonsterCombatStat
     };
   }, [scene, weaponScene, tint]);
 
-  useEffect(() => {
+  // Layout effect on purpose: the model file is several times larger than the size it is shown at (a
+  // Cactoro is ~6x too big), so this must run before the first frame is drawn. A regular effect ran after
+  // it, and a monster that had just appeared flashed at its raw file size for a frame.
+  useLayoutEffect(() => {
     if (!modelGroupRef.current) return;
     const box = new THREE.Box3().setFromObject(scene);
     const size = new THREE.Vector3();
@@ -477,7 +480,7 @@ function RiggedMonsterBody({
     });
   }, [scene, tint]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!modelGroupRef.current) return;
     const box = new THREE.Box3().setFromObject(scene);
     const size = new THREE.Vector3();

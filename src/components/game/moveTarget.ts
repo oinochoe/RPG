@@ -1,4 +1,8 @@
 import { Vec3 } from './playerTransform';
+import type { ShopNpcKind } from '../../stores/uiStore';
+
+/** Who a clicked NPC talks as: opens their shop or their quest dialogue. */
+export type TalkTarget = { type: 'shop'; kind: ShopNpcKind; villageIndex: number } | { type: 'quest'; name: string };
 
 /** Mutated by ground/monster clicks, read every frame by CharacterMesh. Same
  * out-of-React-state pattern as playerTransform, for the same reason. */
@@ -17,6 +21,9 @@ interface MoveTargetState {
   // CharacterMesh's useFrame block), the same one-shot-on-arrival shape pendingSkillCastId
   // already has.
   lootTargetId: number | null;
+  // Set when a clicked NPC was out of talking range — walk next to them, then open their dialogue
+  // once on arrival (see CharacterMesh's useFrame block), the same one-shot shape as lootTargetId.
+  talkTarget: TalkTarget | null;
 }
 
 export const moveTarget: MoveTargetState = {
@@ -24,6 +31,7 @@ export const moveTarget: MoveTargetState = {
   attackTargetId: null,
   pendingSkillCastId: null,
   lootTargetId: null,
+  talkTarget: null,
 };
 
 export function setMoveTarget(x: number, z: number): void {
@@ -31,6 +39,7 @@ export function setMoveTarget(x: number, z: number): void {
   moveTarget.attackTargetId = null;
   moveTarget.pendingSkillCastId = null;
   moveTarget.lootTargetId = null;
+  moveTarget.talkTarget = null;
 }
 
 export function setAttackMoveTarget(x: number, z: number, instanceId: number): void {
@@ -38,6 +47,7 @@ export function setAttackMoveTarget(x: number, z: number, instanceId: number): v
   moveTarget.attackTargetId = instanceId;
   moveTarget.pendingSkillCastId = null;
   moveTarget.lootTargetId = null;
+  moveTarget.talkTarget = null;
 }
 
 export function setAttackTargetOnly(instanceId: number): void {
@@ -45,6 +55,7 @@ export function setAttackTargetOnly(instanceId: number): void {
   moveTarget.attackTargetId = instanceId;
   moveTarget.pendingSkillCastId = null;
   moveTarget.lootTargetId = null;
+  moveTarget.talkTarget = null;
 }
 
 export function setSkillMoveTarget(x: number, z: number, skillId: number): void {
@@ -52,6 +63,7 @@ export function setSkillMoveTarget(x: number, z: number, skillId: number): void 
   moveTarget.attackTargetId = null;
   moveTarget.pendingSkillCastId = skillId;
   moveTarget.lootTargetId = null;
+  moveTarget.talkTarget = null;
 }
 
 export function setLootMoveTarget(x: number, z: number, dropId: number): void {
@@ -59,6 +71,15 @@ export function setLootMoveTarget(x: number, z: number, dropId: number): void {
   moveTarget.attackTargetId = null;
   moveTarget.pendingSkillCastId = null;
   moveTarget.lootTargetId = dropId;
+  moveTarget.talkTarget = null;
+}
+
+export function setTalkMoveTarget(x: number, z: number, target: TalkTarget): void {
+  moveTarget.point = new Vec3(x, 0, z);
+  moveTarget.attackTargetId = null;
+  moveTarget.pendingSkillCastId = null;
+  moveTarget.lootTargetId = null;
+  moveTarget.talkTarget = target;
 }
 
 export function clearMoveTarget(): void {
@@ -66,4 +87,5 @@ export function clearMoveTarget(): void {
   moveTarget.attackTargetId = null;
   moveTarget.pendingSkillCastId = null;
   moveTarget.lootTargetId = null;
+  moveTarget.talkTarget = null;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useAnimations, useTexture } from '@react-three/drei';
 import { useGLTF } from './toonGLTF';
@@ -11,7 +11,7 @@ import { FxSprite, SkillRing } from './FxSprite';
 import { playerPosition, playerFacing, playerStuck, pickupAnimUntil, triggerPickupAnim } from './playerTransform';
 import { moveTarget, clearMoveTarget } from './moveTarget';
 import { stick, isStickActive, stickToWorldDir } from './touchInput';
-import { talkToNearby, pickupNearby } from './interactions';
+import { talkToNearby, pickupNearby, openTalk } from './interactions';
 import { resolveMovement, PLAYER_COLLISION_RADIUS } from './worldColliders';
 import { OFFSET as CAMERA_OFFSET } from './CameraRig';
 import { playSound, playFootstep } from '../../lib/sound';
@@ -387,7 +387,10 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     };
   }, [scene, shieldScene, shieldModelUrl]);
 
-  useEffect(() => {
+  // Layout effect on purpose: the model file is several times larger than the size it is shown at (a
+  // Cactoro is ~6x too big), so this must run before the first frame is drawn. A regular effect ran after
+  // it, and a monster that had just appeared flashed at its raw file size for a frame.
+  useLayoutEffect(() => {
     if (!modelGroupRef.current) return;
     const box = new THREE.Box3().setFromObject(scene);
     const size = new THREE.Vector3();
@@ -722,6 +725,13 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       pickupDrop(dropId).then((ok) => {
         if (ok) triggerPickupAnim();
       });
+    }
+
+    // Arrived next to a clicked NPC (see NPC's onClick / setTalkMoveTarget) — open their dialogue once.
+    if (!usingKeyboard && !moveTarget.point && moveTarget.talkTarget) {
+      const target = moveTarget.talkTarget;
+      moveTarget.talkTarget = null;
+      openTalk(target);
     }
 
     groupRef.current.position.x = playerPosition.x;

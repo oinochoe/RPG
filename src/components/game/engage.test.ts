@@ -4,7 +4,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { useCombatStore, type MonsterCombatState } from '../../stores/combatStore';
 import { playerPosition } from './playerTransform';
-import { attackNearestMonster, engageMonster, nearestMonster } from './engage';
+import { attackNearestMonster, castSkillOnTouch, engageMonster, nearestMonster } from './engage';
 import * as moveTarget from './moveTarget';
 
 vi.mock('./moveTarget', () => ({
@@ -107,6 +107,71 @@ describe('attackNearestMonster', () => {
     setWorld([monster(1, 50, 0)]);
     expect(attackNearestMonster()).toBe(false);
     expect(useCombatStore.getState().targetId).toBeNull();
+  });
+});
+
+describe('castSkillOnTouch', () => {
+  let cast: ReturnType<typeof vi.spyOn>;
+  let toggle: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    playerPosition.x = 0;
+    playerPosition.z = 0;
+    cast = vi.spyOn(useCombatStore.getState(), 'requestCastSkill').mockImplementation(() => undefined);
+    // Stand-in for the real guard: arms the skill, or disarms it if it is already armed.
+    toggle = vi.spyOn(useCombatStore.getState(), 'toggleAimSkill').mockImplementation((id: number) => {
+      useCombatStore.setState({ armedSkillId: useCombatStore.getState().armedSkillId === id ? null : id });
+    });
+  });
+
+  it('fires the skill at the nearest monster in one tap', () => {
+    setWorld([monster(1, 9, 0), monster(2, 1, 0)], 2);
+    castSkillOnTouch(5);
+    expect(cast).toHaveBeenCalledWith(5);
+    expect(useCombatStore.getState().targetId).toBe(2);
+    expect(useCombatStore.getState().armedSkillId).toBeNull();
+  });
+
+  it('prefers the monster already being fought over a closer one', () => {
+    setWorld([monster(1, 9, 0), monster(2, 1, 0)], 12);
+    useCombatStore.setState({ targetId: 1 });
+    castSkillOnTouch(5);
+    expect(useCombatStore.getState().targetId).toBe(1);
+    expect(cast).toHaveBeenCalledWith(5);
+  });
+
+  it('walks up first when the monster is out of range, casting on arrival', () => {
+    setWorld([monster(3, 10, 0)], 2);
+    castSkillOnTouch(5);
+    expect(cast).not.toHaveBeenCalled();
+    expect(moveTarget.setSkillMoveTarget).toHaveBeenCalled();
+  });
+
+  it('does nothing when the skill cannot be used (the guard refuses to arm it)', () => {
+    toggle.mockImplementation(() => undefined);
+    setWorld([monster(1, 1, 0)], 2);
+    castSkillOnTouch(5);
+    expect(cast).not.toHaveBeenCalled();
+    expect(useCombatStore.getState().targetId).toBeNull();
+  });
+
+  it('with nothing nearby it stays armed, and a second tap cancels', () => {
+    setWorld([monster(1, 80, 0)], 2);
+    castSkillOnTouch(5);
+    expect(useCombatStore.getState().armedSkillId).toBe(5);
+    castSkillOnTouch(5);
+    expect(useCombatStore.getState().armedSkillId).toBeNull();
+    expect(cast).not.toHaveBeenCalled();
+  });
+
+  it('a second tap fires once a monster has come near', () => {
+    setWorld([monster(1, 80, 0)], 2);
+    castSkillOnTouch(5);
+    setWorld([monster(1, 1, 0)], 2);
+    useCombatStore.setState({ armedSkillId: 5 });
+    castSkillOnTouch(5);
+    expect(cast).toHaveBeenCalledWith(5);
   });
 });
 

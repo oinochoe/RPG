@@ -1,6 +1,7 @@
 import { useUIStore } from '../../stores/uiStore';
 import { pickupDrop } from '../../stores/lootStore';
-import { triggerPickupAnim } from './playerTransform';
+import { playerPosition, triggerPickupAnim } from './playerTransform';
+import { clearMoveTarget, setTalkMoveTarget, type TalkTarget } from './moveTarget';
 import { attackNearestMonster } from './engage';
 
 /**
@@ -42,6 +43,34 @@ export function pickupNearby(): boolean {
     if (ok) triggerPickupAnim();
   });
   return true;
+}
+
+// Standing this close counts as "next to" an NPC — matches the proximity radius Space uses.
+const TALK_RANGE = 2.4;
+// Where the player stops when walking up to an NPC that was clicked from farther away.
+const TALK_STANDOFF = 1.6;
+
+/** Open the dialogue of an NPC (their shop, or their quest). */
+export function openTalk(target: TalkTarget): void {
+  const ui = useUIStore.getState();
+  if (target.type === 'shop') ui.openShop(target.kind, target.villageIndex);
+  else ui.openQuest(target.name);
+}
+
+/**
+ * Clicking (tapping) an NPC: talk right away if already next to them, otherwise walk up and talk on
+ * arrival. `npc` is the NPC's ground position (x, z).
+ */
+export function clickToTalk(target: TalkTarget, npc: [number, number]): void {
+  const dx = playerPosition.x - npc[0];
+  const dz = playerPosition.z - npc[1];
+  const dist = Math.hypot(dx, dz) || 1;
+  if (dist <= TALK_RANGE) {
+    clearMoveTarget();
+    openTalk(target);
+    return;
+  }
+  setTalkMoveTarget(npc[0] + (dx / dist) * TALK_STANDOFF, npc[1] + (dz / dist) * TALK_STANDOFF, target);
 }
 
 /**

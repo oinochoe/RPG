@@ -80,3 +80,29 @@ export function attackNearestMonster(maxDistance = 12): boolean {
   engageMonster(target.id, target.position);
   return true;
 }
+
+/**
+ * Touch: tapping a skill slot uses the skill right away — on the monster you are already fighting,
+ * or otherwise the nearest one — instead of the desktop two-step "arm the skill, then click a monster"
+ * (the second step means precisely tapping a monster that is ~20px wide).
+ *
+ * The skill is armed first so the usual checks (skill learned, enough MP, off cooldown) still apply;
+ * if none are near it stays armed and a second tap either fires it (a monster showed up) or cancels.
+ */
+export function castSkillOnTouch(skillId: number): void {
+  const combat = useCombatStore.getState();
+  const wasArmed = combat.armedSkillId === skillId;
+  if (!wasArmed) {
+    combat.toggleAimSkill(skillId);
+    if (useCombatStore.getState().armedSkillId !== skillId) return; // refused: not learned / no MP / cooling down
+  }
+  const state = useCombatStore.getState();
+  const locked = state.targetId !== null ? state.monsters[state.targetId] : undefined;
+  const target = locked?.alive ? { id: locked.instanceId, position: locked.position } : nearestMonster();
+  if (target) {
+    engageMonster(target.id, target.position);
+  } else if (wasArmed) {
+    // Nothing to aim at on the second tap either — treat it as "never mind".
+    state.cancelAimSkill();
+  }
+}
