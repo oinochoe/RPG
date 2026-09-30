@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, type RefObject, useLayoutEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import { fitScale } from './modelScale';
 import { useThree } from '@react-three/fiber';
 import { cameraZoomFor } from './CameraRig';
 import { clickToTalk } from './interactions';
@@ -37,8 +38,9 @@ function isStandaloneKind(kind: NpcKind): kind is StandaloneNpcKind {
   return kind in STANDALONE_NPC_MODEL;
 }
 
-function RetargetedNpcModel({ kind, modelGroupRef }: { kind: RetargetedNpcKind; modelGroupRef: RefObject<THREE.Group | null> }) {
+function RetargetedNpcModel({ kind }: { kind: RetargetedNpcKind }) {
   const characterGltf = useGLTF(RETARGETED_NPC_MODEL[kind], { outline: true });
+  const fit = useMemo(() => fitScale(characterGltf.scene, TARGET_HEIGHT), [characterGltf.scene]);
   const generalGltf = useGLTF(RIG_GENERAL);
 
   const scene = useMemo(() => cloneSkeleton(characterGltf.scene), [characterGltf.scene]);
@@ -51,30 +53,23 @@ function RetargetedNpcModel({ kind, modelGroupRef }: { kind: RetargetedNpcKind; 
     };
   }, [actions]);
 
-  // Layout effect on purpose: the model file is several times larger than the size it is shown at (a
-  // Cactoro is ~6x too big), so this must run before the first frame is drawn. A regular effect ran after
-  // it, and a monster that had just appeared flashed at its raw file size for a frame.
-  useLayoutEffect(() => {
-    if (!modelGroupRef.current) return;
-    const box = new THREE.Box3().setFromObject(scene);
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const scale = size.y > 0 ? TARGET_HEIGHT / size.y : 1;
-    modelGroupRef.current.scale.setScalar(scale);
-  }, [scene, modelGroupRef]);
-
   useEffect(() => {
     scene.traverse((obj) => {
       if ((obj as THREE.Mesh).isMesh) obj.castShadow = true;
     });
   }, [scene]);
 
-  return <primitive object={scene} />;
+  return (
+    <group scale={fit}>
+      <primitive object={scene} />
+    </group>
+  );
 }
 
-function StandaloneNpcModel({ kind, modelGroupRef }: { kind: StandaloneNpcKind; modelGroupRef: RefObject<THREE.Group | null> }) {
+function StandaloneNpcModel({ kind }: { kind: StandaloneNpcKind }) {
   const { url, idleClip } = STANDALONE_NPC_MODEL[kind];
   const gltf = useGLTF(url);
+  const fit = useMemo(() => fitScale(gltf.scene, TARGET_HEIGHT), [gltf.scene]);
   const scene = useMemo(() => cloneSkeleton(gltf.scene), [gltf.scene]);
   const { actions } = useAnimations(gltf.animations, scene);
 
@@ -85,22 +80,17 @@ function StandaloneNpcModel({ kind, modelGroupRef }: { kind: StandaloneNpcKind; 
     };
   }, [actions, idleClip]);
 
-  useLayoutEffect(() => {
-    if (!modelGroupRef.current) return;
-    const box = new THREE.Box3().setFromObject(scene);
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const scale = size.y > 0 ? TARGET_HEIGHT / size.y : 1;
-    modelGroupRef.current.scale.setScalar(scale);
-  }, [scene, modelGroupRef]);
-
   useEffect(() => {
     scene.traverse((obj) => {
       if ((obj as THREE.Mesh).isMesh) obj.castShadow = true;
     });
   }, [scene]);
 
-  return <primitive object={scene} />;
+  return (
+    <group scale={fit}>
+      <primitive object={scene} />
+    </group>
+  );
 }
 
 /** A stationary villager — just idles in place, no dialogue/shop logic of its own (see
@@ -122,7 +112,6 @@ export function NPC({
   /** What clicking this NPC opens. Omit for a purely decorative NPC. */
   talk?: TalkTarget;
 }) {
-  const modelGroupRef = useRef<THREE.Group>(null);
   const viewportWidth = useThree((s) => s.size.width);
   const hitRadius = Math.max(0.7, HIT_RADIUS_PX / cameraZoomFor(viewportWidth));
 
@@ -142,13 +131,7 @@ export function NPC({
           <meshBasicMaterial />
         </mesh>
       )}
-      <group ref={modelGroupRef}>
-        {isStandaloneKind(kind) ? (
-          <StandaloneNpcModel kind={kind} modelGroupRef={modelGroupRef} />
-        ) : (
-          <RetargetedNpcModel kind={kind} modelGroupRef={modelGroupRef} />
-        )}
-      </group>
+      {isStandaloneKind(kind) ? <StandaloneNpcModel kind={kind} /> : <RetargetedNpcModel kind={kind} />}
       <NameTag position={[0, TARGET_HEIGHT + 0.3, 0]} label={name} accent="var(--color-gold)" />
     </group>
   );

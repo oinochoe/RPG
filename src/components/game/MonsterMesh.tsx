@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Html, Sparkles, useAnimations } from '@react-three/drei';
 import { useGLTF } from './toonGLTF';
@@ -8,6 +8,7 @@ import { NameTag } from './NameTag';
 import { HealthBar } from './HealthBar';
 import { playerPosition } from './playerTransform';
 import { engageMonster } from './engage';
+import { fitScale } from './modelScale';
 import { cameraZoomFor } from './CameraRig';
 import { THEME } from '../../lib/theme';
 import { useCombatStore, type MonsterCombatState } from '../../stores/combatStore';
@@ -298,6 +299,7 @@ function swingEase(t: number): { phase: 'strike' | 'recovery'; localT: number } 
 function RiggedSkeletonMonsterBody({ combat, tint }: { combat: MonsterCombatState; tint?: THREE.ColorRepresentation }) {
   const modelGroupRef = useRef<THREE.Group>(null);
   const characterGltf = useGLTF(SKELETON_MODEL_URL, { outline: true });
+  const fit = useMemo(() => fitScale(characterGltf.scene, SKELETON_TARGET_HEIGHT), [characterGltf.scene]);
   const weaponGltf = useGLTF(SKELETON_WEAPON_URL, { outline: true });
   const generalGltf = useGLTF(SKELETON_RIG_GENERAL);
   const movementGltf = useGLTF(SKELETON_RIG_MOVEMENT);
@@ -348,18 +350,6 @@ function RiggedSkeletonMonsterBody({ combat, tint }: { combat: MonsterCombatStat
       hand?.remove(weaponScene);
     };
   }, [scene, weaponScene, tint]);
-
-  // Layout effect on purpose: the model file is several times larger than the size it is shown at (a
-  // Cactoro is ~6x too big), so this must run before the first frame is drawn. A regular effect ran after
-  // it, and a monster that had just appeared flashed at its raw file size for a frame.
-  useLayoutEffect(() => {
-    if (!modelGroupRef.current) return;
-    const box = new THREE.Box3().setFromObject(scene);
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const s = size.y > 0 ? SKELETON_TARGET_HEIGHT / size.y : 1;
-    modelGroupRef.current.scale.setScalar(s);
-  }, [scene]);
 
   function playAction(name: string, loop: boolean) {
     if (currentAction.current === name) return;
@@ -432,7 +422,7 @@ function RiggedSkeletonMonsterBody({ combat, tint }: { combat: MonsterCombatStat
   });
 
   return (
-    <group ref={modelGroupRef}>
+    <group ref={modelGroupRef} scale={fit}>
       <primitive object={scene} />
     </group>
   );
@@ -449,6 +439,7 @@ function RiggedMonsterBody({
 }) {
   const modelGroupRef = useRef<THREE.Group>(null);
   const gltf = useGLTF(config.modelUrl, { outline: true });
+  const fit = useMemo(() => fitScale(gltf.scene, config.targetHeight), [gltf.scene, config.targetHeight]);
   const scene = useMemo(() => cloneSkeleton(gltf.scene), [gltf.scene]);
   const { actions } = useAnimations(gltf.animations, scene);
   const currentAction = useRef<string | null>(null);
@@ -479,15 +470,6 @@ function RiggedMonsterBody({
       mesh.material = wasArray ? cloned : cloned[0];
     });
   }, [scene, tint]);
-
-  useLayoutEffect(() => {
-    if (!modelGroupRef.current) return;
-    const box = new THREE.Box3().setFromObject(scene);
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const s = size.y > 0 ? config.targetHeight / size.y : 1;
-    modelGroupRef.current.scale.setScalar(s);
-  }, [scene, config.targetHeight]);
 
   function playAction(name: string, loop: boolean) {
     if (currentAction.current === name) return;
@@ -536,7 +518,7 @@ function RiggedMonsterBody({
   });
 
   return (
-    <group ref={modelGroupRef} rotation={[0, config.facingOffset, 0]}>
+    <group ref={modelGroupRef} scale={fit} rotation={[0, config.facingOffset, 0]}>
       <primitive object={scene} />
     </group>
   );
