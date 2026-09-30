@@ -19,7 +19,7 @@ const SHOP_NPC_LABEL: Record<'merchant' | 'blacksmith', string> = {
 function HudPrompt({ children }: { children: ReactNode }) {
   return (
     <div
-      className="absolute bottom-[96px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border-[3px] border-edge bg-cream/95 px-4 py-1 font-display text-base text-ink shadow-chunk-sm"
+      className="absolute bottom-[136px] left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border-[3px] border-edge bg-cream/95 px-4 py-1 font-display text-base text-ink shadow-chunk-sm"
     >
       {children}
     </div>

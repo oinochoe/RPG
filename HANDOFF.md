@@ -25,9 +25,6 @@
       `meshStandardMaterial`을 툰 셰이딩 + 외곽선 + 색감 보정으로 바꾸는 트랙(모델은 그대로 두고 재질만).
 - [ ] **아이템 아이콘(`itemIcons.tsx`)과 지도 그림(`WorldMap`/`MiniMap`의 SVG) 색을 새 팔레트로.**
 - [ ] **전투 이펙트/타격감**(스킬별 파티클, 히트 멈춤, 카메라 흔들림) — 새 토큰 색을 쓸 것.
-- [ ] **폰 카메라 줌**: 폰에서 보이는 월드가 좁다는 피드백(`CameraRig.tsx`의 `MIN_ZOOM_SCALE` 하한 때문에 폰 폭 390px에서
-      가로 약 7칸 vs 데스크톱 10칸). 목표 시야 폭을 11칸 정도로 고정하는 안을 검토했으나 아직 적용 전.
-
 ### 성능
 - [ ] **게임 청크(GamePage) 경량화** — 아직 큼(~1.1MB). 몬스터/NPC GLTF preload 분할 검토.
 
@@ -87,6 +84,8 @@ DB/함수와 클라이언트 사이에는 잠깐 구 클라이언트와 새 서�
   새 글자/배경 조합을 쓰면 `theme.test.ts`의 `PAIRS`에 추가해 대비(AA 4.5:1)를 검사할 것.
 - **새 창은 `GamePanel`**, 아이템 칸은 `Slot`, 버튼은 `Button`/`IconButton`, 대화상자는 `Modal`. `/dev/ui`에 모든 부품이 있다.
   터치 요소는 44px 이상(`Button`/`IconButton`은 자동).
+- **툴팁은 `useTooltip`으로.** 말풍선을 패널 안에 절대 위치로 그리면 스크롤되는 패널의 가장자리에서 가로 스크롤이 생기므로,
+  포털로 `document.body`에 고정 좌표로 그린다(패널의 overflow에 영향받지 않음). 직접 만들지 말 것.
 - **폰 HUD 크기(`hudLayout.ts`)를 바꾸면** 패널이 HUD를 가리지 않는지(`TOUCH_TOP_INSET`, `TOUCH_LEFT_COLUMN`) 폰 폭에서 확인.
 - Google Fonts(Jua, Noto Sans KR)를 `index.html`에서 불러온다. 오프라인이면 시스템 글꼴로 대체된다.
 
