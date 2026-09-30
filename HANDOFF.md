@@ -71,6 +71,13 @@ DB/함수와 클라이언트 사이에는 잠깐 구 클라이언트와 새 서�
 - 메일 서비스 없이 급히 열어야 하면 `supabase secrets set REQUIRE_EMAIL_VERIFICATION=false` 후 함수 재배포
   (가입 즉시 로그인). SMTP를 연결한 뒤에는 이 secret을 지울 것.
 
+## 폰 조작
+
+- 폰에는 키보드가 없으니 **공격은 '행동' 버튼**이 맡는다: NPC/드랍이 없으면 근처(12칸 이내) 가장 가까운 몬스터를 공격 대상으로 잡고 다가가 때린다
+  (`engage.ts`의 `attackNearestMonster`, 버튼은 '공격'으로 바뀌고 붉은색). 몬스터를 직접 탭해도 되지만 폰에서는 몬스터가 ~20px라
+  탭 판정 영역을 화면상 최소 26px 반경으로 키워 뒀다(`MonsterMesh`의 `HIT_RADIUS_PX`). 클릭과 버튼이 같은 `engageMonster`를 쓴다.
+- 스킬/물약은 하단 단축키 칸을 탭한다(스킬은 탭해서 조준 → 몬스터 탭 또는 '공격' 버튼).
+
 ## UI 디자인 시스템
 
 밝은 스타일라이즈드 톤. 설계와 결정은 `docs/superpowers/specs/2026-09-29-ui-design-system-design.md`. 사용 규칙:
@@ -94,6 +101,8 @@ DB/함수와 클라이언트 사이에는 잠깐 구 클라이언트와 새 서�
 - **모델은 `components/game/toonGLTF`의 `useGLTF`로 불러온다**(drei 것을 직접 쓰지 말 것). 캐릭터·몬스터·NPC는
   `useGLTF(url, { outline: true })`, 나무·건물·소품은 외곽선 없이.
 - **새 절차적 메시는 `meshToonMaterial` + `gradientMap={getToonGradient()}`.** 톤매핑은 꺼져 있으니(`NoToneMapping`) 색은 보이는 그대로다.
+- **three.js 재질/조명/배경의 색은 헥스 값(`THEME.color.…`)만.** `color="var(--color-x)"` 같은 CSS 변수는 three.js가 읽지 못해
+  조용히 흰색이 된다(타겟 링이 밝은 흰색으로 번쩍이던 버그의 원인). `var(--…)`는 화면 위 DOM 스타일에만. `engage.test.ts`가 잡아낸다.
 - 지형 색을 바꾸면 미니맵/월드맵의 같은 색도 함께 바꿀 것(3D 지형과 지도가 서로 맞춰져 있다).
 - 외곽선은 메시를 한 벌 더 그린다. 폰이 느리면 `toonGLTF.ts`의 `outline`을 끄거나 몬스터 렌더 반경을 줄일 것.
 

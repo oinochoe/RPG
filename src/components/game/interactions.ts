@@ -1,6 +1,7 @@
 import { useUIStore } from '../../stores/uiStore';
 import { pickupDrop } from '../../stores/lootStore';
 import { triggerPickupAnim } from './playerTransform';
+import { attackNearestMonster } from './engage';
 
 /**
  * The two "context actions" the keyboard has always had — Space (talk to the NPC you're
@@ -43,7 +44,10 @@ export function pickupNearby(): boolean {
   return true;
 }
 
-/** The touch action button: talk if an NPC is in range, otherwise pick up. */
+/**
+ * The touch action button: talk if an NPC is in range, otherwise pick up, otherwise attack the
+ * nearest monster (monsters are tiny on a phone; tapping them precisely is unreliable).
+ */
 export function interact(): boolean {
-  return talkToNearby() || pickupNearby();
+  return talkToNearby() || pickupNearby() || attackNearestMonster();
 }

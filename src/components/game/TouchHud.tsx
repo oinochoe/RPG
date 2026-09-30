@@ -11,6 +11,7 @@ import { Hotbar, COMPACT_HEIGHT } from './Hotbar';
 import { clearMoveTarget } from './moveTarget';
 import { computeStick, resetStick, stick } from './touchInput';
 import { interact } from './interactions';
+import { nearestMonster } from './engage';
 import { TOUCH_BUTTON_GAP, TOUCH_STATUS_WIDTH } from './hudLayout';
 
 const STICK_SIZE = 120;
@@ -135,6 +136,14 @@ function ActionButton() {
   const nearQuestNpcName = useUIStore((s) => s.nearQuestNpcName);
   const nearDropId = useUIStore((s) => s.nearDropId);
   const drops = useLootStore((s) => s.drops);
+  // Monsters move and the player's position is not React state, so poll for the nearest one.
+  const [monsterName, setMonsterName] = useState<string | null>(null);
+  useEffect(() => {
+    const poll = () => setMonsterName(nearestMonster()?.name ?? null);
+    poll();
+    const id = window.setInterval(poll, 300);
+    return () => window.clearInterval(id);
+  }, []);
 
   const drop = nearDropId !== null ? drops.find((d) => d.id === nearDropId) : undefined;
   let label = '행동';
@@ -148,8 +157,12 @@ function ActionButton() {
   } else if (drop) {
     label = '줍기';
     hint = drop.itemName;
+  } else if (monsterName) {
+    label = '공격';
+    hint = monsterName;
   }
   const ready = hint !== null;
+  const attacking = label === '공격';
 
   return (
     <div
@@ -170,9 +183,11 @@ function ActionButton() {
         style={{ width: ACTION_SIZE, height: ACTION_SIZE }}
         className={cn(
           'pointer-events-auto touch-manipulation select-none rounded-full border-[3px] border-edge font-display text-lg text-ink transition-[transform,box-shadow] duration-75 active:translate-y-[3px] active:shadow-none',
-          ready
-            ? 'bg-gradient-to-b from-gold-light to-gold shadow-[0_4px_0_var(--color-edge),0_0_16px_var(--color-gold)]'
-            : 'bg-cream/70 opacity-60 shadow-chunk-sm',
+          attacking
+            ? 'bg-gradient-to-b from-danger-light to-danger text-cream shadow-[0_4px_0_var(--color-edge),0_0_16px_var(--color-danger)]'
+            : ready
+              ? 'bg-gradient-to-b from-gold-light to-gold shadow-[0_4px_0_var(--color-edge),0_0_16px_var(--color-gold)]'
+              : 'bg-cream/70 opacity-60 shadow-chunk-sm',
         )}
       >
         {label}

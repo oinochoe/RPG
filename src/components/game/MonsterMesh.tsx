@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useFrame, type ThreeEvent } from '@react-three/fiber';
+import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { Html, Sparkles, useAnimations } from '@react-three/drei';
 import { useGLTF } from './toonGLTF';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -7,7 +7,9 @@ import * as THREE from 'three';
 import { NameTag } from './NameTag';
 import { HealthBar } from './HealthBar';
 import { playerPosition } from './playerTransform';
-import { setAttackMoveTarget, setAttackTargetOnly, setSkillMoveTarget, clearMoveTarget } from './moveTarget';
+import { engageMonster } from './engage';
+import { cameraZoomFor } from './CameraRig';
+import { THEME } from '../../lib/theme';
 import { useCombatStore, type MonsterCombatState } from '../../stores/combatStore';
 import type { MonsterInstanceSummary } from '../../types/api';
 
@@ -537,6 +539,9 @@ function RiggedMonsterBody({
   );
 }
 
+// Minimum radius of the tap area on screen, in CSS pixels (a comfortable fingertip).
+const HIT_RADIUS_PX = 26;
+
 export function MonsterMesh({
   monster,
   variant = SLIME_VARIANT,
@@ -549,9 +554,8 @@ export function MonsterMesh({
   tint?: THREE.ColorRepresentation;
 }) {
   const combat = useCombatStore((s) => s.monsters[monster.instance_id]);
-  const attackRange = useCombatStore((s) => s.player.attackRange);
+  const viewportWidth = useThree((s) => s.size.width);
   const isTargeted = useCombatStore((s) => s.targetId === monster.instance_id);
-  const setTarget = useCombatStore((s) => s.setTarget);
   const prevHpRef = useRef(combat?.currentHp ?? monster.current_hp);
   const [popups, setPopups] = useState<DamagePopup[]>([]);
   const [dying, setDying] = useState(false);
@@ -636,66 +640,26 @@ export function MonsterMesh({
 
   function handleClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
-    // The actual combat lock (see resolveTarget in combatStore) — attacks/skills go only to
-    // this monster from now on until it dies or another one is clicked, regardless of which
-    // one ends up nearest.
-    setTarget(monster.instance_id);
-    const dx = playerPosition.x - basePosition[0];
-    const dz = playerPosition.z - basePosition[2];
-    const dist = Math.hypot(dx, dz) || 1;
-    const standoff = attackRange * 0.85;
-    const inRange = dist <= attackRange;
-
-    // Skill aiming armed (see combatStore's armedSkillId/toggleAimSkill) — this click IS
-    // the target designation Ragnarok-style ability targeting calls for. In range, fire on
-    // the spot; out of range, walk to a standoff point first and fire once arrival lands
-    // (see CharacterMesh's pendingSkillCastId watcher) — same walk-then-act shape as the
-    // basic-attack branch below, just a single cast instead of repeated auto-attacks.
-    const armedSkillId = useCombatStore.getState().armedSkillId;
-    if (armedSkillId !== null) {
-      useCombatStore.getState().cancelAimSkill();
-      if (inRange) {
-        // Firing on the spot supersedes any walk-to-attack still in flight from an earlier
-        // click on a different monster — without this, an aimed cast on monster B while
-        // still mid-walk toward monster A left moveTarget still pointed at A, so the
-        // character kept marching there and then missed forever (the lock had already
-        // moved to B, and A's arrival block never got a hit to clear itself on).
-        clearMoveTarget();
-        useCombatStore.getState().requestCastSkill(armedSkillId);
-      } else {
-        const standX = basePosition[0] + (dx / dist) * standoff;
-        const standZ = basePosition[2] + (dz / dist) * standoff;
-        setSkillMoveTarget(standX, standZ, armedSkillId);
-      }
-      return;
-    }
-
-    // setAttackTargetOnly/setAttackMoveTarget below are movement-only: they just walk the
-    // player to (or stop them at) a range where the lock set above can connect.
-    if (inRange) {
-      // Already in range (common for ranged classes) — attack in place instead of
-      // walking to a standoff point, which could otherwise mean stepping backward.
-      setAttackTargetOnly(monster.instance_id);
-      return;
-    }
-    const standX = basePosition[0] + (dx / dist) * standoff;
-    const standZ = basePosition[2] + (dz / dist) * standoff;
-    setAttackMoveTarget(standX, standZ, monster.instance_id);
+    engageMonster(monster.instance_id, basePosition);
   }
 
   const labelHeight = variant.labelHeight;
+  // The tap area: at least ~26 screen pixels in radius so a finger can hit a monster that is only ~20px
+  // wide on a phone, but never smaller than the model itself. Divided by the model scale because the
+  // group is scaled.
+  const hitRadius = Math.max(0.55, HIT_RADIUS_PX / cameraZoomFor(viewportWidth) / scale);
 
   return (
     <group ref={facingGroupRef} position={basePosition} scale={scale}>
       {isTargeted && !dying && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
           <ringGeometry args={[0.55, 0.7, 24]} />
-          <meshBasicMaterial color="var(--color-danger)" transparent opacity={0.85} />
+          <meshBasicMaterial color={THEME.color.danger} transparent opacity={0.85} />
         </mesh>
       )}
       {!dying && (
-        <mesh visible={false} onClick={handleClick}>
-          <cylinderGeometry args={[0.55, 0.55, labelHeight, 8]} />
+        <mesh visible={false} position={[0, labelHeight / 2, 0]} onClick={handleClick}>
+          <cylinderGeometry args={[hitRadius, hitRadius, labelHeight, 8]} />
           <meshBasicMaterial />
         </mesh>
       )}
@@ -716,7 +680,7 @@ export function MonsterMesh({
             label={`${monster.name} Lv.${monster.level}`}
             accent={variant.nameAccent}
           />
-          <HealthBar position={[0, labelHeight - 0.15, 0]} ratio={combat.currentHp / combat.maxHp} color="#e0538a" />
+          <HealthBar position={[0, labelHeight - 0.15, 0]} ratio={combat.currentHp / combat.maxHp} color="var(--color-danger)" />
         </>
       )}
       {popups.map((popup) => (
