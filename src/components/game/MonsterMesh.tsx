@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { Html, Sparkles, useAnimations } from '@react-three/drei';
+import { Sparkles, useAnimations } from '@react-three/drei';
 import { useGLTF } from './toonGLTF';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
@@ -14,12 +14,6 @@ import { cameraZoomFor } from './CameraRig';
 import { THEME } from '../../lib/theme';
 import { useCombatStore, type MonsterCombatState } from '../../stores/combatStore';
 import type { MonsterInstanceSummary } from '../../types/api';
-
-interface DamagePopup {
-  id: number;
-  amount: number;
-  createdAt: number;
-}
 
 export interface MonsterVariant {
   nameAccent: string;
@@ -544,8 +538,6 @@ export function MonsterMesh({
   const combat = useCombatStore((s) => s.monsters[monster.instance_id]);
   const viewportWidth = useThree((s) => s.size.width);
   const isTargeted = useCombatStore((s) => s.targetId === monster.instance_id);
-  const prevHpRef = useRef(combat?.currentHp ?? monster.current_hp);
-  const [popups, setPopups] = useState<DamagePopup[]>([]);
   const [dying, setDying] = useState(false);
   const wasAliveRef = useRef(true);
   const facingRef = useRef(0);
@@ -598,19 +590,6 @@ export function MonsterMesh({
       rageGroupRef.current.visible = live.rageUntil !== null && performance.now() < live.rageUntil;
     }
   });
-
-  useEffect(() => {
-    if (!combat) return;
-    if (combat.currentHp < prevHpRef.current) {
-      const amount = prevHpRef.current - combat.currentHp;
-      const popup: DamagePopup = { id: Date.now() + Math.random(), amount, createdAt: performance.now() };
-      setPopups((prev) => [...prev, popup]);
-      setTimeout(() => {
-        setPopups((prev) => prev.filter((p) => p.id !== popup.id));
-      }, 700);
-    }
-    prevHpRef.current = combat.currentHp;
-  }, [combat?.currentHp]);
 
   useEffect(() => {
     if (!combat) return;
@@ -671,23 +650,6 @@ export function MonsterMesh({
           <HealthBar position={[0, labelHeight - 0.15, 0]} ratio={combat.currentHp / combat.maxHp} color="var(--color-danger)" />
         </>
       )}
-      {popups.map((popup) => (
-        <Html key={popup.id} position={[0, labelHeight + 0.25, 0]} center>
-          <div
-            className="font-display"
-            style={{
-              color: 'var(--color-gold)',
-              fontSize: 20,
-              WebkitTextStroke: '4px var(--color-ink)',
-              paintOrder: 'stroke fill',
-              pointerEvents: 'none',
-              animation: 'rpg-dmg-float 700ms ease-out forwards',
-            }}
-          >
-            -{popup.amount}
-          </div>
-        </Html>
-      ))}
     </group>
   );
 }

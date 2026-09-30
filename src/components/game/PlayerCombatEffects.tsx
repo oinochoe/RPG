@@ -50,14 +50,12 @@ const POISON_TICK_SEC = POISON_TICK_MS / 1000;
 /**
  * Runs the monster-vs-player side of combat (monsters standing near the player periodically
  * hit back — see combatStore.monsterAttackTick) and handles death/respawn, plus floating
- * "-N" / "+N Gold" popups above the player's head so both are visible without staring at the
- * HUD bars.
+ * "+N Gold" popups above the player's head (damage numbers live in DamageNumbers).
  */
 export function PlayerCombatEffects({ fieldMonsters }: { fieldMonsters: MonsterInstanceSummary[] }) {
   const groupRef = useRef<THREE.Group>(null);
   const [popups, setPopups] = useState<FloatPopup[]>([]);
   const [bursts, setBursts] = useState<SkillBurst[]>([]);
-  const prevHpRef = useRef(useCombatStore.getState().player.currentHp);
   const prevGoldRef = useRef(useCombatStore.getState().player.gold);
   const movementAccumRef = useRef(0);
   const poisonAccumRef = useRef(0);
@@ -81,12 +79,6 @@ export function PlayerCombatEffects({ fieldMonsters }: { fieldMonsters: MonsterI
   useEffect(
     () =>
       useCombatStore.subscribe((state) => {
-        const hp = state.player.currentHp;
-        if (hp < prevHpRef.current) {
-          pushPopup(`-${prevHpRef.current - hp}`, '#ff5a5a');
-        }
-        prevHpRef.current = hp;
-
         const gold = state.player.gold;
         if (gold > prevGoldRef.current) {
           pushPopup(`+${formatGold(gold - prevGoldRef.current)}G`, '#ffd54a');
