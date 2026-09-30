@@ -21,6 +21,7 @@ import { pickupDrop } from '../../stores/lootStore';
 import { reportKills } from '../../stores/killReporter';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useUIStore } from '../../stores/uiStore';
+import { setHitLeadMs } from './combatFx';
 import type { CharacterProfile } from '../../types/api';
 
 const CLASS_ACCENT: Record<CharacterProfile['character_class'], string> = {
@@ -364,6 +365,13 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     if (prevName) actions[prevName]?.fadeOut(MOVE_FADE_SEC);
     currentAction.current = name;
   }
+
+  // Ranged damage lands in the store at once but the projectile arrives later; tell the combat-fx
+  // watcher so its sparks/flash/numbers line up with the visible impact.
+  useEffect(() => {
+    setHitLeadMs(PROJECTILE_VARIANT[character.character_class] ? RANGED_DRAW_DURATION_MS + PROJECTILE_DURATION_MS : 0);
+    return () => setHitLeadMs(0);
+  }, [character.character_class]);
 
   useEffect(() => {
     // GLTFLoader strips dots from node names, so the source rig's "handslot.r"/"upperarm.r"

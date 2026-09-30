@@ -7,6 +7,7 @@ import { Dungeon, buildFloorMonsters } from './Dungeon';
 import { buildFieldMonsters, isFieldBossAggressive } from './FieldMonsters';
 import { AreaTransitions } from './AreaTransitions';
 import { PlayerCombatEffects } from './PlayerCombatEffects';
+import { CombatFxRoot } from './CombatFxRoot';
 import { PositionSync } from './PositionSync';
 import { ShopProximity } from './ShopProximity';
 import { QuestProximity } from './QuestProximity';
@@ -276,6 +277,7 @@ export function Scene({
       </Suspense>
       <AreaTransitions fieldMonsters={fieldMonsters} />
       <PlayerCombatEffects fieldMonsters={fieldMonsters} />
+      <CombatFxRoot />
       <RespawnTicker />
       <MpRegenTicker />
       <PositionSync mapId={map.map_id} />

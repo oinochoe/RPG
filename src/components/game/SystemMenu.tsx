@@ -9,6 +9,7 @@ import { useTooltip } from "./Tooltip";
 import { useTutorialStore } from "../../lib/tutorial";
 import { useIsTouch } from "../../lib/device";
 import { Button } from "../ui/button";
+import { useFxSettings } from "./fxSettings";
 import { GamePanel } from "../ui/game-panel";
 
 const PANEL_WIDTH = 280;
@@ -35,6 +36,8 @@ const KEYBINDS: [string, string][] = [
 export function SystemMenu() {
   const isOpen = useUIStore((s) => s.isSystemMenuOpen);
   const closeSystemMenu = useUIStore((s) => s.closeSystemMenu);
+  const shake = useFxSettings((s) => s.shake);
+  const setShake = useFxSettings((s) => s.setShake);
   const [loggingOut, setLoggingOut] = useState(false);
   // Collapsed by default — the keybind reference is useful but shouldn't be the first thing
   // this menu shows every time; 캐릭터 선택/로그아웃 (what someone actually opens F1 to do
@@ -89,6 +92,9 @@ export function SystemMenu() {
       className="z-[2147483647]"
     >
       <div className="flex flex-col gap-2">
+        <Button variant="ghost" size="sm" className="w-full" onClick={() => setShake(!shake)}>
+          화면 흔들림 {shake ? "켜짐" : "꺼짐"}
+        </Button>
         <Button
           variant="primary"
           size="sm"

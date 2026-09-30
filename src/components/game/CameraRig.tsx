@@ -3,6 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { OrthographicCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { playerPosition } from './playerTransform';
+import { sampleShake } from './combatFx';
 
 // Exported so CharacterMesh can derive camera-relative movement directions from the same
 // offset — WASD needs to move the character relative to what's "up"/"right" on screen under
@@ -40,17 +41,23 @@ export function CameraRig() {
   const camRef = useRef<THREE.OrthographicCamera>(null);
   const lookTarget = useRef(new THREE.Vector3(0, 1, 0));
 
+  const baseRef = useRef<THREE.Vector3 | null>(null);
+
   useFrame((_, delta) => {
     const cam = camRef.current;
     if (!cam) return;
+    const base = (baseRef.current ??= cam.position.clone());
     const followSpeed = Math.min(1, delta * 4);
     const desiredPos = new THREE.Vector3(playerPosition.x, playerPosition.y, playerPosition.z).add(OFFSET);
-    cam.position.lerp(desiredPos, followSpeed);
+    base.lerp(desiredPos, followSpeed);
     lookTarget.current.lerp(
       new THREE.Vector3(playerPosition.x, playerPosition.y + 1, playerPosition.z),
       followSpeed,
     );
-    cam.lookAt(lookTarget.current);
+    // Shake is a pure translation of camera and look target, so the view never tilts.
+    const shake = sampleShake(delta);
+    cam.position.set(base.x + shake.x, base.y + shake.y, base.z);
+    cam.lookAt(lookTarget.current.x + shake.x, lookTarget.current.y + shake.y, lookTarget.current.z);
   });
 
   return (
