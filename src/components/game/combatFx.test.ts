@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   addShake,
   diffHits,
@@ -7,10 +7,12 @@ import {
   resetShake,
   sampleShake,
   shakeAmplitude,
+  startCombatFxWatcher,
   subscribeHit,
   type HitEvent,
 } from './combatFx';
 import { useFxSettings } from './fxSettings';
+import { useCombatStore } from '../../stores/combatStore';
 
 const m = (currentHp: number, x = 0) => ({ currentHp, alive: currentHp > 0, position: [x, 0, 0] as [number, number, number] });
 const state = (playerHp: number, monsters: Record<number, ReturnType<typeof m>>, attackPower = 10) => ({
@@ -117,5 +119,51 @@ describe('screen shake', () => {
     useFxSettings.setState({ shake: false });
     addShake(0.2);
     expect(sampleShake(0.016, () => 1)).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('startCombatFxWatcher settle window', () => {
+  const setHp = (hp: number) => useCombatStore.setState((s) => ({ player: { ...s.player, currentHp: hp } }));
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setHp(100);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('emits nothing for HP changes right after start (session init)', () => {
+    const fn = vi.fn();
+    const off = subscribeHit(fn);
+    const stop = startCombatFxWatcher();
+    setHp(40);
+    expect(fn).not.toHaveBeenCalled();
+    stop();
+    off();
+  });
+
+  it('emits playerHit for an HP loss after the settle window', () => {
+    const fn = vi.fn();
+    const off = subscribeHit(fn);
+    const stop = startCombatFxWatcher();
+    setHp(40);
+    vi.advanceTimersByTime(2000);
+    setHp(30);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn.mock.calls[0][0]).toMatchObject({ kind: 'playerHit', damage: 10 });
+    stop();
+    off();
+  });
+
+  it('stop unsubscribes from the store', () => {
+    const fn = vi.fn();
+    const off = subscribeHit(fn);
+    const stop = startCombatFxWatcher();
+    vi.advanceTimersByTime(2000);
+    stop();
+    setHp(10);
+    expect(fn).not.toHaveBeenCalled();
+    off();
   });
 });

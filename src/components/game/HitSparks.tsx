@@ -17,6 +17,15 @@ export function HitSparks() {
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const tint = useMemo(() => new THREE.Color(), []);
 
+  // setColorAt lazily creates instanceColor, which flips USE_INSTANCING_COLOR and recompiles the
+  // shader at the first hit. Create it up front so the first compile already includes it.
+  useEffect(() => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    mesh.setColorAt(0, tint);
+    mesh.instanceColor!.needsUpdate = true;
+  }, [tint]);
+
   useEffect(
     () =>
       subscribeHit((e) => {

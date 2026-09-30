@@ -120,12 +120,21 @@ export function setHitLeadMs(ms: number): void {
   hitLeadMs = ms;
 }
 
+// combatStore outlives sessions and Scene's initCombat runs after this watcher starts, so the first
+// store changes are session setup (HP swapped to the character's), not combat. Ignore them.
+const SETTLE_MS = 1500;
+
 /** Start turning combatStore HP losses into HitEvents. Returns the stop function. */
 export function startCombatFxWatcher(): () => void {
   let prev = useCombatStore.getState() as FxState;
+  const settleUntil = performance.now() + SETTLE_MS;
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const unsubscribe = useCombatStore.subscribe((state) => {
     const next = state as FxState;
+    if (performance.now() < settleUntil) {
+      prev = next;
+      return;
+    }
     const events = diffHits(prev, next, [playerPosition.x, 1, playerPosition.z]);
     prev = next;
     for (const e of events) {
