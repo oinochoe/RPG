@@ -9,6 +9,7 @@ import { HealthBar } from './HealthBar';
 import { playerPosition } from './playerTransform';
 import { engageMonster } from './engage';
 import { fitScale } from './modelScale';
+import { useHitReaction } from './hitReaction';
 import { cameraZoomFor } from './CameraRig';
 import { THEME } from '../../lib/theme';
 import { useCombatStore, type MonsterCombatState } from '../../stores/combatStore';
@@ -310,7 +311,8 @@ function RiggedSkeletonMonsterBody({ combat, tint }: { combat: MonsterCombatStat
     () => [...generalGltf.animations, ...movementGltf.animations],
     [generalGltf.animations, movementGltf.animations],
   );
-  const { actions } = useAnimations(clips, scene);
+  const { actions, mixer } = useAnimations(clips, scene);
+  useHitReaction(combat.instanceId, scene, mixer);
   const currentAction = useRef<string | null>(null);
 
   const swingBoneRef = useRef<THREE.Object3D | null>(null);
@@ -441,7 +443,8 @@ function RiggedMonsterBody({
   const gltf = useGLTF(config.modelUrl, { outline: true });
   const fit = useMemo(() => fitScale(gltf.scene, config.targetHeight), [gltf.scene, config.targetHeight]);
   const scene = useMemo(() => cloneSkeleton(gltf.scene), [gltf.scene]);
-  const { actions } = useAnimations(gltf.animations, scene);
+  const { actions, mixer } = useAnimations(gltf.animations, scene);
+  useHitReaction(combat.instanceId, scene, mixer);
   const currentAction = useRef<string | null>(null);
   const prevHitAt = useRef(combat.lastHitAt);
   const prevAttackAt = useRef(combat.lastAttackAt);
