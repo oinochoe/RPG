@@ -15,7 +15,7 @@ import {
   parseKillBatch,
   statPointCost,
 } from '../../supabase/functions/api/economyRules';
-import { DISCOVERY_REWARDS, checkClaim } from '../../supabase/functions/api/discoveries';
+import { DISCOVERY_REWARDS, checkClaim, pickRewardItem } from '../../supabase/functions/api/discoveries';
 
 const BASE = 'http://localhost:8000/api/v1';
 
@@ -459,6 +459,7 @@ export const handlers = [
     }
     claimed.push(id);
     const r = DISCOVERY_REWARDS[id];
+    const itemId = pickRewardItem(r, active.character_class);
     const gold = r.gold ?? 0;
     const xp = r.xp ?? 0;
     const applied = applyExperience(
@@ -478,7 +479,7 @@ export const handlers = [
     return HttpResponse.json({
       progress: toSnapshot(p, xp, gold, applied.leveledUp),
       inventory: [],
-      reward: { gold, xp, item_template_id: r.itemTemplateId ?? null, item_qty: r.itemQty ?? 0 },
+      reward: { gold, xp, item_template_id: itemId ?? null, item_qty: itemId !== undefined ? (r.itemQty ?? 1) : 0 },
     });
   }),
 

@@ -28,6 +28,8 @@ const FIELD_NPC_POSITIONS: [number, number][] = [
 ];
 
 const GEAR_IDS = [9, 10, 11];
+const isGear = (r: { itemTemplateId?: number; itemByClass?: Partial<Record<string, number>> }) =>
+  [r.itemTemplateId, ...Object.values(r.itemByClass ?? {})].some((id) => id !== undefined && GEAR_IDS.includes(id));
 
 describe('discovery content', () => {
   it('has the planned amount and mix', () => {
@@ -71,6 +73,10 @@ describe('discovery content', () => {
       expect(s.gold, d.id).toBe(d.reward!.gold);
       expect(s.xp, d.id).toBe(d.reward!.xp);
       expect(s.itemTemplateId, d.id).toBe(d.reward!.itemTemplateId);
+      expect(s.itemByClass, d.id).toEqual(d.reward!.itemByClass);
+      if (d.reward!.itemNameByClass !== undefined) {
+        expect(Object.keys(d.reward!.itemNameByClass).sort(), d.id).toEqual(Object.keys(d.reward!.itemByClass ?? {}).sort());
+      }
       expect(s.itemQty ?? (s.itemTemplateId ? 1 : undefined), d.id).toBe(d.reward!.itemQty ?? (d.reward!.itemTemplateId ? 1 : undefined));
       if (d.reward!.itemTemplateId !== undefined) expect(d.reward!.itemName, d.id).toBeTruthy();
       // The level gate the server enforces must not be easier than what the client requires…
@@ -80,7 +86,7 @@ describe('discovery content', () => {
       expect(clientMin, d.id).toBe(s.minLevel);
       // Rewards are the hidden part of the game.
       expect(d.hidden, d.id).toBe(true);
-      if (d.reward!.itemTemplateId !== undefined && GEAR_IDS.includes(d.reward!.itemTemplateId)) {
+      if (isGear(s)) {
         expect(s.minLevel, d.id).toBeGreaterThanOrEqual(8);
       }
     }
@@ -96,7 +102,7 @@ describe('discovery content', () => {
       if (r.xp !== undefined) expect(r.xp, id).toBeLessThanOrEqual(80);
       if (r.itemQty !== undefined) expect(r.itemQty, id).toBeLessThanOrEqual(3);
     }
-    expect(Object.values(DISCOVERY_REWARDS).filter((r) => r.itemTemplateId !== undefined && GEAR_IDS.includes(r.itemTemplateId)).length).toBeLessThanOrEqual(2);
+    expect(Object.values(DISCOVERY_REWARDS).filter(isGear).length).toBeLessThanOrEqual(2);
   });
 
   describe('placement', () => {

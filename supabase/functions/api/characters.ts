@@ -5,7 +5,7 @@ import { requireAuth, AppUser } from "./authMiddleware.ts";
 import { requireGameSession } from "./gameSessionMiddleware.ts";
 import { BOSSES, parseKillBatch, type KillReport } from "./economyRules.ts";
 import { rollDropEntry } from "./drops.ts";
-import { checkClaim } from "./discoveries.ts";
+import { checkClaim, pickRewardItem, type RewardClass } from "./discoveries.ts";
 
 export const charactersRoutes = new Hono<{ Variables: { appUser: AppUser } }>();
 
@@ -969,9 +969,10 @@ charactersRoutes.post("/me/discoveries/:id/claim", async (c) => {
   const admin = getAdminClient();
   const characterId = await getActiveCharacterId(admin, appUser.id);
 
-  const { data: charRow, error: charError } = await admin.from("characters").select("level").eq("id", characterId).single();
-  if (charError || !charRow) {
-    console.error("discovery claim: character lookup failed:", charError?.message);
+  const { data: charRow, error: charError } = await admin.from("characters").select("level, character_class").eq("id", characterId).single();
+  const characterClass = (charRow as { character_class?: string } | null)?.character_class;
+  if (charError || !charRow || (characterClass !== "warrior" && characterClass !== "mage" && characterClass !== "archer")) {
+    console.error("discovery claim: character lookup failed:", charError?.message ?? "invalid class");
     throw new ApiError(500, "internal_error", "discovery_claim_failed", "보상 처리 중 오류가 발생했습니다.");
   }
 
@@ -1003,9 +1004,10 @@ charactersRoutes.post("/me/discoveries/:id/claim", async (c) => {
   }
 
   const itemQty = reward.itemQty ?? 1;
-  if (reward.itemTemplateId !== undefined) {
+  const itemTemplateId = pickRewardItem(reward, characterClass as RewardClass);
+  if (itemTemplateId !== undefined) {
     try {
-      await grantInventoryItem(admin, characterId, reward.itemTemplateId, itemQty, {
+      await grantInventoryItem(admin, characterId, itemTemplateId, itemQty, {
         code: "discovery_item_grant_failed",
         message: "보상 아이템 지급 중 오류가 발생했습니다.",
       });
@@ -1029,8 +1031,8 @@ charactersRoutes.post("/me/discoveries/:id/claim", async (c) => {
     reward: {
       gold: reward.gold ?? 0,
       xp: reward.xp ?? 0,
-      item_template_id: reward.itemTemplateId ?? null,
-      item_qty: reward.itemTemplateId !== undefined ? itemQty : 0,
+      item_template_id: itemTemplateId ?? null,
+      item_qty: itemTemplateId !== undefined ? itemQty : 0,
     },
   });
 });

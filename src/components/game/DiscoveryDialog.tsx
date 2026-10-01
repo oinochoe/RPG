@@ -8,7 +8,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { Button } from '../ui/button';
 import { GamePanel } from '../ui/game-panel';
 import { getDiscovery, type DiscoveryDef } from './discoveries';
-import { advance, linesFor, startPhase, type DialogPhase } from './discoveryDialogLogic';
+import { advance, linesFor, rewardItemName, startPhase, type DialogPhase } from './discoveryDialogLogic';
 import { useDraggablePanel } from './useDraggablePanel';
 
 const PANEL_WIDTH = 320;
@@ -25,7 +25,7 @@ function rewardText(def: DiscoveryDef, r: { gold: number; xp: number; item_qty: 
   const parts: string[] = [];
   if (r.gold > 0) parts.push(`골드 ${r.gold}`);
   if (r.xp > 0) parts.push(`경험치 ${r.xp}`);
-  if (r.item_template_id !== null) parts.push(`${def.reward?.itemName ?? '아이템'} x${r.item_qty}`);
+  if (r.item_template_id !== null) parts.push(`${rewardItemName(def.reward, useCharacterStore.getState().activeCharacter?.character_class) ?? '아이템'} x${r.item_qty}`);
   return `획득: ${parts.join(' · ')}`;
 }
 

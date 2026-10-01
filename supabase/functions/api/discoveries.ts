@@ -12,7 +12,16 @@ export interface RewardEntry {
   gold?: number;
   xp?: number;
   itemTemplateId?: number;
+  /** Class-specific item; wins over itemTemplateId (the fallback for a class missing from the map). */
+  itemByClass?: Partial<Record<RewardClass, number>>;
   itemQty?: number;
+}
+
+export type RewardClass = "warrior" | "mage" | "archer";
+
+/** The item to grant for this character class: the class's own entry, else the fallback itemTemplateId. */
+export function pickRewardItem(reward: RewardEntry, characterClass: RewardClass): number | undefined {
+  return reward.itemByClass?.[characterClass] ?? reward.itemTemplateId;
 }
 
 export const MAX_GOLD_PER_DISCOVERY = 500;
@@ -21,12 +30,12 @@ export const MAX_ITEM_QTY = 5;
 
 // Ids match the client's discoveries (src/components/game/discoveryContent.ts); discoveryContent.test.ts keeps the
 // two in sync, including minLevel = the client's level requirement. Item rewards are item-only (see below).
-// Item template ids: 7 체력 물약, 9 강철 검, 12 마나 물약, 64 사파이어.
+// Item template ids: 7 체력 물약, 9 강철 검 / 10 대현자의 지팡이 / 11 사냥꾼의 장궁, 12 마나 물약, 64 사파이어.
 export const DISCOVERY_REWARDS: Record<string, RewardEntry> = {
   "fence-stash": { minLevel: 1, gold: 30, xp: 10 },
   "cracked-jar": { minLevel: 5, itemTemplateId: 7, itemQty: 2 },
   "fairy-tip-jar": { minLevel: 8, itemTemplateId: 12, itemQty: 3 },
-  "confiscated-sword": { minLevel: 10, itemTemplateId: 9, itemQty: 1 },
+  "confiscated-sword": { minLevel: 10, itemTemplateId: 9, itemByClass: { warrior: 9, mage: 10, archer: 11 }, itemQty: 1 },
   "bone-piggybank": { minLevel: 13, gold: 120, xp: 60 },
   "ghoul-lost-and-found": { minLevel: 14, itemTemplateId: 64, itemQty: 2 },
   "ancient-pension": { minLevel: 18, gold: 150, xp: 80 },
@@ -51,7 +60,7 @@ export function validateRewardTable(table: Record<string, RewardEntry>): string[
   const problems: string[] = [];
   for (const [id, r] of Object.entries(table)) {
     if (!(r.minLevel >= 1)) problems.push(`${id}: minLevel must be at least 1`);
-    if (r.gold === undefined && r.xp === undefined && r.itemTemplateId === undefined) problems.push(`${id}: empty reward`);
+    if (r.gold === undefined && r.xp === undefined && r.itemTemplateId === undefined && r.itemByClass === undefined) problems.push(`${id}: empty reward`);
     if (r.gold !== undefined && !(Number.isInteger(r.gold) && r.gold > 0 && r.gold <= MAX_GOLD_PER_DISCOVERY)) {
       problems.push(`${id}: gold must be 1..${MAX_GOLD_PER_DISCOVERY}`);
     }
@@ -61,12 +70,17 @@ export function validateRewardTable(table: Record<string, RewardEntry>): string[
     if (r.itemTemplateId !== undefined && !(Number.isInteger(r.itemTemplateId) && r.itemTemplateId > 0)) {
       problems.push(`${id}: itemTemplateId must be a positive integer`);
     }
+    if (r.itemByClass !== undefined) {
+      for (const [cls, itemId] of Object.entries(r.itemByClass)) {
+        if (!(Number.isInteger(itemId) && (itemId as number) > 0)) problems.push(`${id}: itemByClass.${cls} must be a positive integer`);
+      }
+    }
     if (r.itemQty !== undefined && !(Number.isInteger(r.itemQty) && r.itemQty >= 1 && r.itemQty <= MAX_ITEM_QTY)) {
       problems.push(`${id}: itemQty must be 1..${MAX_ITEM_QTY}`);
     }
     // An item grant that fails undoes the claim row but not gold/xp already paid, so a retry would pay those
     // twice. Item rewards are therefore item-only; gold/xp rewards may combine with each other.
-    if (r.itemTemplateId !== undefined && (r.gold !== undefined || r.xp !== undefined)) {
+    if ((r.itemTemplateId !== undefined || r.itemByClass !== undefined) && (r.gold !== undefined || r.xp !== undefined)) {
       problems.push(`${id}: an item reward cannot also give gold or xp`);
     }
   }

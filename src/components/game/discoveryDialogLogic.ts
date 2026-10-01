@@ -1,4 +1,4 @@
-import type { DiscoveryDef } from './discoveries';
+import type { DiscoveryDef, DiscoveryReward } from './discoveries';
 
 export type DialogPhase =
   | { step: 'lines'; index: number; /** Set when re-reading an already-seen discovery: shorter lines, no reward step. */ seen?: true }
@@ -21,4 +21,9 @@ export function advance(def: DiscoveryDef, phase: DialogPhase): DialogPhase {
   if (phase.index < lines.length - 1) return { ...phase, index: phase.index + 1 };
   if (def.reward && !phase.seen) return { step: 'reward', status: 'idle' };
   return { step: 'reward', status: 'done' };
+}
+
+/** Name of the item the player gets: the per-class name when the reward has one, else the generic name. */
+export function rewardItemName(reward: DiscoveryReward | undefined, characterClass: 'warrior' | 'mage' | 'archer' | undefined): string | undefined {
+  return (characterClass ? reward?.itemNameByClass?.[characterClass] : undefined) ?? reward?.itemName;
 }

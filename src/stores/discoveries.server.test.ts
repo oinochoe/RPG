@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_GOLD_PER_DISCOVERY, MAX_ITEM_QTY, MAX_XP_PER_DISCOVERY, checkClaim, validateRewardTable } from '../../supabase/functions/api/discoveries';
+import { MAX_GOLD_PER_DISCOVERY, MAX_ITEM_QTY, MAX_XP_PER_DISCOVERY, checkClaim, pickRewardItem, validateRewardTable } from '../../supabase/functions/api/discoveries';
 
 const table = {
   'sulky-rock': { minLevel: 1, gold: 40 },
@@ -53,5 +53,29 @@ describe('validateRewardTable', () => {
     expect(validateRewardTable({ mixg: { minLevel: 1, gold: 10, itemTemplateId: 7 } }).join()).toMatch(/mixg:/);
     expect(validateRewardTable({ mixx: { minLevel: 1, xp: 10, itemTemplateId: 7, itemQty: 2 } }).join()).toMatch(/mixx:/);
     expect(validateRewardTable({ gx: { minLevel: 1, gold: 10, xp: 10 } })).toEqual([]);
+  });
+});
+
+describe('class-specific item rewards', () => {
+  const r = { minLevel: 10, itemTemplateId: 9, itemByClass: { warrior: 9, mage: 10 }, itemQty: 1 };
+  it('pickRewardItem picks the class entry, falls back to itemTemplateId, else undefined', () => {
+    expect(pickRewardItem(r, 'mage')).toBe(10);
+    expect(pickRewardItem(r, 'warrior')).toBe(9);
+    expect(pickRewardItem(r, 'archer')).toBe(9);
+    expect(pickRewardItem({ minLevel: 1, itemByClass: { mage: 10 } }, 'archer')).toBeUndefined();
+    expect(pickRewardItem({ minLevel: 1, gold: 5 }, 'mage')).toBeUndefined();
+  });
+  it('validateRewardTable accepts itemByClass alone or with a fallback', () => {
+    expect(validateRewardTable({ a: { minLevel: 1, itemByClass: { warrior: 9, mage: 10, archer: 11 } } })).toEqual([]);
+    expect(validateRewardTable({ b: r })).toEqual([]);
+  });
+  it('rejects itemByClass combined with gold or xp', () => {
+    expect(validateRewardTable({ g: { minLevel: 1, gold: 5, itemByClass: { mage: 10 } } }).join()).toMatch(/g:/);
+    expect(validateRewardTable({ x: { minLevel: 1, xp: 5, itemByClass: { mage: 10 } } }).join()).toMatch(/x:/);
+  });
+  it('rejects non-positive or non-integer ids in itemByClass', () => {
+    expect(validateRewardTable({ z: { minLevel: 1, itemByClass: { mage: 0 } } }).join()).toMatch(/z:/);
+    expect(validateRewardTable({ n: { minLevel: 1, itemByClass: { mage: -3 } } }).join()).toMatch(/n:/);
+    expect(validateRewardTable({ f: { minLevel: 1, itemByClass: { mage: 1.5 } } }).join()).toMatch(/f:/);
   });
 });

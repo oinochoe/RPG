@@ -17,8 +17,12 @@ export interface DiscoveryReward {
   gold?: number;
   xp?: number;
   itemTemplateId?: number;
+  /** Display copy of the server's class-specific item ids (discoveryContent.test.ts keeps them equal). */
+  itemByClass?: Partial<Record<'warrior' | 'mage' | 'archer', number>>;
   /** Shown in the dialog; the server decides what is actually granted. */
   itemName?: string;
+  /** Per-class name for itemByClass rewards; falls back to itemName. */
+  itemNameByClass?: Partial<Record<'warrior' | 'mage' | 'archer', string>>;
   itemQty?: number;
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DiscoveryDef } from './discoveries';
-import { advance, linesFor, startPhase } from './discoveryDialogLogic';
+import { advance, linesFor, rewardItemName, startPhase } from './discoveryDialogLogic';
 
 const base: DiscoveryDef = { id: 'x', kind: 'inspect', name: '바위', position: [0, 0], radius: 2, prop: 'rock', lines: ['하나', '둘', '셋'] };
 const paying: DiscoveryDef = { ...base, reward: { gold: 30 } };
@@ -22,5 +22,15 @@ describe('dialog logic', () => {
     expect(linesFor({ ...base, afterLines: ['또 왔네'] }, true)).toEqual(['또 왔네']);
     expect(linesFor(base, true)).toEqual(['셋']);
     expect(advance(paying, startPhase(paying, true))).toEqual({ step: 'reward', status: 'done' });
+  });
+});
+
+describe('rewardItemName', () => {
+  const reward = { itemName: '강철 검', itemNameByClass: { mage: '대현자의 지팡이' } };
+  it('uses the class name, else the generic name', () => {
+    expect(rewardItemName(reward, 'mage')).toBe('대현자의 지팡이');
+    expect(rewardItemName(reward, 'archer')).toBe('강철 검');
+    expect(rewardItemName(reward, undefined)).toBe('강철 검');
+    expect(rewardItemName(undefined, 'mage')).toBeUndefined();
   });
 });

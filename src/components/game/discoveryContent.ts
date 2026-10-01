@@ -181,10 +181,16 @@ export const DISCOVERY_CONTENT: DiscoveryDef[] = [
     requires: [{ type: 'level', min: 10 }],
     lines: [
       "바위 틈에 녹슨 상자가 끼어 있다. '압수품 — 인간 모험가 소지'",
-      '안에는 멀쩡한 강철 검이 한 자루. 오크 손에는 너무 작았나 보다.',
+      '안에는 멀쩡한 무기가 한 자루. 쥐는 순간 손에 맞는 모양으로 변한다. 수상한 상자다.',
       '원래 주인에게 돌려주는 거라고 생각하자. 그 주인이 누군지는 모르지만.',
     ],
-    reward: { itemTemplateId: 9, itemName: '강철 검', itemQty: 1 },
+    reward: {
+      itemTemplateId: 9,
+      itemByClass: { warrior: 9, mage: 10, archer: 11 },
+      itemName: '강철 검',
+      itemNameByClass: { warrior: '강철 검', mage: '대현자의 지팡이', archer: '사냥꾼의 장궁' },
+      itemQty: 1,
+    },
   },
   {
     id: 'orc-etiquette-sign',
