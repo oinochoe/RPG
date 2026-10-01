@@ -138,8 +138,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
   ],
   // 죽음의 기사 (expand_monster_catalog_v1) — a real field elite (Lv16/670hp, see
   // FieldMonsters.ts's buildBoneFieldMonsters), so its table sits a clear step above every
-  // other DROP_TABLE entry: always drops (see NOTHING_WEIGHT below) and a decent shot at the
-  // premium consumables/materials.
+  // other DROP_TABLE entry: elites (13, 14, and captain-tier 5) drop about 60% of the time
+  // and a decent shot at the premium consumables/materials.
   13: [
     { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 40 },
     { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 16 },
@@ -334,7 +334,7 @@ export function rollDropEntry(monsterTemplateId: number, monsterName: string, rn
   const scroll = rollScroll(scrollChancesFor(monsterTemplateId, monsterName), rng);
   if (scroll) return scroll;
 
-  // Bosses always drop something, same as template 5's own NOTHING_WEIGHT of 0.
+  // Tracked bosses always drop (they roll their own name-keyed table with no 'nothing' weight).
   const bossEntries = BOSS_DROP_TABLE[monsterName];
   if (bossEntries) return rollWeighted(bossEntries, 0, rng);
 
