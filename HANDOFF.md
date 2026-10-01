@@ -150,6 +150,24 @@ DB/함수와 클라이언트 사이에는 잠깐 구 클라이언트와 새 서�
 - 미리보기: dev 서버 콘솔에서 `const m = await import('/src/components/game/skillFx.ts'); m.emitSkillCast({skillId, from, to, aoeRadius, travelMs})`.
 - 알려진 한계: **폰 실기기 성능은 확인하지 못했다.** 땅 링/기둥은 고정 y라 지형 높이를 따르지 않는다. 부품별 재질은 dispose하지 않는다(미미함). `fall`의 x 흔들림과 세로 늘어남은 겉보기용이다.
 
+## 한 접속만 유효 (게임 세션)
+
+설계는 `docs/superpowers/specs/2026-10-01-single-game-session-design.md`. 같은 계정으로 탭/기기를 여러 개 열어도 **나중에 입장한 접속만 유효**하고 이전 접속은 서버가 거부한다.
+
+- 동작: `select_character` RPC가 활성화하는 캐릭터에 새 `game_session_id`를 발급 -> `POST /characters/:id/select`가 `{ game_session_id }`로 돌려줌 -> 클라이언트가 탭 단위(`sessionStorage`, 키 `rpg.game-session`)로 보관 -> 모든 요청에 헤더 `x-game-session`을 붙임 -> `requireGameSession`이 **활성 캐릭터**의 값과 비교 -> 다르거나 없으면 409 `conflict`/`session_replaced` -> `client.ts`가 훅을 불러 `SessionReplacedModal`(App.tsx에 마운트)을 띄움(재시도/토큰 갱신 없음).
+- 위치:
+  - 서버: `supabase/functions/api/gameSession.ts`(순수 판정 `checkGameSession`), `gameSessionMiddleware.ts`(`requireGameSession`), `characters.ts`(미들웨어 적용 + select 응답), `maps.ts`, `index.ts`(CORS).
+  - DB: `supabase/migrations/20261001010000_game_session_id.sql`(컬럼 + RPC 갱신).
+  - 클라이언트: `src/stores/gameSessionStore.ts`, `src/api/client.ts`(헤더/훅), `src/components/SessionReplacedModal.tsx`, `src/components/game/savePolicy.ts`(`shouldSavePosition`), `src/components/game/PositionSync.tsx`.
+- 규칙:
+  - 검사 대상은 `/characters/me`, `/characters/me/*`, `/exploration` 전체. select/목록/생성/삭제는 접속을 바꾸는 쪽이라 **일부러** 검사하지 않는다. 새 `/me...` 라우트나 exploration 라우트는 자동으로 보호된다(별도 작업 불필요).
+  - 새 커스텀 요청 헤더를 쓰려면 `index.ts` CORS `allowHeaders`에 추가해야 한다(`X-Game-Session`도 거기 있음).
+  - 비활성 캐릭터 행의 `game_session_id`는 오래된 값일 수 있으니 **읽어서 쓰지 말 것**(항상 활성 행만).
+  - select가 id를 못 받으면(RPC 미적용 등) 500 `character_select_failed`.
+- 위치 저장: 15초 주기 + `pagehide`/`visibilitychange(hidden)` 때 `keepalive` fetch. 접속이 이미 교체됐거나 id가 없으면 저장을 건너뛴다(`shouldSavePosition`). 파일명은 `PositionSync.tsx`와 Windows에서 충돌하지 않게 `savePolicy.ts`.
+- **이 변경의 배포 순서**: ① Supabase SQL Editor에서 마이그레이션 실행 -> ② main push(프런트) -> ③ CLI로 엣지 함수 배포. 함수를 먼저 올리면 헤더가 없는 옛 프런트가 전부 409를 받는다.
+- 한계: 옛 탭은 **자기 다음 요청에서야** 교체를 안다. 두 탭 동작은 MSW 목으로 재현할 수 없으니 실서버에서 확인할 것. `DELETE /characters/:id`는 세션 검사를 하지 않는다.
+
 ## 경제 서버 권위 (동작/주의)
 
 골드·경험치/레벨·스탯 포인트·파생 능력치·아이템 지급은 **서버(DB)가 유일한 원본**이다. 클라이언트는 화면

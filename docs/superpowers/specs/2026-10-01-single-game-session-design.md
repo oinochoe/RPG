@@ -30,21 +30,22 @@
 
 ### 1. 데이터
 
-`characters`에 `game_session_id uuid NULL` 컬럼을 추가한다(마이그레이션). 활성 캐릭터 행에만 의미가 있다. `select_character` RPC가 활성 캐릭터를 바꿀 때 새 `game_session_id`를 같은 트랜잭션에서 기록한다. 활성이 아니게 된 캐릭터의 값은 `NULL`로 비운다.
+`characters`에 `game_session_id uuid NULL` 컬럼을 추가한다(마이그레이션). 활성 캐릭터 행에만 의미가 있다. `select_character` RPC가 활성 캐릭터를 바꿀 때 `gen_random_uuid()`로 만든 새 `game_session_id`를 같은 트랜잭션에서 기록한다(이미 활성인 캐릭터를 다시 골라도 새로 발급). 활성이 아니게 된 캐릭터의 값은 `NULL`로 비운다.
 
 ### 2. 서버
 
-- `POST /characters/:id/select`: RPC로 활성 캐릭터와 새 `game_session_id`(서버가 `crypto.randomUUID()`로 생성)를 저장하고, 응답에 `game_session_id`를 포함한다.
-- 새 미들웨어 `requireGameSession`을 `/characters/me/*` 전 라우트에 건다(`requireAuth` 다음): 요청 헤더 `x-game-session`을 활성 캐릭터의 `game_session_id`와 비교한다. 헤더가 없거나 다르면 **409** + 에러 코드 `session_replaced`(한국어 메시지 "다른 곳에서 접속하여 이 접속은 종료되었습니다.")를 반환하고 핸들러를 실행하지 않는다.
+- `POST /characters/:id/select`: RPC가 활성 캐릭터와 새 `game_session_id`를 저장하고, 응답은 `{ game_session_id }`다. RPC 결과에 id가 없으면 500 `character_select_failed`.
+- 새 미들웨어 `requireGameSession`을 `/characters/me`, `/characters/me/*`와 `/exploration`(입장 `enter-map` 포함) 전체에 건다(`requireAuth` 다음; 새 `/me...`·exploration 라우트는 자동 보호). 구현은 `gameSession.ts`(순수 판정) + `gameSessionMiddleware.ts`: 요청 헤더 `x-game-session`을 활성 캐릭터의 `game_session_id`와 비교한다. 헤더가 없거나 다르면 **409** + 에러 코드 `session_replaced`(한국어 메시지 "다른 곳에서 접속하여 이 접속은 종료되었습니다.")를 반환하고 핸들러를 실행하지 않는다.
 - `select`, 캐릭터 목록/생성/삭제(`/characters`, `/characters/:id`)에는 걸지 않는다(접속을 바꾸는 쪽이므로).
+- CORS `allowHeaders`에 `X-Game-Session`을 추가했다(`index.ts`). 새 커스텀 헤더는 항상 여기에 추가해야 한다.
 - 배포 시점에 이미 열려 있던 옛 클라이언트(헤더 없음)는 첫 요청에서 `session_replaced`를 받고 안내 후 재접속하게 된다 — 의도된 동작으로 간주한다.
 
 ### 3. 클라이언트
 
 - `characterStore.select()`가 응답의 `game_session_id`를 받아 **`sessionStorage`**(탭 단위, 새로고침은 유지)와 메모리에 저장한다.
 - `src/api/client.ts`의 `apiRequest`가 값이 있으면 모든 요청에 `x-game-session` 헤더를 붙인다(`configureApiClient`에 `getGameSession` 훅 추가).
-- 응답이 409 + `session_replaced`이면 `onSessionReplaced` 훅을 호출한다: 게임을 멈추고(위치 저장·킬 보고·15초 타이머 중단) "다른 곳에서 접속했습니다. 이 화면에서는 더 이상 플레이할 수 없습니다" 모달을 띄우고, 확인하면 캐릭터 선택 화면으로 이동한다. 이 경우 재시도·토큰 갱신을 하지 않는다.
-- `PositionSync`에 `pagehide`/`visibilitychange(hidden)` 저장을 추가한다: `fetch(..., { keepalive: true })`로 `PATCH /characters/me/position`을 보낸다(헤더 포함; `sendBeacon`은 헤더를 못 쓰므로 사용하지 않는다). 실패는 무시한다(best-effort).
+- 응답이 409 + `session_replaced`이면 `onSessionReplaced` 훅을 호출한다: 게임을 멈추고(위치 저장 중단) "다른 곳에서 접속했습니다" 모달(`SessionReplacedModal`, `App.tsx`에 마운트)을 띄우고, 확인하면 캐릭터 선택 화면으로 이동한다. 이 경우 재시도·토큰 갱신을 하지 않는다.
+- 위치 저장 허용 판정은 `src/components/game/savePolicy.ts`(`shouldSavePosition`; 원래 계획의 `positionSync.ts`는 `PositionSync.tsx`와 Windows에서 충돌해 개명). `PositionSync`에 `pagehide`/`visibilitychange(hidden)` 저장을 추가한다: `fetch(..., { keepalive: true })`로 `PATCH /characters/me/position`을 보낸다(헤더 포함; `sendBeacon`은 헤더를 못 쓰므로 사용하지 않는다). 실패는 무시한다(best-effort).
 
 ### 4. 오류 처리·보안
 
@@ -64,4 +65,6 @@
 2. 서버: 세션 판정 + `requireGameSession` + `select` 응답 + 테스트
 3. 클라이언트: 세션 ID 저장, `apiRequest` 헤더, `session_replaced` 처리와 모달
 4. `PositionSync` pagehide/hidden 저장
-5. 목(MSW) 핸들러 갱신, 두 탭 시나리오 Playwright 확인, HANDOFF, 배포(마이그레이션 → 함수 → 프런트 순서)
+5. 목(MSW) 핸들러 갱신, HANDOFF, 배포
+
+**배포 순서(확정)**: ① SQL Editor에서 마이그레이션 → ② main push(프런트) → ③ CLI로 엣지 함수. 함수를 먼저 올리면 헤더 없는 옛 프런트가 모두 409를 받는다. 두 탭 시나리오는 MSW 목으로 재현되지 않아 실서버에서 확인한다.
