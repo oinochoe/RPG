@@ -66,7 +66,7 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
   ],
   5: [
     { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 50 },
-    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
+    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 24 },
     { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 15 },
     { itemTemplateId: 60, itemName: '강화 초록 물약', itemType: 'consumable', weight: 5 },
     { itemTemplateId: 14, itemName: '마을 귀환 주문서', itemType: 'scroll', weight: 20 },
@@ -98,8 +98,8 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
   // a rare staff) matching the zone's fae/forest theme, even though the monster itself is a
   // mushroom creature rather than a literal fairy. 에메랄드 as its misc drop (nature-toned gem).
   8: [
-    { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 30 },
-    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 20 },
+    { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 12 },
+    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 8 },
     { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 12 },
     { itemTemplateId: 10, itemName: '대현자의 지팡이', itemType: 'weapon', weight: 5 },
     { itemTemplateId: 67, itemName: '에메랄드', itemType: 'misc', weight: 5 },
@@ -107,7 +107,7 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
   // 버섯 정령 (expand_monster_catalog_v1) — 버섯왕(8)'s weaker sibling gets a thinned-down
   // version of the same table, no weapon chance.
   9: [
-    { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 30 },
+    { itemTemplateId: 12, itemName: '마나 물약', itemType: 'consumable', weight: 12 },
     { itemTemplateId: 57, itemName: '초록 물약', itemType: 'consumable', weight: 10 },
     { itemTemplateId: 67, itemName: '에메랄드', itemType: 'misc', weight: 4 },
   ],
@@ -142,7 +142,7 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
   // premium consumables/materials.
   13: [
     { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 40 },
-    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 30 },
+    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 16 },
     { itemTemplateId: 60, itemName: '강화 초록 물약', itemType: 'consumable', weight: 10 },
     { itemTemplateId: 76, itemName: '미스릴', itemType: 'misc', weight: 8 },
     { itemTemplateId: 65, itemName: '상급 사파이어', itemType: 'misc', weight: 8 },
@@ -152,33 +152,34 @@ const DROP_TABLE: Record<number, DropTableEntry[]> = {
   // reserved for the 5 real tracked bosses so it doesn't get diluted).
   14: [
     { itemTemplateId: 8, itemName: '상급 체력 물약', itemType: 'consumable', weight: 40 },
-    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 25 },
+    { itemTemplateId: 13, itemName: '상급 마나 물약', itemType: 'consumable', weight: 14 },
     { itemTemplateId: 60, itemName: '강화 초록 물약', itemType: 'consumable', weight: 8 },
     { itemTemplateId: 76, itemName: '미스릴', itemType: 'misc', weight: 6 },
     { itemTemplateId: 63, itemName: '최상급 루비', itemType: 'misc', weight: 5 },
   ],
 };
 
-// The remaining share of each table's total roll that means "no drop" — e.g. slime's 40
-// against its own 60 (45+15) of real entries means a 40% chance of nothing, 45% health
-// potion, 15% mana potion. The boss (5) always drops something.
+// The remaining share of each table's total roll that means "no drop". Regular monsters drop
+// about 25% of the time and elites/captains (5, 13, 14) about 60%; the tracked bosses always drop
+// via BOSS_DROP_TABLE (keyed by name). nothing = round(sum of entry weights * (1/p - 1)): x3 for
+// p = 0.25, x2/3 for p = 0.6.
 const NOTHING_WEIGHT: Record<number, number> = {
-  1: 40,
-  2: 35,
-  3: 35,
-  4: 40,
-  5: 0,
-  6: 40,
-  7: 35,
-  8: 40,
-  9: 45,
-  10: 35,
-  11: 35,
-  12: 35,
-  // 죽음의 기사/유적의 파수병 — field elites always drop something, same as the tracked bosses' 0.
-  13: 0,
-  14: 0,
-  15: 38,
+  1: 246,
+  2: 267,
+  3: 273,
+  4: 228,
+  // 거인 군주 species (captain tier outside the tracked boss) and the two field elites: about 60%.
+  5: 82,
+  6: 261,
+  7: 324,
+  8: 126,
+  9: 78,
+  10: 264,
+  11: 231,
+  12: 249,
+  13: 55,
+  14: 49,
+  15: 240,
 };
 
 // The 6 boss-exclusive weapon/armor items (see the boss_exclusive_gear migration) — never

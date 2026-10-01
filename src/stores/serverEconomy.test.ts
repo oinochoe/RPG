@@ -206,3 +206,64 @@ describe('server drop rolling', () => {
     expect(rollDropEntry(9999, '???')).toBeNull();
   });
 });
+
+describe('drop rates', () => {
+  // Measures the real roll path: the scroll roll (first rng call) is forced to miss, then the
+  // table roll sweeps the whole [0, 1) range, so the fractions below are exact to the step size.
+  const STEPS = 4000;
+  function measure(templateId: number, name: string) {
+    let drops = 0;
+    let mana = 0;
+    for (let i = 0; i < STEPS; i++) {
+      const r = (i + 0.5) / STEPS;
+      let call = 0;
+      const entry = rollDropEntry(templateId, name, () => (call++ === 0 ? 0.99 : r));
+      if (entry) {
+        drops++;
+        if (entry.itemTemplateId === 12 || entry.itemTemplateId === 13) mana++;
+      }
+    }
+    return { drop: drops / STEPS, mana: mana / STEPS };
+  }
+
+  const REGULAR = [1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 15];
+  const ELITE = [5, 13, 14];
+
+  it.each(REGULAR)('a regular monster (template %i) drops something about 25% of the time', (id) => {
+    const { drop } = measure(id, `m${id}`);
+    expect(drop).toBeGreaterThan(0.23);
+    expect(drop).toBeLessThan(0.27);
+  });
+
+  it.each(ELITE)('an elite (template %i) drops something about 60% of the time', (id) => {
+    const { drop } = measure(id, `m${id}`);
+    expect(drop).toBeGreaterThan(0.57);
+    expect(drop).toBeLessThan(0.63);
+  });
+
+  it('keeps mana potions from dominating any kill: at most about 12% per kill', () => {
+    for (const id of [...REGULAR, ...ELITE]) {
+      expect(measure(id, `m${id}`).mana, `template ${id}`).toBeLessThan(0.13);
+    }
+  });
+
+  it('never returns nothing for a tracked boss', () => {
+    for (const boss of ['태고의 거인', '거인 군주', '오크 군주', '구울 군주', '버섯 군주']) {
+      for (let i = 0; i < 2000; i++) {
+        const r = (i + 0.5) / 2000;
+        let call = 0;
+        expect(rollDropEntry(5, boss, () => (call++ === 0 ? 0.99 : r)), `${boss} @ ${r}`).not.toBeNull();
+      }
+    }
+  });
+
+  it('still rolls a scroll before the table when the scroll roll hits', () => {
+    // rng 0 is below every non-zero scroll chance, so the first scroll in order (weapon) wins for a tier that has one.
+    const entry = rollDropEntry(13, 'm13', () => 0);
+    expect(entry?.itemType).toBe('scroll');
+  });
+
+  it('returns null for a template with no drop table', () => {
+    expect(rollDropEntry(9999, 'nobody', () => 0.5)).toBeNull();
+  });
+});
