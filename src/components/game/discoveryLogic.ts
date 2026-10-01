@@ -58,11 +58,18 @@ export function queryGrid(grid: DiscoveryGrid, x: number, z: number, maxDist: nu
 const MAX_RADIUS_IN_GRID = 8;
 
 /** The nearest inspect/npc discovery whose own radius contains the player and whose requirements hold. */
-export function nearestInRange(grid: DiscoveryGrid, x: number, z: number, ctx: DiscoveryContext): DiscoveryDef | null {
+export function nearestInRange(
+  grid: DiscoveryGrid,
+  x: number,
+  z: number,
+  ctx: DiscoveryContext,
+  options: { skipSeen?: boolean } = {},
+): DiscoveryDef | null {
   let best: DiscoveryDef | null = null;
   let bestDist = Infinity;
   for (const d of queryGrid(grid, x, z, MAX_RADIUS_IN_GRID)) {
     if (d.kind === 'trigger') continue;
+    if (options.skipSeen && ctx.seen.has(d.id)) continue;
     const dist = Math.hypot(x - d.position[0], z - d.position[1]);
     if (dist > d.radius || dist >= bestDist) continue;
     if (!isAvailable(d, ctx)) continue;

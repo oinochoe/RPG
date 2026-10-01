@@ -22,7 +22,8 @@ export function DiscoveryProximity() {
       return;
     }
     const ctx = { level: useCombatStore.getState().player.level, seen: useDiscoveryStore.getState().seen, zoneAt };
-    const near = nearestInRange(grid, playerPosition.x, playerPosition.z, ctx);
+    // Seen ones are skipped so they don't hog the action button / Space; clicking their prop still re-reads them.
+    const near = nearestInRange(grid, playerPosition.x, playerPosition.z, ctx, { skipSeen: true });
     const id = near?.id ?? null;
     if (id !== ui.nearDiscoveryId) ui.setNearDiscoveryId(id);
   });

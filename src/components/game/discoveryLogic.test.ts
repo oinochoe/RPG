@@ -55,6 +55,13 @@ describe('grid search', () => {
     expect(nearestInRange(g, 1.5, 0, ctx())).toBeNull();
     expect(nearestInRange(g, 0.9, 0, ctx())?.id).toBe('small');
   });
+  it('skipSeen ignores already-seen discoveries so the next unseen one wins', () => {
+    const g = buildGrid([def({ id: 'near', position: [0, 0] }), def({ id: 'far', position: [1.5, 0] })]);
+    const c = ctx({ seen: ['near'] });
+    expect(nearestInRange(g, 0, 0, c)?.id).toBe('near');
+    expect(nearestInRange(g, 0, 0, c, { skipSeen: true })?.id).toBe('far');
+    expect(nearestInRange(buildGrid([def({ id: 'near' })]), 0, 0, c, { skipSeen: true })).toBeNull();
+  });
 });
 
 describe('validateDefs', () => {
