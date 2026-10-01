@@ -1,8 +1,8 @@
-import { useRef, type ComponentType } from 'react';
+import { useMemo, useRef, type ComponentType } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { useTexture } from '@react-three/drei';
 import * as THREE from 'three';
-import { partState, type ActivePart, type PartKind } from './skillFxLife';
+import { partState, spreadTarget, type ActivePart, type PartKind } from './skillFxLife';
 import { sharedSparkPool } from './sparkPool';
 
 export interface PartProps {
@@ -140,12 +140,63 @@ function SparksPart({ part, onDone }: PartProps) {
   return null;
 }
 
+const BEAM = new THREE.CylinderGeometry(1, 1, 1, 8, 1, true); // unit radius & height, open ended; scaled per use
+const ORB = new THREE.SphereGeometry(1, 12, 10);
+const UP = new THREE.Vector3(0, 1, 0);
+
+/** A glowing head flying from the caster to the (fanned) aim point, dragging a beam behind it that fades. */
+function TrailPart({ part, onDone }: PartProps) {
+  const beamRef = useRef<THREE.Mesh>(null);
+  const headRef = useRef<THREE.Mesh>(null);
+  const beamMat = useRef<THREE.MeshBasicMaterial>(null);
+  const headMat = useRef<THREE.MeshBasicMaterial>(null);
+  const aim = useMemo(() => spreadTarget(part.from, part.to, part.angle), [part]);
+  const start = useMemo(() => new THREE.Vector3(...part.from), [part]);
+  const end = useMemo(() => new THREE.Vector3(...aim), [aim]);
+  const dir = useMemo(() => end.clone().sub(start), [start, end]);
+  const length = useMemo(() => dir.length(), [dir]);
+  const quat = useMemo(() => new THREE.Quaternion().setFromUnitVectors(UP, dir.clone().normalize()), [dir]);
+  const tmp = useMemo(() => new THREE.Vector3(), []);
+
+  usePartClock(part, onDone, (t, started) => {
+    const beam = beamRef.current;
+    const head = headRef.current;
+    if (!beam || !head || !beamMat.current || !headMat.current) return;
+    beam.visible = started;
+    head.visible = started;
+    if (!started) return;
+    // The head travels the whole way during the first 85% of the life; the beam stretches behind it and then fades.
+    const travel = Math.min(1, t / 0.85);
+    tmp.copy(start).addScaledVector(dir, travel);
+    head.position.copy(tmp);
+    head.scale.setScalar(0.1 * part.scale);
+    const beamLen = Math.max(0.001, length * travel);
+    beam.position.copy(start).addScaledVector(dir, travel / 2);
+    beam.scale.set(0.045 * part.scale, beamLen, 0.045 * part.scale);
+    const fade = t < 0.85 ? 1 : 1 - (t - 0.85) / 0.15;
+    beamMat.current.opacity = 0.75 * fade;
+    headMat.current.opacity = fade;
+  });
+
+  return (
+    <>
+      <mesh ref={beamRef} quaternion={quat} geometry={BEAM} dispose={null} visible={false}>
+        <meshBasicMaterial ref={beamMat} color={part.color} side={THREE.DoubleSide} {...additive(0.75)} />
+      </mesh>
+      <mesh ref={headRef} geometry={ORB} dispose={null} visible={false}>
+        <meshBasicMaterial ref={headMat} color={part.color} {...additive()} />
+      </mesh>
+    </>
+  );
+}
+
 /** Renderer per part kind. A kind without an entry draws nothing (the root still retires it at the cap). */
 export const PART_RENDERERS: Partial<Record<PartKind, ComponentType<PartProps>>> = {
   flash: FlashPart,
   slashArc: SlashArcPart,
   shockwave: ShockwavePart,
   sparks: SparksPart,
+  trail: TrailPart,
 };
 
 useTexture.preload(FLARE_TEXTURE);
