@@ -113,3 +113,14 @@ type DiscoveryReward = { gold?: number; xp?: number; itemTemplateId?: number; it
 5. 지도 표시와 발견 기록
 6. 초기 콘텐츠 20~30개 작성(지역별 배치)과 균형 점검
 7. 시각 확인(데스크톱/폰), HANDOFF, 배포(마이그레이션 → 프런트 → 함수 순서; 사용자가 SQL 실행)
+
+## 구현 결과 (설계와 달라진 점)
+
+구현하며 위 설계에서 바뀐 부분. 충돌하면 이 절이 맞다.
+
+- **위치 검증 없음(Ruling).** §3·§6의 거리/위치 검증은 하지 않는다. 서버가 아는 위치는 15초 주기 저장값이라 부정확하고, 킬 보고도 기하가 아니라 개연성만 본다. 방어는 캐릭터당 1회 + 소액 + 레벨 제한이며, 클라이언트가 보내는 것은 id뿐이다(위치 본문 없음). 서버 표 항목은 `minLevel` + 보상만 가진다(위치/반경/requires 없음).
+- **`claim_discovery` RPC.** XP/골드 적용과 `character_discoveries` 기록(한 번만)을 한 트랜잭션으로 하고, 그 뒤에 `grantInventoryItem`으로 아이템을 지급한다. 아이템 지급이 실패하면 RPC 결과를 되돌린다(undo). 마이그레이션은 `20261002010000_character_discoveries.sql`.
+- **아이템 보상은 아이템만.** 한 발견물이 아이템과 골드/XP를 함께 주지 않는다(되돌리기를 단순하게 유지). 테스트가 강제한다.
+- **근접:** `DiscoveryProximity`는 이미 본 발견물을 건너뛴다(`skipSeen`). 탭하면 다시 읽을 수 있다. 트리거 판정은 0.1초 간격이며 트리거 반경은 4..8로 제한한다.
+- **콘텐츠:** 25개. `hidden` 규칙: 보상이 있거나 requires가 있거나 NPC인 발견물은 반드시 hidden(테스트가 강제).
+- **파일:** 클라이언트 `discoveries.ts`(타입 + `getDiscovery`), `discoveryContent.ts`, `discoveryLogic.ts`, `discoveryZones.ts`, `discoveryRender.ts`, `DiscoveryProximity.tsx`, `DiscoveryProps.tsx`, `DiscoveryDialog.tsx`, `discoveryStore.ts`. 서버 `supabase/functions/api/discoveries.ts`(`DISCOVERY_REWARDS`, `checkClaim`). 개발 목은 `src/mocks/handlers.ts`.

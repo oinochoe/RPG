@@ -177,6 +177,24 @@ DB/함수와 클라이언트 사이에는 잠깐 구 클라이언트와 새 서�
   - 배포 2~3단계 사이에는 id가 null이어도 위치 저장이 계속된다.
 - 한계: 옛 탭은 **자기 다음 요청에서야** 교체를 안다. 두 탭 동작은 MSW 목으로 재현할 수 없으니 실서버에서 확인할 것. `DELETE /characters/:id`는 세션 검사를 하지 않는다.
 
+## 발견물 (웃음·히든 콘텐츠)
+
+설계는 `docs/superpowers/specs/2026-10-01-discoveries-design.md`. 월드 곳곳의 소품/NPC/구역을 조사하면 대사가 나오고, 일부는 서버가 판정하는 보상(골드/XP/아이템)을 준다. 현재 25개.
+
+- 구조:
+  - 클라이언트(`src/components/game/`): `discoveries.ts`(타입 + `getDiscovery`), `discoveryContent.ts`(콘텐츠 정의), `discoveryLogic.ts`(조건 판정/격자 근접), `discoveryZones.ts`(지역), `discoveryRender.ts`(소품 렌더 판단), `DiscoveryProximity.tsx`(근접 감지, 0.1초 주기), `DiscoveryProps.tsx`(소품), `DiscoveryDialog.tsx`(대사 패널). 상태는 `src/stores/discoveryStore.ts`.
+  - 서버: `supabase/functions/api/discoveries.ts`(순수 보상 표 `DISCOVERY_REWARDS` + `checkClaim`), `characters.ts`의 두 엔드포인트, DB `claim_discovery` RPC(XP/골드 적용 + 한 번만 기록) + `character_discoveries` 테이블(`20261002010000_character_discoveries.sql`).
+  - 엔드포인트: `GET /characters/me/discoveries`(받은 id 목록), `POST /characters/me/discoveries/:id/claim`(`{ progress, inventory, reward }`). 아이템은 RPC 뒤에 지급하고 실패하면 되돌린다.
+  - 개발 목: `src/mocks/handlers.ts`가 같은 서버 표로 두 엔드포인트를 흉내낸다(인벤토리는 없어서 아이템은 보고만).
+- 새 발견물 추가: `discoveryContent.ts`에 **정의 한 항목**. 보상이 있으면 서버 `DISCOVERY_REWARDS`에도 **같은 id와 값**을 넣는다. 테스트가 강제한다: 클라/서버 표 일치, 상한(골드 500/XP 200/수량 5), 보상이 있거나 requires(조건)가 있거나 NPC면 반드시 hidden, 트리거 반경 4..8, 아이템 보상은 아이템만(골드/XP 동시 지급 금지), 도달 가능한 위치.
+- 규칙:
+  - 보상 수치는 **서버에만** 있다. 클라이언트는 id만 보낸다.
+  - 서버는 **위치를 검증하지 않는다**(저장 위치가 15초 주기라 부정확). 방어는 캐릭터당 1회 + 소액 + 레벨 제한이다.
+  - 이미 본 발견물은 근접 자동 반응에서 제외(`skipSeen`)하되, 탭하면 다시 읽을 수 있다.
+  - `hidden`은 지도에 안 보이고, 본 뒤에야 표시된다.
+- **배포 순서**: ① 마이그레이션(2부분으로 나눠 SQL Editor에서) -> ② 프런트 -> ③ 엣지 함수. 새 프런트 + 옛 함수면 보상 수령이 "아무것도 없었다"로 떨어진다(대사는 정상).
+- 한계: 보상 없는 "본 것"은 localStorage에만 저장(기기/브라우저를 바꾸면 사라짐). 대사는 초안이라 다듬을 필요가 있다.
+
 ## 경제 서버 권위 (동작/주의)
 
 골드·경험치/레벨·스탯 포인트·파생 능력치·아이템 지급은 **서버(DB)가 유일한 원본**이다. 클라이언트는 화면
