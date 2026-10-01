@@ -15,15 +15,22 @@ type AuthFailureHandler = () => void;
 let getTokens: TokenGetter = () => null;
 let setTokens: TokenSetter = () => {};
 let handleAuthFailure: AuthFailureHandler = () => {};
+type GameSessionGetter = () => string | null;
+let getGameSession: GameSessionGetter = () => null;
+let handleSessionReplaced: () => void = () => {};
 
 export function configureApiClient(hooks: {
   getTokens: TokenGetter;
   setTokens: TokenSetter;
   onAuthFailure: AuthFailureHandler;
+  getGameSession?: GameSessionGetter;
+  onSessionReplaced?: () => void;
 }): void {
   getTokens = hooks.getTokens;
   setTokens = hooks.setTokens;
   handleAuthFailure = hooks.onAuthFailure;
+  if (hooks.getGameSession) getGameSession = hooks.getGameSession;
+  if (hooks.onSessionReplaced) handleSessionReplaced = hooks.onSessionReplaced;
 }
 
 async function parseError(response: Response): Promise<ApiError> {
@@ -68,6 +75,8 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
   const buildHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const gameSession = getGameSession();
+    if (gameSession) headers['x-game-session'] = gameSession;
     if (auth) {
       const tokens = getTokens();
       if (tokens) headers.Authorization = `Bearer ${tokens.accessToken}`;
@@ -87,6 +96,12 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
       throw await parseError(response);
     }
     response = await rawFetch(path, { ...init, headers: buildHeaders() });
+  }
+
+  if (response.status === 409) {
+    const error = await parseError(response);
+    if (error.reason === 'session_replaced') handleSessionReplaced();
+    throw error;
   }
 
   if (!response.ok) {

@@ -3,6 +3,7 @@ import { configureApiClient } from '../api/client';
 import * as authApi from '../api/auth';
 import { updateCharacterPosition } from '../api/characters';
 import { useSessionStore } from './sessionStore';
+import { useGameSessionStore } from './gameSessionStore';
 import { playerPosition } from '../components/game/playerTransform';
 
 interface StoredTokens {
@@ -96,6 +97,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
     set({ accessToken: null, refreshToken: null, email: null, isAuthenticated: false });
     persistTokens(null);
+    useGameSessionStore.getState().reset();
   },
 
   restoreSession: () => {
@@ -125,5 +127,8 @@ configureApiClient({
   onAuthFailure: () => {
     useAuthStore.setState({ accessToken: null, refreshToken: null, email: null, isAuthenticated: false });
     persistTokens(null);
+    useGameSessionStore.getState().reset();
   },
+  getGameSession: () => useGameSessionStore.getState().sessionId,
+  onSessionReplaced: () => useGameSessionStore.getState().markReplaced(),
 });

@@ -30,7 +30,7 @@ export function createCharacter(
   });
 }
 
-export function selectCharacter(characterId: number): Promise<void> {
+export function selectCharacter(characterId: number): Promise<{ game_session_id: string | null }> {
   return apiRequest(`/characters/${characterId}/select`, { method: 'POST' });
 }
 

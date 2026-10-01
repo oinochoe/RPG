@@ -335,7 +335,7 @@ export const handlers = [
     }
     state.activeCharacterId = characterId;
     persist();
-    return new HttpResponse(null, { status: 204 });
+    return HttpResponse.json({ game_session_id: crypto.randomUUID() }, { status: 200 });
   }),
 
   http.delete(`${BASE}/characters/:id`, ({ params }) => {

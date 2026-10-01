@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import * as charactersApi from '../api/characters';
 import { useCombatStore } from './combatStore';
 import { useUIStore } from './uiStore';
+import { useGameSessionStore } from './gameSessionStore';
 import { useWorldStore } from './worldStore';
 import { playSound } from '../lib/sound';
 import { playerPosition, playerStuck } from '../components/game/playerTransform';
@@ -247,7 +248,9 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
   },
 
   selectCharacter: async (characterId) => {
-    await charactersApi.selectCharacter(characterId);
+    const selected = await charactersApi.selectCharacter(characterId);
+    // Replaces any earlier session (this tab's or another tab's) — see gameSessionStore.
+    useGameSessionStore.getState().setSessionId(selected?.game_session_id ?? null);
     const profile = await charactersApi.getActiveCharacterProfile();
     set({ activeCharacter: profile, inventory: profile.inventory, hotbar: loadHotbar(profile.id) });
     // Whatever panel (F1 menu, inventory, ...) was left open from a previous character's

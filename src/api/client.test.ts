@@ -103,4 +103,56 @@ describe('apiRequest', () => {
 
     expect(result).toBeUndefined();
   });
+
+  it('sends x-game-session when the getter returns an id, and omits it otherwise', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response('{}', { status: 200 })));
+    vi.stubGlobal('fetch', fetchMock);
+    const base = {
+      getTokens: () => ({ accessToken: 'access-1', refreshToken: 'refresh-1' }),
+      setTokens: vi.fn(),
+      onAuthFailure: vi.fn(),
+    };
+    configureApiClient({ ...base, getGameSession: () => 'sess-1' });
+    await apiRequest('/characters/me');
+    expect(fetchMock.mock.calls[0][1].headers['x-game-session']).toBe('sess-1');
+
+    configureApiClient({ ...base, getGameSession: () => null });
+    await apiRequest('/characters/me');
+    expect(fetchMock.mock.calls[1][1].headers['x-game-session']).toBeUndefined();
+  });
+
+  it('calls onSessionReplaced on 409 session_replaced without refreshing or retrying', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'conflict', reason: 'session_replaced' }), { status: 409 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const onSessionReplaced = vi.fn();
+    configureApiClient({
+      getTokens: () => ({ accessToken: 'access-1', refreshToken: 'refresh-1' }),
+      setTokens: vi.fn(),
+      onAuthFailure: vi.fn(),
+      onSessionReplaced,
+    });
+
+    await expect(apiRequest('/characters/me')).rejects.toMatchObject({ status: 409 });
+    expect(onSessionReplaced).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not call onSessionReplaced for a 409 with another reason', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'conflict', reason: 'other' }), { status: 409 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const onSessionReplaced = vi.fn();
+    configureApiClient({
+      getTokens: () => ({ accessToken: 'access-1', refreshToken: 'refresh-1' }),
+      setTokens: vi.fn(),
+      onAuthFailure: vi.fn(),
+      onSessionReplaced,
+    });
+
+    await expect(apiRequest('/characters/me')).rejects.toBeInstanceOf(ApiError);
+    expect(onSessionReplaced).not.toHaveBeenCalled();
+  });
 });

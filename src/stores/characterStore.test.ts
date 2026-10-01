@@ -91,7 +91,7 @@ describe('characterStore', () => {
   });
 
   it('selectCharacter calls select then loads the active profile', async () => {
-    vi.mocked(charactersApi.selectCharacter).mockResolvedValue(undefined);
+    vi.mocked(charactersApi.selectCharacter).mockResolvedValue({ game_session_id: null });
     vi.mocked(charactersApi.getActiveCharacterProfile).mockResolvedValue(profile);
 
     await useCharacterStore.getState().selectCharacter(1);
