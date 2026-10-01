@@ -64,6 +64,8 @@ async function refreshTokens(): Promise<boolean> {
 }
 
 export interface ApiRequestOptions {
+  /** Let the request outlive the page (tab close); the body must stay small (~64KB). */
+  keepalive?: boolean;
   method?: string;
   body?: unknown;
   /** Attach the bearer token. Defaults to true. */
@@ -85,6 +87,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
   };
 
   const init: RequestInit = { method, headers: buildHeaders() };
+  if (options.keepalive) init.keepalive = true;
   if (body !== undefined) init.body = JSON.stringify(body);
 
   let response = await rawFetch(path, init);

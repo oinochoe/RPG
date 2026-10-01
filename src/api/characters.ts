@@ -49,8 +49,11 @@ export interface CharacterPositionUpdate {
   current_map_id?: number;
 }
 
-export function updateCharacterPosition(position: CharacterPositionUpdate): Promise<void> {
-  return apiRequest('/characters/me/position', { method: 'PATCH', body: position });
+export function updateCharacterPosition(
+  position: CharacterPositionUpdate,
+  options?: { keepalive?: boolean },
+): Promise<void> {
+  return apiRequest('/characters/me/position', { method: 'PATCH', body: position, keepalive: options?.keepalive });
 }
 
 /**

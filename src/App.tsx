@@ -7,6 +7,7 @@ import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { CharactersPage } from './pages/CharactersPage';
+import { SessionReplacedModal } from './components/SessionReplacedModal';
 import { LoadingScreen } from './components/ui/spinner';
 
 // The 3D game (three.js + R3F) is most of the bundle — split it out so the login and
@@ -18,6 +19,7 @@ const DevUiPage = lazy(() => import('./pages/DevUiPage').then((m) => ({ default:
 export function App() {
   return (
     <BrowserRouter>
+      <SessionReplacedModal />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
