@@ -38,13 +38,14 @@
 - 새 미들웨어 `requireGameSession`을 `/characters/me`, `/characters/me/*`와 `/exploration`(입장 `enter-map` 포함) 전체에 건다(`requireAuth` 다음; 새 `/me...`·exploration 라우트는 자동 보호). 구현은 `gameSession.ts`(순수 판정) + `gameSessionMiddleware.ts`: 요청 헤더 `x-game-session`을 활성 캐릭터의 `game_session_id`와 비교한다. 헤더가 없거나 다르면 **409** + 에러 코드 `session_replaced`(한국어 메시지 "다른 곳에서 접속하여 이 접속은 종료되었습니다.")를 반환하고 핸들러를 실행하지 않는다.
 - `select`, 캐릭터 목록/생성/삭제(`/characters`, `/characters/:id`)에는 걸지 않는다(접속을 바꾸는 쪽이므로).
 - CORS `allowHeaders`에 `X-Game-Session`을 추가했다(`index.ts`). 새 커스텀 헤더는 항상 여기에 추가해야 한다.
-- 배포 시점에 이미 열려 있던 옛 클라이언트(헤더 없음)는 첫 요청에서 `session_replaced`를 받고 안내 후 재접속하게 된다 — 의도된 동작으로 간주한다.
+- 배포 전에 이미 열려 있던 탭은 **옛 번들**이라 409 처리/모달이 없어 새로고침 전까지 일반 오류만 보인다. 새 번들로 게임 중이던 플레이어는 함수 배포(3단계) 때 모달을 한 번 보고 다시 입장한다 — 의도된 동작으로 간주한다.
+- `/me` 검사는 `use("/me/*")` 하나로 충분하다(Hono에서 `/me/*`는 `/me`도 매칭하므로 `/me`를 따로 걸면 검사와 DB 조회가 두 번 돈다).
 
 ### 3. 클라이언트
 
 - `characterStore.select()`가 응답의 `game_session_id`를 받아 **`sessionStorage`**(탭 단위, 새로고침은 유지)와 메모리에 저장한다.
 - `src/api/client.ts`의 `apiRequest`가 값이 있으면 모든 요청에 `x-game-session` 헤더를 붙인다(`configureApiClient`에 `getGameSession` 훅 추가).
-- 응답이 409 + `session_replaced`이면 `onSessionReplaced` 훅을 호출한다: 게임을 멈추고(위치 저장 중단) "다른 곳에서 접속했습니다" 모달(`SessionReplacedModal`, `App.tsx`에 마운트)을 띄우고, 확인하면 캐릭터 선택 화면으로 이동한다. 이 경우 재시도·토큰 갱신을 하지 않는다.
+- 응답이 409 + `session_replaced`이면, **요청이 id를 실제로 보냈고 응답 시점에도 그 id가 이 탭의 현재 id일 때만** `onSessionReplaced` 훅을 호출한다(id 없이 보낸 요청이나 그새 새로 선택해 바뀐 id는 에러만 던진다): 게임을 멈추고(위치 저장 중단) "다른 곳에서 접속했습니다" 모달(`SessionReplacedModal`, `App.tsx`에 마운트)을 띄우고, 확인하면 캐릭터 선택 화면으로 이동한다. 이 경우 재시도·토큰 갱신을 하지 않는다.
 - 위치 저장 허용 판정은 `src/components/game/savePolicy.ts`(`shouldSavePosition`; 원래 계획의 `positionSync.ts`는 `PositionSync.tsx`와 Windows에서 충돌해 개명). `PositionSync`에 `pagehide`/`visibilitychange(hidden)` 저장을 추가한다: `fetch(..., { keepalive: true })`로 `PATCH /characters/me/position`을 보낸다(헤더 포함; `sendBeacon`은 헤더를 못 쓰므로 사용하지 않는다). 실패는 무시한다(best-effort).
 
 ### 4. 오류 처리·보안
@@ -66,5 +67,12 @@
 3. 클라이언트: 세션 ID 저장, `apiRequest` 헤더, `session_replaced` 처리와 모달
 4. `PositionSync` pagehide/hidden 저장
 5. 목(MSW) 핸들러 갱신, HANDOFF, 배포
+
+### 7. 알려진 한계
+
+- 새 탭/브라우저 재시작은 `sessionStorage`가 비어 있어 id가 없다. 부팅 시 프로필 조회를 건너뛰고(`bootstrapPolicy.ts`) 캐릭터 선택 화면으로 가서 다시 고른다(모달 없음).
+- Chrome "탭 복제"는 `sessionStorage`를 복사해 두 탭이 같은 유효 id를 공유한다(알려진 구멍).
+- 새 함수가 살아 있는 동안 프런트를 롤백하면 플레이어가 잠긴다 — 롤백은 함수를 먼저.
+- 위치 저장은 id가 null이어도 허용한다(`!replaced`만 검사). 배포 2~3단계 사이(새 프런트 + 옛 함수)에도 저장이 계속된다.
 
 **배포 순서(확정)**: ① SQL Editor에서 마이그레이션 → ② main push(프런트) → ③ CLI로 엣지 함수. 함수를 먼저 올리면 헤더 없는 옛 프런트가 모두 409를 받는다. 두 탭 시나리오는 MSW 목으로 재현되지 않아 실서버에서 확인한다.

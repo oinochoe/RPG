@@ -7,6 +7,9 @@ vi.mock('../api/auth', () => ({
 
 import * as authApi from '../api/auth';
 import { useAuthStore } from './authStore';
+import { useGameSessionStore } from './gameSessionStore';
+import { apiRequest } from '../api/client';
+import { ApiError } from '../types/api';
 
 const STORAGE_KEY = 'rpg.auth.tokens';
 
@@ -59,6 +62,27 @@ describe('authStore', () => {
     expect(state.isAuthenticated).toBe(false);
     expect(state.accessToken).toBeNull();
     expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+  });
+
+  it('logout resets the game session store', async () => {
+    useGameSessionStore.getState().setSessionId('sess-1');
+    vi.mocked(authApi.logout).mockResolvedValue(undefined);
+    useAuthStore.setState({ accessToken: 'a', refreshToken: 'r', email: 'e', isAuthenticated: true });
+
+    await useAuthStore.getState().logout();
+
+    expect(useGameSessionStore.getState().sessionId).toBeNull();
+  });
+
+  it('an auth failure (refresh rejected) resets the game session store', async () => {
+    useGameSessionStore.getState().setSessionId('sess-1');
+    useAuthStore.setState({ accessToken: 'a', refreshToken: 'r', email: 'e', isAuthenticated: true });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{"error":"unauthenticated"}', { status: 401 })));
+
+    await expect(apiRequest('/characters/me')).rejects.toBeInstanceOf(ApiError);
+
+    expect(useGameSessionStore.getState().sessionId).toBeNull();
+    vi.unstubAllGlobals();
   });
 
   it('restoreSession loads persisted tokens on startup', () => {

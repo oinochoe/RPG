@@ -10,6 +10,7 @@ vi.mock('../api/characters', () => ({
 
 import * as charactersApi from '../api/characters';
 import { useCharacterStore } from './characterStore';
+import { useGameSessionStore } from './gameSessionStore';
 import type { CharacterProfile, CharacterSummary } from '../types/api';
 
 const summary: CharacterSummary = {
@@ -98,6 +99,21 @@ describe('characterStore', () => {
 
     expect(charactersApi.selectCharacter).toHaveBeenCalledWith(1);
     expect(useCharacterStore.getState().activeCharacter).toEqual(profile);
+  });
+
+  it('selectCharacter stores the session id before fetching the profile', async () => {
+    const order: string[] = [];
+    useGameSessionStore.getState().reset();
+    vi.mocked(charactersApi.selectCharacter).mockResolvedValue({ game_session_id: 'sess-9' });
+    vi.mocked(charactersApi.getActiveCharacterProfile).mockImplementation(async () => {
+      order.push(`profile:${useGameSessionStore.getState().sessionId}`);
+      return profile;
+    });
+
+    await useCharacterStore.getState().selectCharacter(1);
+
+    expect(order).toEqual(['profile:sess-9']);
+    useGameSessionStore.getState().reset();
   });
 
   it('deleteCharacter calls the API then refreshes the list', async () => {

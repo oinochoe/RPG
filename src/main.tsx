@@ -5,6 +5,8 @@ import { App } from './App';
 import { getActiveCharacterProfile } from './api/characters';
 import { useAuthStore } from './stores/authStore';
 import { useCharacterStore, loadHotbar } from './stores/characterStore';
+import { useGameSessionStore } from './stores/gameSessionStore';
+import { shouldFetchActiveProfile } from './bootstrapPolicy';
 
 async function bootstrap() {
   if (import.meta.env.DEV) {
@@ -14,7 +16,10 @@ async function bootstrap() {
 
   useAuthStore.getState().restoreSession();
 
-  if (useAuthStore.getState().isAuthenticated) {
+  if (
+    useAuthStore.getState().isAuthenticated &&
+    shouldFetchActiveProfile(useGameSessionStore.getState().sessionId)
+  ) {
     try {
       const profile = await getActiveCharacterProfile();
       // A page reload/re-login never goes through characterStore's own selectCharacter

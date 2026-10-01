@@ -9,9 +9,9 @@ import { rollDropEntry } from "./drops.ts";
 export const charactersRoutes = new Hono<{ Variables: { appUser: AppUser } }>();
 
 charactersRoutes.use("*", requireAuth);
-// Everything that acts on "my" character must come from the current game session. `use("/me/*")` alone
-// would miss the exact path /me (GET profile), so register both.
-charactersRoutes.use("/me", requireGameSession);
+// Everything that acts on "my" character must come from the current game session. In Hono, `/me/*`
+// also matches the exact path /me (GET profile), so one registration covers both (registering /me too
+// would run the check, and its DB lookup, twice).
 charactersRoutes.use("/me/*", requireGameSession);
 
 function toSummary(row: Record<string, unknown>) {

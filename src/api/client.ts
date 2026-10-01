@@ -29,8 +29,8 @@ export function configureApiClient(hooks: {
   getTokens = hooks.getTokens;
   setTokens = hooks.setTokens;
   handleAuthFailure = hooks.onAuthFailure;
-  if (hooks.getGameSession) getGameSession = hooks.getGameSession;
-  if (hooks.onSessionReplaced) handleSessionReplaced = hooks.onSessionReplaced;
+  getGameSession = hooks.getGameSession ?? (() => null);
+  handleSessionReplaced = hooks.onSessionReplaced ?? (() => {});
 }
 
 async function parseError(response: Response): Promise<ApiError> {
@@ -75,10 +75,12 @@ export interface ApiRequestOptions {
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
   const { method = 'GET', body, auth = true } = options;
 
+  // The session id the most recent attempt actually carried (the 401 retry rebuilds the headers).
+  let sent: string | null = null;
   const buildHeaders = (): Record<string, string> => {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const gameSession = getGameSession();
-    if (gameSession) headers['x-game-session'] = gameSession;
+    sent = getGameSession();
+    if (sent) headers['x-game-session'] = sent;
     if (auth) {
       const tokens = getTokens();
       if (tokens) headers.Authorization = `Bearer ${tokens.accessToken}`;
@@ -103,7 +105,9 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
 
   if (response.status === 409) {
     const error = await parseError(response);
-    if (error.reason === 'session_replaced') handleSessionReplaced();
+    // Only a request that carried an id, and whose id is still this tab's current one, proves the
+    // session was replaced (not "never selected here" or "already superseded by a newer select").
+    if (error.reason === 'session_replaced' && sent && sent === getGameSession()) handleSessionReplaced();
     throw error;
   }
 

@@ -164,8 +164,17 @@ DB/함수와 클라이언트 사이에는 잠깐 구 클라이언트와 새 서�
   - 새 커스텀 요청 헤더를 쓰려면 `index.ts` CORS `allowHeaders`에 추가해야 한다(`X-Game-Session`도 거기 있음).
   - 비활성 캐릭터 행의 `game_session_id`는 오래된 값일 수 있으니 **읽어서 쓰지 말 것**(항상 활성 행만).
   - select가 id를 못 받으면(RPC 미적용 등) 500 `character_select_failed`.
-- 위치 저장: 15초 주기 + `pagehide`/`visibilitychange(hidden)` 때 `keepalive` fetch. 접속이 이미 교체됐거나 id가 없으면 저장을 건너뛴다(`shouldSavePosition`). 파일명은 `PositionSync.tsx`와 Windows에서 충돌하지 않게 `savePolicy.ts`.
+- 위치 저장: 15초 주기 + `pagehide`/`visibilitychange(hidden)` 때 `keepalive` fetch. 접속이 이미 교체됐으면 저장을 건너뛴다(`shouldSavePosition`). id가 없는(null) 경우는 **저장한다** — 배포 2단계(새 프런트)~3단계(새 함수) 사이에는 옛 함수가 id를 안 주므로 위치 저장이 끊기지 않게 하기 위함. 파일명은 `PositionSync.tsx`와 Windows에서 충돌하지 않게 `savePolicy.ts`.
 - **이 변경의 배포 순서**: ① Supabase SQL Editor에서 마이그레이션 실행 -> ② main push(프런트) -> ③ CLI로 엣지 함수 배포. 함수를 먼저 올리면 헤더가 없는 옛 프런트가 전부 409를 받는다.
+- `/me` 검사는 `use("/me/*")` 하나로 한 번만 돈다(Hono에서 `/me/*`는 `/me`도 매칭; 4.13.10에서 확인).
+- 클라이언트 판정: 409 `session_replaced`는 **요청이 id를 실제로 보냈고, 응답 시점에도 그 id가 이 탭의 현재 id일 때만** 모달을 띄운다(id 없이 보낸 요청, 그새 새로 선택해 바뀐 id는 에러만 던짐). 부팅 시 `/characters/me` 프로필 조회는 `sessionStorage`에 id가 있을 때만 한다(`bootstrapPolicy.ts`) — 새 탭/브라우저 재시작은 id가 없으므로 모달 없이 캐릭터 선택 화면으로 가서 다시 고른다.
+- 한계/주의:
+  - 배포 전에 이미 열려 있던 탭은 **옛 번들**이라 409 처리/모달이 없다. 새로고침하기 전까지는 일반 오류만 보인다.
+  - 새 탭/브라우저 재시작은 캐릭터를 다시 골라야 한다(모달 없음).
+  - Chrome "탭 복제"는 `sessionStorage`를 복사해 두 탭이 같은 유효 id를 공유한다(알려진 구멍, 미해결).
+  - 배포 3단계(함수) 시점에 게임 중이던 모든 플레이어는 모달을 한 번 보고 다시 입장한다.
+  - 새 함수가 살아 있는 동안 프런트만 롤백하면 플레이어가 잠긴다(헤더를 못 보냄). 롤백은 **함수를 먼저**.
+  - 배포 2~3단계 사이에는 id가 null이어도 위치 저장이 계속된다.
 - 한계: 옛 탭은 **자기 다음 요청에서야** 교체를 안다. 두 탭 동작은 MSW 목으로 재현할 수 없으니 실서버에서 확인할 것. `DELETE /characters/:id`는 세션 검사를 하지 않는다.
 
 ## 경제 서버 권위 (동작/주의)

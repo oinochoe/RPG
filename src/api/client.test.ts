@@ -131,6 +131,7 @@ describe('apiRequest', () => {
       getTokens: () => ({ accessToken: 'access-1', refreshToken: 'refresh-1' }),
       setTokens: vi.fn(),
       onAuthFailure: vi.fn(),
+      getGameSession: () => 'sess-1',
       onSessionReplaced,
     });
 
@@ -149,10 +150,72 @@ describe('apiRequest', () => {
       getTokens: () => ({ accessToken: 'access-1', refreshToken: 'refresh-1' }),
       setTokens: vi.fn(),
       onAuthFailure: vi.fn(),
+      getGameSession: () => 'sess-1',
       onSessionReplaced,
     });
 
     await expect(apiRequest('/characters/me')).rejects.toBeInstanceOf(ApiError);
     expect(onSessionReplaced).not.toHaveBeenCalled();
+  });
+
+  describe('session_replaced handling', () => {
+    const base = {
+      getTokens: () => ({ accessToken: 'access-1', refreshToken: 'refresh-1' }),
+      setTokens: vi.fn(),
+      onAuthFailure: vi.fn(),
+    };
+    const replaced = () =>
+      new Response(JSON.stringify({ error: 'conflict', reason: 'session_replaced' }), { status: 409 });
+
+    it('does not call the hook when the request carried no session id', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(replaced()));
+      const onSessionReplaced = vi.fn();
+      configureApiClient({ ...base, getGameSession: () => null, onSessionReplaced });
+      await expect(apiRequest('/characters/me')).rejects.toMatchObject({ status: 409 });
+      expect(onSessionReplaced).not.toHaveBeenCalled();
+    });
+
+    it('does not call the hook when the id changed between send and response', async () => {
+      let current: string | null = 'old';
+      vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => {
+        current = 'new';
+        return replaced();
+      }));
+      const onSessionReplaced = vi.fn();
+      configureApiClient({ ...base, getGameSession: () => current, onSessionReplaced });
+      await expect(apiRequest('/characters/me')).rejects.toBeInstanceOf(ApiError);
+      expect(onSessionReplaced).not.toHaveBeenCalled();
+    });
+
+    it('calls the hook once when the sent id is still current', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(replaced()));
+      const onSessionReplaced = vi.fn();
+      configureApiClient({ ...base, getGameSession: () => 'sess-1', onSessionReplaced });
+      await expect(apiRequest('/characters/me')).rejects.toBeInstanceOf(ApiError);
+      expect(onSessionReplaced).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the session header on the request retried after a 401 refresh', async () => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(new Response('{"error":"unauthenticated"}', { status: 401 }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ access_token: 'a2', refresh_token: 'r2' }), { status: 200 }),
+        )
+        .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+      vi.stubGlobal('fetch', fetchMock);
+      configureApiClient({ ...base, getGameSession: () => 'sess-1' });
+      await apiRequest('/characters/me');
+      expect(fetchMock.mock.calls[2][1].headers['x-game-session']).toBe('sess-1');
+    });
+
+    it('resets omitted session hooks to their defaults on reconfigure', async () => {
+      const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+      vi.stubGlobal('fetch', fetchMock);
+      configureApiClient({ ...base, getGameSession: () => 'sess-1' });
+      configureApiClient({ ...base });
+      await apiRequest('/x');
+      expect(fetchMock.mock.calls[0][1].headers['x-game-session']).toBeUndefined();
+    });
   });
 });
