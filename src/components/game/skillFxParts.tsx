@@ -190,6 +190,127 @@ function TrailPart({ part, onDone }: PartProps) {
   );
 }
 
+/** A glowing ball (with a soft halo) flying caster → target; several fan out with `count`/`spread`. */
+function OrbPart({ part, onDone }: PartProps) {
+  const coreRef = useRef<THREE.Mesh>(null);
+  const haloRef = useRef<THREE.Mesh>(null);
+  const coreMat = useRef<THREE.MeshBasicMaterial>(null);
+  const haloMat = useRef<THREE.MeshBasicMaterial>(null);
+  const aim = useMemo(() => spreadTarget(part.from, part.to, part.angle), [part]);
+  const start = useMemo(() => new THREE.Vector3(...part.from), [part]);
+  const dir = useMemo(() => new THREE.Vector3(...aim).sub(start), [aim, start]);
+
+  usePartClock(part, onDone, (t, started) => {
+    const core = coreRef.current;
+    const halo = haloRef.current;
+    if (!core || !halo || !coreMat.current || !haloMat.current) return;
+    core.visible = started;
+    halo.visible = started;
+    if (!started) return;
+    core.position.copy(start).addScaledVector(dir, t);
+    halo.position.copy(core.position);
+    const pulse = 1 + 0.15 * Math.sin(t * 30);
+    core.scale.setScalar(0.12 * part.scale * pulse);
+    halo.scale.setScalar(0.28 * part.scale * pulse);
+    const fade = t < 0.9 ? 1 : 1 - (t - 0.9) / 0.1;
+    coreMat.current.opacity = fade;
+    haloMat.current.opacity = 0.4 * fade;
+  });
+
+  return (
+    <>
+      <mesh ref={coreRef} geometry={ORB} dispose={null} visible={false}>
+        <meshBasicMaterial ref={coreMat} color={0xffffff} {...additive()} />
+      </mesh>
+      <mesh ref={haloRef} geometry={ORB} dispose={null} visible={false}>
+        <meshBasicMaterial ref={haloMat} color={part.color} {...additive(0.4)} />
+      </mesh>
+    </>
+  );
+}
+
+// A vertical fade (opaque at the bottom, clear at the top) for light pillars, drawn once.
+let fadeTexture: THREE.CanvasTexture | null = null;
+function getVerticalFadeTexture(): THREE.CanvasTexture {
+  if (fadeTexture) return fadeTexture;
+  const canvas = document.createElement('canvas');
+  canvas.width = 4;
+  canvas.height = 64;
+  const g = canvas.getContext('2d')!;
+  const gradient = g.createLinearGradient(0, 64, 0, 0);
+  gradient.addColorStop(0, 'rgba(255,255,255,1)');
+  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gradient;
+  g.fillRect(0, 0, 4, 64);
+  fadeTexture = new THREE.CanvasTexture(canvas);
+  return fadeTexture;
+}
+
+const PILLAR = new THREE.CylinderGeometry(1, 1, 1, 16, 1, true);
+
+/** A column of light shooting up from the ground, then thinning out. */
+function PillarPart({ part, onDone }: PartProps) {
+  const meshRef = useRef<THREE.Mesh>(null);
+  const matRef = useRef<THREE.MeshBasicMaterial>(null);
+  const texture = getVerticalFadeTexture();
+  const height = 4 * part.scale;
+  usePartClock(part, onDone, (t, started) => {
+    const mesh = meshRef.current;
+    const mat = matRef.current;
+    if (!mesh || !mat) return;
+    mesh.visible = started;
+    if (!started) return;
+    const rise = Math.min(1, t / 0.3);
+    const width = 0.55 * part.scale * (1 - 0.7 * t);
+    mesh.scale.set(width, Math.max(0.001, height * rise), width);
+    mesh.position.y = (height * rise) / 2;
+    mat.opacity = t < 0.3 ? 1 : 1 - (t - 0.3) / 0.7;
+  });
+  return (
+    <mesh ref={meshRef} position={[part.pos[0], 0, part.pos[2]]} geometry={PILLAR} dispose={null} visible={false}>
+      <meshBasicMaterial ref={matRef} map={texture} color={part.color} side={THREE.DoubleSide} {...additive()} />
+    </mesh>
+  );
+}
+
+const FALL_HEIGHT = 6;
+
+/** Something dropping from the sky onto its target spot (a meteor when big, an arrow of the rain when small). */
+function FallPart({ part, onDone }: PartProps) {
+  const coreRef = useRef<THREE.Mesh>(null);
+  const haloRef = useRef<THREE.Mesh>(null);
+  const coreMat = useRef<THREE.MeshBasicMaterial>(null);
+  const haloMat = useRef<THREE.MeshBasicMaterial>(null);
+  usePartClock(part, onDone, (t, started) => {
+    const core = coreRef.current;
+    const halo = haloRef.current;
+    if (!core || !halo || !coreMat.current || !haloMat.current) return;
+    core.visible = started;
+    halo.visible = started;
+    if (!started) return;
+    // Accelerates as it falls (t squared), so it lands hard rather than drifting.
+    const y = part.to[1] + FALL_HEIGHT * (1 - t * t);
+    core.position.set(part.to[0] + (1 - t) * 0.8, y, part.to[2]);
+    halo.position.copy(core.position);
+    // Stretched along the fall so it reads as motion.
+    core.scale.set(0.13 * part.scale, 0.3 * part.scale, 0.13 * part.scale);
+    halo.scale.set(0.3 * part.scale, 0.6 * part.scale, 0.3 * part.scale);
+    const fade = t < 0.92 ? 1 : 1 - (t - 0.92) / 0.08;
+    coreMat.current.opacity = fade;
+    haloMat.current.opacity = 0.4 * fade;
+  });
+  return (
+    <>
+      <mesh ref={coreRef} geometry={ORB} dispose={null} visible={false}>
+        <meshBasicMaterial ref={coreMat} color={0xffffff} {...additive()} />
+      </mesh>
+      <mesh ref={haloRef} geometry={ORB} dispose={null} visible={false}>
+        <meshBasicMaterial ref={haloMat} color={part.color} {...additive(0.4)} />
+      </mesh>
+    </>
+  );
+}
+
 /** Renderer per part kind. A kind without an entry draws nothing (the root still retires it at the cap). */
 export const PART_RENDERERS: Partial<Record<PartKind, ComponentType<PartProps>>> = {
   flash: FlashPart,
@@ -197,6 +318,9 @@ export const PART_RENDERERS: Partial<Record<PartKind, ComponentType<PartProps>>>
   shockwave: ShockwavePart,
   sparks: SparksPart,
   trail: TrailPart,
+  orb: OrbPart,
+  pillar: PillarPart,
+  fall: FallPart,
 };
 
 useTexture.preload(FLARE_TEXTURE);
