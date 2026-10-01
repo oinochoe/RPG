@@ -2,10 +2,12 @@ import { Hono } from "hono";
 import { getAdminClient } from "./supabaseAdmin.ts";
 import { ApiError, readJsonBody } from "./errors.ts";
 import { requireAuth, AppUser } from "./authMiddleware.ts";
+import { requireGameSession } from "./gameSessionMiddleware.ts";
 
 export const mapsRoutes = new Hono<{ Variables: { appUser: AppUser } }>();
 
 mapsRoutes.use("*", requireAuth);
+mapsRoutes.use("*", requireGameSession);
 
 mapsRoutes.post("/enter-map", async (c) => {
   const appUser = c.get("appUser");

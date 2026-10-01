@@ -538,7 +538,10 @@ charactersRoutes.post("/:id/select", async (c) => {
 
   // The RPC returns the activated character row; its fresh game_session_id is this session's ticket.
   const row = (Array.isArray(selected) ? selected[0] : selected) as { game_session_id: string | null } | null | undefined;
-  const gameSessionId = row?.game_session_id ?? null;
+  const gameSessionId = row?.game_session_id;
+  if (!gameSessionId) {
+    throw new ApiError(500, "internal_error", "character_select_failed", "캐릭터 선택 중 오류가 발생했습니다.");
+  }
   return c.json({ game_session_id: gameSessionId }, 200);
 });
 
