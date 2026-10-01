@@ -54,6 +54,11 @@ export function validateRewardTable(table: Record<string, RewardEntry>): string[
     if (r.itemQty !== undefined && !(Number.isInteger(r.itemQty) && r.itemQty >= 1 && r.itemQty <= MAX_ITEM_QTY)) {
       problems.push(`${id}: itemQty must be 1..${MAX_ITEM_QTY}`);
     }
+    // An item grant that fails undoes the claim row but not gold/xp already paid, so a retry would pay those
+    // twice. Item rewards are therefore item-only; gold/xp rewards may combine with each other.
+    if (r.itemTemplateId !== undefined && (r.gold !== undefined || r.xp !== undefined)) {
+      problems.push(`${id}: an item reward cannot also give gold or xp`);
+    }
   }
   return problems;
 }

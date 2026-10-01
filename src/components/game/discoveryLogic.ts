@@ -55,7 +55,8 @@ export function queryGrid(grid: DiscoveryGrid, x: number, z: number, maxDist: nu
   return out;
 }
 
-const MAX_RADIUS_IN_GRID = 8;
+export const MAX_RADIUS_IN_GRID = 8;
+export const MIN_TRIGGER_RADIUS = 4;
 
 /** The nearest inspect/npc discovery whose own radius contains the player and whose requirements hold. */
 export function nearestInRange(
@@ -89,7 +90,14 @@ export function validateDefs(defs: readonly DiscoveryDef[]): string[] {
     if (ids.has(d.id)) problems.push(`duplicate id: ${d.id}`);
     ids.add(d.id);
     if (!ID_PATTERN.test(d.id)) problems.push(`bad id (lowercase, digits, hyphens): ${d.id}`);
-    if (!(d.radius > 0)) problems.push(`${d.id}: radius must be positive`);
+    // The grid search only looks MAX_RADIUS_IN_GRID out, so a bigger radius would silently be cut short.
+    if (!(Number.isFinite(d.radius) && d.radius > 0 && d.radius <= MAX_RADIUS_IN_GRID)) {
+      problems.push(`${d.id}: radius must be a finite number in (0, ${MAX_RADIUS_IN_GRID}]`);
+    }
+    // Triggers are sampled a few times a second; a small one could be walked through between samples.
+    if (d.kind === 'trigger' && d.radius < MIN_TRIGGER_RADIUS) {
+      problems.push(`${d.id}: a trigger needs radius >= ${MIN_TRIGGER_RADIUS}`);
+    }
     if (d.lines.length === 0 || d.lines.some((l) => l.trim() === '')) problems.push(`${d.id}: lines must be non-empty`);
     if (d.kind === 'npc' && !d.npcKind) problems.push(`${d.id}: an npc discovery needs npcKind`);
     if (d.reward) {
@@ -99,6 +107,10 @@ export function validateDefs(defs: readonly DiscoveryDef[]): string[] {
       if (gold !== undefined && !(gold > 0)) problems.push(`${d.id}: reward gold must be positive`);
       if (xp !== undefined && !(xp > 0)) problems.push(`${d.id}: reward xp must be positive`);
       if (itemQty !== undefined && !(itemQty > 0)) problems.push(`${d.id}: reward itemQty must be positive`);
+      // Mirrors the server table rule: an item reward is item-only (see validateRewardTable).
+      if (itemTemplateId !== undefined && (gold !== undefined || xp !== undefined)) {
+        problems.push(`${d.id}: an item reward cannot also give gold or xp`);
+      }
     }
   }
   for (const d of defs) {

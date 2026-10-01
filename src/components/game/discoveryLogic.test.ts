@@ -55,6 +55,13 @@ describe('grid search', () => {
     expect(nearestInRange(g, 1.5, 0, ctx())).toBeNull();
     expect(nearestInRange(g, 0.9, 0, ctx())?.id).toBe('small');
   });
+  it('finds discoveries at negative coordinates (cells floor toward -infinity)', () => {
+    const g = buildGrid([def({ id: 'neg', position: [-1, -1], radius: 4 }), def({ id: 'half', position: [0.5, 0], radius: 1 })]);
+    expect(nearestInRange(g, 1, 1, ctx())?.id).toBe('neg');
+    expect(queryGrid(g, 1, 1, 8).map((d) => d.id)).toContain('neg');
+    expect(nearestInRange(buildGrid([def({ id: 'half', position: [0.5, 0], radius: 1.5 })]), -0.5, 0, ctx())?.id).toBe('half');
+    expect(queryGrid(g, -0.5, 0, 8).map((d) => d.id).sort()).toEqual(['half', 'neg']);
+  });
   it('skipSeen ignores already-seen discoveries so the next unseen one wins', () => {
     const g = buildGrid([def({ id: 'near', position: [0, 0] }), def({ id: 'far', position: [1.5, 0] })]);
     const c = ctx({ seen: ['near'] });
@@ -84,5 +91,20 @@ describe('validateDefs', () => {
     expect(validateDefs([def({ id: 'n', kind: 'npc' })]).join()).toMatch(/npcKind/);
     expect(validateDefs([def({ id: 'g', reward: { gold: -5 } })]).join()).toMatch(/reward/i);
     expect(validateDefs([def({ id: 'e', reward: {} })]).join()).toMatch(/reward/i);
+  });
+  it('rejects a radius above the grid search reach or one that is not finite', () => {
+    expect(validateDefs([def({ id: 'big', radius: 8 })])).toEqual([]);
+    expect(validateDefs([def({ id: 'big', radius: 8.5 })]).join()).toMatch(/big: radius/);
+    expect(validateDefs([def({ id: 'inf', radius: Infinity })]).join()).toMatch(/inf: radius/);
+    expect(validateDefs([def({ id: 'nan', radius: Number.NaN })]).join()).toMatch(/nan: radius/);
+  });
+  it('requires a trigger to have radius of at least 4 so it is not walked through between samples', () => {
+    expect(validateDefs([def({ id: 't', kind: 'trigger', radius: 3.9 })]).join()).toMatch(/t: .*radius/);
+    expect(validateDefs([def({ id: 't', kind: 'trigger', radius: 4 })])).toEqual([]);
+  });
+  it('rejects an item reward that also pays gold or xp', () => {
+    expect(validateDefs([def({ id: 'mix', reward: { itemTemplateId: 7, gold: 10 } })]).join()).toMatch(/mix: .*item/);
+    expect(validateDefs([def({ id: 'mix', reward: { itemTemplateId: 7, xp: 10 } })]).join()).toMatch(/mix: .*item/);
+    expect(validateDefs([def({ id: 'ok', reward: { gold: 10, xp: 10 } })])).toEqual([]);
   });
 });

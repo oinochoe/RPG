@@ -3,7 +3,8 @@ import { MAX_GOLD_PER_DISCOVERY, MAX_ITEM_QTY, MAX_XP_PER_DISCOVERY, checkClaim,
 
 const table = {
   'sulky-rock': { minLevel: 1, gold: 40 },
-  'deep-pit': { minLevel: 10, gold: 120, xp: 60, itemTemplateId: 12, itemQty: 2 },
+  'deep-pit': { minLevel: 10, gold: 120, xp: 60 },
+  jar: { minLevel: 5, itemTemplateId: 12, itemQty: 2 },
 };
 
 describe('checkClaim', () => {
@@ -47,5 +48,10 @@ describe('validateRewardTable', () => {
   it('requires an item quantity of at least 1 whenever an item is given (defaults to 1 when omitted)', () => {
     expect(validateRewardTable({ x: { minLevel: 1, itemTemplateId: 7 } })).toEqual([]);
     expect(validateRewardTable({ x: { minLevel: 1, itemTemplateId: 7, itemQty: 0 } }).join()).toMatch(/x:/);
+  });
+  it('forbids an item reward that also pays gold or xp (a failed item grant would leave gold/xp paid twice on retry)', () => {
+    expect(validateRewardTable({ mixg: { minLevel: 1, gold: 10, itemTemplateId: 7 } }).join()).toMatch(/mixg:/);
+    expect(validateRewardTable({ mixx: { minLevel: 1, xp: 10, itemTemplateId: 7, itemQty: 2 } }).join()).toMatch(/mixx:/);
+    expect(validateRewardTable({ gx: { minLevel: 1, gold: 10, xp: 10 } })).toEqual([]);
   });
 });
