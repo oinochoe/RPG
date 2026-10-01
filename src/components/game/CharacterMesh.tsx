@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { fitScale } from './modelScale';
 import { useFrame } from '@react-three/fiber';
-import { useAnimations, useTexture } from '@react-three/drei';
+import { useAnimations } from '@react-three/drei';
 import { useGLTF } from './toonGLTF';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
 import { NameTag } from './NameTag';
 import { HealthBar } from './HealthBar';
 import { Projectile } from './Projectile';
-import { FxSprite, SkillRing } from './FxSprite';
+import { emitSkillCast } from './skillFx';
 import { playerPosition, playerFacing, playerStuck, pickupAnimUntil, triggerPickupAnim } from './playerTransform';
 import { moveTarget, clearMoveTarget } from './moveTarget';
 import { stick, isStickActive, stickToWorldDir } from './touchInput';
@@ -217,13 +217,6 @@ const SKILL_FX_COLOR: Record<CharacterProfile['character_class'], THREE.ColorRep
   archer: '#eaffb0',
   mage: '#ff6a2b',
 };
-const SKILL_FLARE_TEXTURE = '/models/kaykit-spells/textures/flare_01.png';
-const SKILL_IMPACT_TEXTURE = '/models/kaykit-spells/textures/impact_01.png';
-const SKILL_CAST_FLASH_SIZE = 1.6;
-const SKILL_CAST_FLASH_DURATION_MS = 300;
-const SKILL_IMPACT_BURST_SIZE = 1.3;
-const SKILL_IMPACT_BURST_DURATION_MS = 350;
-const SKILL_RING_DURATION_MS = 450;
 
 // Ranged classes play a short draw/cast pose before the projectile actually leaves —
 // beginDraw() below pulls the arm back over this whole duration, and the projectile is
@@ -250,24 +243,7 @@ interface PendingProjectile {
   isSkill: boolean;
   fxColor: THREE.ColorRepresentation;
   aoeRadius?: number;
-}
-
-// A skill cast spawns a flash at the caster the instant it lands, and — for a hit that also
-// resolves immediately (melee, or a ranged projectile's arrival) — an impact burst at the
-// target. Both are purely visual (FxSprite); color comes from the specific skill cast
-// (SkillDef.fxColor), not a shared per-class color.
-interface SkillEffect {
-  id: number;
-  kind: 'flash' | 'impact';
-  position: [number, number, number];
-  color: THREE.ColorRepresentation;
-}
-
-interface SkillRingEffect {
-  id: number;
-  position: [number, number, number];
-  radius: number;
-  color: THREE.ColorRepresentation;
+  skillId?: number;
 }
 
 function shortestAngleDelta(from: number, to: number): number {
@@ -443,23 +419,6 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   const attackNearest = useCombatStore((s) => s.attackNearest);
   const castSkill = useCombatStore((s) => s.castSkill);
   const [projectiles, setProjectiles] = useState<ActiveProjectile[]>([]);
-  const [skillEffects, setSkillEffects] = useState<SkillEffect[]>([]);
-  const skillEffectIdRef = useRef(0);
-  const [skillRings, setSkillRings] = useState<SkillRingEffect[]>([]);
-  const skillRingIdRef = useRef(0);
-
-  function spawnSkillEffect(kind: SkillEffect['kind'], position: [number, number, number], color: THREE.ColorRepresentation) {
-    skillEffectIdRef.current += 1;
-    setSkillEffects((prev) => [...prev, { id: skillEffectIdRef.current, kind, position, color }]);
-  }
-
-  // AOE skills (see SkillDef.type/aoeRadius) get a ground ring sized to their real radius, on
-  // top of the usual flash/impact — the clearest possible "this hits an area" visual, and the
-  // one piece of per-skill VFX variety that isn't just a different tint.
-  function spawnSkillRing(position: [number, number, number], radius: number, color: THREE.ColorRepresentation) {
-    skillRingIdRef.current += 1;
-    setSkillRings((prev) => [...prev, { id: skillRingIdRef.current, position, radius, color }]);
-  }
 
   function beginSwing() {
     attackAnimUntil.current = performance.now() + ATTACK_DURATION_MS;
@@ -495,7 +454,6 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     const fxColor = skillDef?.fxColor ?? SKILL_FX_COLOR[character.character_class];
     if (isSkill) {
       playSound('cast', 0.45);
-      spawnSkillEffect('flash', [playerPosition.x, baseY + PROJECTILE_ORIGIN_HEIGHT, playerPosition.z], fxColor);
     }
     if (result.killed && result.goldDropped) playSound('coin', 0.4);
     const variant = PROJECTILE_VARIANT[character.character_class];
@@ -508,12 +466,14 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       playSound(isSkill ? 'hitHeavy' : 'hit', 0.5);
       // Melee has no travel time — the impact reads immediately, same moment the swing
       // itself starts (damage was already applied instantly by castSkill either way).
-      if (isSkill && monster) {
-        const impactPos: [number, number, number] = [monster.position[0], monster.position[1] + PROJECTILE_ORIGIN_HEIGHT, monster.position[2]];
-        spawnSkillEffect('impact', impactPos, fxColor);
-        if (skillDef?.type === 'aoe' && skillDef.aoeRadius) {
-          spawnSkillRing([monster.position[0], monster.position[1] + 0.05, monster.position[2]], skillDef.aoeRadius, fxColor);
-        }
+      if (isSkill && skillId !== undefined && monster) {
+        emitSkillCast({
+          skillId,
+          from: [playerPosition.x, baseY + PROJECTILE_ORIGIN_HEIGHT, playerPosition.z],
+          to: [monster.position[0], monster.position[1] + PROJECTILE_ORIGIN_HEIGHT, monster.position[2]],
+          aoeRadius: skillDef?.type === 'aoe' ? skillDef.aoeRadius : undefined,
+          travelMs: 0,
+        });
       }
       return;
     }
@@ -526,6 +486,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       isSkill,
       fxColor,
       aoeRadius: skillDef?.type === 'aoe' ? skillDef.aoeRadius : undefined,
+      skillId: isSkill ? skillId : undefined,
     };
   }
 
@@ -752,7 +713,13 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     if (pendingProjectile.current && attackRemaining <= 0) {
       const p = pendingProjectile.current;
       pendingProjectile.current = null;
-      setProjectiles((prev) => [...prev, { id: performance.now() + Math.random(), ...p }]);
+      if (p.skillId !== undefined) {
+        // A skill's look comes from SkillFxRoot (its own trail/orb/fall), not the plain arrow/bolt.
+        emitSkillCast({ skillId: p.skillId, from: p.from, to: p.to, aoeRadius: p.aoeRadius, travelMs: PROJECTILE_DURATION_MS });
+        window.setTimeout(() => playSound('hitHeavy', 0.5), PROJECTILE_DURATION_MS);
+      } else {
+        setProjectiles((prev) => [...prev, { id: performance.now() + Math.random(), ...p }]);
+      }
     }
 
     if (swingBoneRef.current) {
@@ -795,34 +762,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
         onArrive={() => {
           setProjectiles((prev) => prev.filter((x) => x.id !== p.id));
           playSound(p.isSkill ? 'hitHeavy' : 'hit', 0.5);
-          // A skill's projectile lands with an impact burst too, same as melee's instant
-          // one — just delayed until travel actually finishes instead of firing at once.
-          if (p.isSkill) {
-            spawnSkillEffect('impact', p.to, p.fxColor);
-            if (p.aoeRadius) spawnSkillRing(p.to, p.aoeRadius, p.fxColor);
-          }
         }}
-      />
-    ))}
-    {skillEffects.map((fx) => (
-      <FxSprite
-        key={fx.id}
-        position={fx.position}
-        texturePath={fx.kind === 'flash' ? SKILL_FLARE_TEXTURE : SKILL_IMPACT_TEXTURE}
-        color={fx.color}
-        size={fx.kind === 'flash' ? SKILL_CAST_FLASH_SIZE : SKILL_IMPACT_BURST_SIZE}
-        duration={fx.kind === 'flash' ? SKILL_CAST_FLASH_DURATION_MS : SKILL_IMPACT_BURST_DURATION_MS}
-        onDone={() => setSkillEffects((prev) => prev.filter((x) => x.id !== fx.id))}
-      />
-    ))}
-    {skillRings.map((ring) => (
-      <SkillRing
-        key={ring.id}
-        position={ring.position}
-        radius={ring.radius}
-        color={ring.color}
-        duration={SKILL_RING_DURATION_MS}
-        onDone={() => setSkillRings((prev) => prev.filter((x) => x.id !== ring.id))}
       />
     ))}
     <group ref={groupRef} position={[character.position_x, baseY, character.position_z]}>
@@ -841,5 +781,3 @@ useGLTF.preload(RIG_MOVEMENT);
 Object.values(CHARACTER_MODEL).forEach((url) => useGLTF.preload(url));
 Object.values(WEAPON_MODEL_BY_NAME).forEach((url) => useGLTF.preload(url));
 Object.values(SHIELD_MODEL_BY_NAME).forEach((url) => useGLTF.preload(url));
-useTexture.preload(SKILL_FLARE_TEXTURE);
-useTexture.preload(SKILL_IMPACT_TEXTURE);

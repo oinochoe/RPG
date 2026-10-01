@@ -280,7 +280,7 @@ export function Scene({
       <PlayerCombatEffects fieldMonsters={fieldMonsters} />
       <CombatFxRoot />
 
-      <SkillFxRoot />
+      <Suspense fallback={null}><SkillFxRoot /></Suspense>
       <RespawnTicker />
       <MpRegenTicker />
       <PositionSync mapId={map.map_id} />
