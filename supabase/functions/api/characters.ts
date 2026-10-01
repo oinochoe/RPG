@@ -5,6 +5,7 @@ import { requireAuth, AppUser } from "./authMiddleware.ts";
 import { requireGameSession } from "./gameSessionMiddleware.ts";
 import { BOSSES, parseKillBatch, type KillReport } from "./economyRules.ts";
 import { rollDropEntry } from "./drops.ts";
+import { checkClaim } from "./discoveries.ts";
 
 export const charactersRoutes = new Hono<{ Variables: { appUser: AppUser } }>();
 
@@ -945,6 +946,92 @@ charactersRoutes.post("/me/quests/:id/claim", async (c) => {
     reward_item_id: row.reward_item_id,
     inventory,
     progress,
+  });
+});
+
+// Discoveries: places in the world that can pay out once per character. The client sends only the id; the
+// amount, the level gate and the "already collected" rule all live here (see discoveries.ts).
+charactersRoutes.get("/me/discoveries", async (c) => {
+  const appUser = c.get("appUser");
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+  const { data, error } = await admin.from("character_discoveries").select("discovery_id").eq("character_id", characterId);
+  if (error) {
+    console.error("discoveries list failed:", error.code, error.message);
+    throw new ApiError(500, "internal_error", "discovery_list_failed", "발견 기록을 불러오지 못했습니다.");
+  }
+  return c.json({ claimed: (data ?? []).map((r: { discovery_id: string }) => r.discovery_id) });
+});
+
+charactersRoutes.post("/me/discoveries/:id/claim", async (c) => {
+  const appUser = c.get("appUser");
+  const discoveryId = c.req.param("id");
+  const admin = getAdminClient();
+  const characterId = await getActiveCharacterId(admin, appUser.id);
+
+  const { data: charRow, error: charError } = await admin.from("characters").select("level").eq("id", characterId).single();
+  if (charError || !charRow) {
+    console.error("discovery claim: character lookup failed:", charError?.message);
+    throw new ApiError(500, "internal_error", "discovery_claim_failed", "보상 처리 중 오류가 발생했습니다.");
+  }
+
+  const check = checkClaim(discoveryId, (charRow as { level: number }).level);
+  if (!check.ok) {
+    if (check.reason === "level_too_low") {
+      throw new ApiError(403, "forbidden", "discovery_level_too_low", "아직 이 보상을 받을 수 있는 수준이 아닙니다.");
+    }
+    throw new ApiError(404, "not_found", "discovery_not_found", "해당 발견물을 찾을 수 없습니다.");
+  }
+  const { reward } = check;
+
+  const { error } = await admin.rpc("claim_discovery", {
+    p_user_id: appUser.id,
+    p_character_id: characterId,
+    p_discovery_id: discoveryId,
+    p_xp: reward.xp ?? 0,
+    p_gold: reward.gold ?? 0,
+  });
+  if (error) {
+    if (error.message?.includes("discovery_already_claimed")) {
+      throw new ApiError(409, "conflict", "discovery_already_claimed", "이미 받은 보상입니다.");
+    }
+    if (error.message?.includes("character_not_found")) {
+      throw new ApiError(404, "not_found", "no_active_character", "선택된 활성 캐릭터가 없습니다.");
+    }
+    console.error("claim_discovery RPC failed:", error.code, error.message);
+    throw new ApiError(500, "internal_error", "discovery_claim_failed", "보상 처리 중 오류가 발생했습니다.");
+  }
+
+  const itemQty = reward.itemQty ?? 1;
+  if (reward.itemTemplateId !== undefined) {
+    try {
+      await grantInventoryItem(admin, characterId, reward.itemTemplateId, itemQty, {
+        code: "discovery_item_grant_failed",
+        message: "보상 아이템 지급 중 오류가 발생했습니다.",
+      });
+    } catch (err) {
+      // Undo the claim row so the player can try again (gold/xp already granted are small; the next try
+      // is refused as "already claimed" only if this delete failed, which we log).
+      const { error: undoError } = await admin.from("character_discoveries").delete().eq("character_id", characterId).eq("discovery_id", discoveryId);
+      if (undoError) console.error("discovery claim undo failed:", undoError.message);
+      throw err;
+    }
+  }
+
+  const progress = await fetchProgressSnapshot(admin, characterId).catch((e) => {
+    console.error("progress snapshot failed after discovery claim:", (e as Error).message);
+    throw new ApiError(500, "internal_error", "discovery_claim_failed", "보상 처리 중 오류가 발생했습니다.");
+  });
+  const inventory = await fetchInventory(admin, characterId);
+  return c.json({
+    progress,
+    inventory,
+    reward: {
+      gold: reward.gold ?? 0,
+      xp: reward.xp ?? 0,
+      item_template_id: reward.itemTemplateId ?? null,
+      item_qty: reward.itemTemplateId !== undefined ? itemQty : 0,
+    },
   });
 });
 

@@ -32,7 +32,8 @@ export function checkClaim(
   // hasOwn: "constructor"/"__proto__" must not resolve to something on Object.prototype.
   if (!Object.prototype.hasOwnProperty.call(table, id)) return { ok: false, reason: "unknown_discovery" };
   const reward = table[id];
-  if (level < reward.minLevel) return { ok: false, reason: "level_too_low" };
+  // NaN-safe: a non-numeric level must fail the gate, not slip past `<`.
+  if (!(level >= reward.minLevel)) return { ok: false, reason: "level_too_low" };
   return { ok: true, reward };
 }
 
@@ -41,11 +42,14 @@ export function validateRewardTable(table: Record<string, RewardEntry>): string[
   for (const [id, r] of Object.entries(table)) {
     if (!(r.minLevel >= 1)) problems.push(`${id}: minLevel must be at least 1`);
     if (r.gold === undefined && r.xp === undefined && r.itemTemplateId === undefined) problems.push(`${id}: empty reward`);
-    if (r.gold !== undefined && !(r.gold > 0 && r.gold <= MAX_GOLD_PER_DISCOVERY)) {
+    if (r.gold !== undefined && !(Number.isInteger(r.gold) && r.gold > 0 && r.gold <= MAX_GOLD_PER_DISCOVERY)) {
       problems.push(`${id}: gold must be 1..${MAX_GOLD_PER_DISCOVERY}`);
     }
-    if (r.xp !== undefined && !(r.xp > 0 && r.xp <= MAX_XP_PER_DISCOVERY)) {
+    if (r.xp !== undefined && !(Number.isInteger(r.xp) && r.xp > 0 && r.xp <= MAX_XP_PER_DISCOVERY)) {
       problems.push(`${id}: xp must be 1..${MAX_XP_PER_DISCOVERY}`);
+    }
+    if (r.itemTemplateId !== undefined && !(Number.isInteger(r.itemTemplateId) && r.itemTemplateId > 0)) {
+      problems.push(`${id}: itemTemplateId must be a positive integer`);
     }
     if (r.itemQty !== undefined && !(Number.isInteger(r.itemQty) && r.itemQty >= 1 && r.itemQty <= MAX_ITEM_QTY)) {
       problems.push(`${id}: itemQty must be 1..${MAX_ITEM_QTY}`);

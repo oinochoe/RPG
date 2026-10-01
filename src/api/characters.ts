@@ -4,6 +4,7 @@ import type {
   CharacterClass,
   CharacterProfile,
   CharacterSummary,
+  ClaimDiscoveryResponse,
   EnchantItemResponse,
   InventoryListResponse,
   KillReport,
@@ -141,6 +142,14 @@ export interface ClaimQuestResponse {
 
 export function claimQuest(questTemplateId: number): Promise<ClaimQuestResponse> {
   return apiRequest(`/characters/me/quests/${questTemplateId}/claim`, { method: 'POST' });
+}
+
+export function listClaimedDiscoveries(): Promise<{ claimed: string[] }> {
+  return apiRequest('/characters/me/discoveries');
+}
+
+export function claimDiscovery(id: string): Promise<ClaimDiscoveryResponse> {
+  return apiRequest(`/characters/me/discoveries/${encodeURIComponent(id)}/claim`, { method: 'POST' });
 }
 
 /** Picks up a world drop by the ticket the server issued when it rolled that drop. */

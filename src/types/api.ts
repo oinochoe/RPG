@@ -106,6 +106,13 @@ export interface InventoryListResponse {
   progress?: ProgressSnapshot;
 }
 
+export interface ClaimDiscoveryResponse {
+  progress: ProgressSnapshot;
+  // Same shape as ClaimQuestResponse.inventory: the server returns the bare item list.
+  inventory: InventoryListResponse['items'];
+  reward: { gold: number; xp: number; item_template_id: number | null; item_qty: number };
+}
+
 /** One monster the client reports having killed (POST /characters/me/kills). */
 export interface KillReport {
   template_id: number;

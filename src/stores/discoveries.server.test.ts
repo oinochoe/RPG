@@ -17,6 +17,9 @@ describe('checkClaim', () => {
     expect(checkClaim('__proto__', 99, table)).toEqual({ ok: false, reason: 'unknown_discovery' });
     expect(checkClaim('deep-pit', 9, table)).toEqual({ ok: false, reason: 'level_too_low' });
   });
+  it('treats a NaN level as too low', () => {
+    expect(checkClaim('sulky-rock', Number.NaN, table)).toEqual({ ok: false, reason: 'level_too_low' });
+  });
 });
 
 describe('validateRewardTable', () => {
@@ -34,6 +37,12 @@ describe('validateRewardTable', () => {
     });
     const text = bad.join('\n');
     for (const id of ['a', 'b', 'c', 'd', 'e', 'f']) expect(text).toContain(id + ':');
+  });
+  it('rejects non-integer gold/xp and non-positive or fractional item template ids', () => {
+    expect(validateRewardTable({ g: { minLevel: 1, gold: 1.5 } }).join()).toMatch(/g:/);
+    expect(validateRewardTable({ x: { minLevel: 1, xp: 2.5 } }).join()).toMatch(/x:/);
+    expect(validateRewardTable({ i: { minLevel: 1, itemTemplateId: 0 } }).join()).toMatch(/i:/);
+    expect(validateRewardTable({ j: { minLevel: 1, itemTemplateId: 1.5 } }).join()).toMatch(/j:/);
   });
   it('requires an item quantity of at least 1 whenever an item is given (defaults to 1 when omitted)', () => {
     expect(validateRewardTable({ x: { minLevel: 1, itemTemplateId: 7 } })).toEqual([]);
