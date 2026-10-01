@@ -1,0 +1,44 @@
+import type { NpcKind } from './NPC';
+
+// Plain data — no three.js, so stores and server-table tests can read it. The reward numbers here are a
+// display copy: the real amounts live in supabase/functions/api/discoveries.ts (a test keeps them equal).
+
+export type DiscoveryKind = 'inspect' | 'npc' | 'trigger';
+export type PropPreset = 'rock' | 'signpost' | 'pit' | 'mushrooms' | 'sparkle' | 'statue' | 'none';
+export type ZoneName = 'village' | 'desert' | 'fairy' | 'orc' | 'bone' | 'ghoul' | 'field';
+
+export type Requirement =
+  | { type: 'level'; min: number }
+  | { type: 'seen'; id: string }
+  | { type: 'zone'; zone: ZoneName };
+
+export interface DiscoveryReward {
+  gold?: number;
+  xp?: number;
+  itemTemplateId?: number;
+  /** Shown in the dialog; the server decides what is actually granted. */
+  itemName?: string;
+  itemQty?: number;
+}
+
+export interface DiscoveryDef {
+  /** Stable key, also the server table key. Lowercase letters, digits, hyphens. */
+  id: string;
+  kind: DiscoveryKind;
+  name: string;
+  position: [number, number];
+  radius: number;
+  prop: PropPreset;
+  /** Model for an `npc` discovery (reuses NPC.tsx's kinds). */
+  npcKind?: NpcKind;
+  /** Hidden until found: not on the map and no sparkle hint. */
+  hidden?: boolean;
+  requires?: Requirement[];
+  lines: string[];
+  /** What it says once already seen/claimed. */
+  afterLines?: string[];
+  reward?: DiscoveryReward;
+}
+
+// Filled in by the content task (see discoveryContent.ts); kept separate so this file stays a pure type module.
+export const DISCOVERIES: DiscoveryDef[] = [];
