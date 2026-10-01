@@ -17,6 +17,9 @@ import {
 } from './worldColliders';
 import { DUNGEON_META, getEntryTrigger, getExitTrigger, getFloorRects } from './Dungeon';
 import { ICON_PATH, MapIcon, PlayerArrow } from './mapIcons';
+import { DISCOVERIES } from './discoveries';
+import { selectMapMarkers } from './discoveryRender';
+import { useDiscoveryStore } from '../../stores/discoveryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useWorldStore } from '../../stores/worldStore';
 
@@ -43,6 +46,8 @@ const BACKDROP_HALF = 1000;
 
 function MiniFieldView({ player, facing }: { player: { x: number; z: number }; facing: number }) {
   const half = FIELD_LOCAL_HALF;
+  const seen = useDiscoveryStore((st) => st.seen);
+  const markers = useMemo(() => selectMapMarkers(DISCOVERIES, seen), [seen]);
 
   return (
     <svg
@@ -80,6 +85,16 @@ function MiniFieldView({ player, facing }: { player: { x: number; z: number }; f
       ))}
       {(Object.keys(DUNGEON_ENTRANCES) as DungeonId[]).map((id) => (
         <MapIcon key={id} path={ICON_PATH.cave} x={DUNGEON_ENTRANCES[id].point[0]} y={DUNGEON_ENTRANCES[id].point[1]} size={6} color="#c084fc" />
+      ))}
+
+      {markers.map((d) => (
+        <polygon
+          key={d.id}
+          points={`${d.position[0]},${d.position[1] - 1.6} ${d.position[0] + 1.1},${d.position[1]} ${d.position[0]},${d.position[1] + 1.6} ${d.position[0] - 1.1},${d.position[1]}`}
+          fill="#fff2a8"
+          stroke="#8a6a1e"
+          strokeWidth={0.3}
+        />
       ))}
 
       <PlayerArrow x={player.x} y={player.z} facingRad={facing} size={5.5} />

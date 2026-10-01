@@ -20,6 +20,9 @@ import {
 import { VILLAGE_CONFIGS } from './Village';
 import { DUNGEON_META, getEntryTrigger, getExitTrigger, ROOM_HALF_X, ROOM_HALF_Z, getFloorRects } from './Dungeon';
 import { ICON_PATH, MapIcon, PlayerArrow } from './mapIcons';
+import { DISCOVERIES } from './discoveries';
+import { selectMapMarkers } from './discoveryRender';
+import { useDiscoveryStore } from '../../stores/discoveryStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useWorldStore } from '../../stores/worldStore';
 
@@ -128,6 +131,8 @@ function MapFrame({ halfX, halfZ }: { halfX: number; halfZ: number }) {
 }
 
 function FieldMap({ player, facing }: { player: { x: number; z: number }; facing: number }) {
+  const seen = useDiscoveryStore((st) => st.seen);
+  const markers = useMemo(() => selectMapMarkers(DISCOVERIES, seen), [seen]);
   return (
     <svg
       width={720}
@@ -252,6 +257,18 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
           </g>
         );
       })}
+
+      {markers.map((d) => (
+        <g key={d.id}>
+          <title>{d.name}</title>
+          <polygon
+            points={`${d.position[0]},${d.position[1] - 2.2} ${d.position[0] + 1.5},${d.position[1]} ${d.position[0]},${d.position[1] + 2.2} ${d.position[0] - 1.5},${d.position[1]}`}
+            fill="#fff2a8"
+            stroke="#8a6a1e"
+            strokeWidth={0.4}
+          />
+        </g>
+      ))}
 
       <PlayerArrow x={player.x} y={player.z} facingRad={facing} size={11} />
 

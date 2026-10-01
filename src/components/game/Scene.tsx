@@ -13,6 +13,7 @@ import { PositionSync } from './PositionSync';
 import { ShopProximity } from './ShopProximity';
 import { QuestProximity } from './QuestProximity';
 import { DiscoveryProximity } from './DiscoveryProximity';
+import { DiscoveryProps } from './DiscoveryProps';
 import { LootProximity } from './LootProximity';
 import { ItemDropMesh } from './ItemDropMesh';
 import { CharacterMesh } from './CharacterMesh';
@@ -288,6 +289,7 @@ export function Scene({
       <ShopProximity />
       <QuestProximity />
       <DiscoveryProximity />
+      <DiscoveryProps />
       <LootProximity />
 
       <EffectComposer multisampling={0}>
