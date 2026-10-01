@@ -22,9 +22,9 @@ const state = (playerHp: number, monsters: Record<number, ReturnType<typeof m>>,
 const P: [number, number, number] = [0, 1, 0];
 
 describe('isHeavyHit', () => {
-  it('treats a plain attack (0.8-1.2x) as normal and a skill multiplier above 1.25x as heavy', () => {
-    expect(isHeavyHit(12, 10)).toBe(false);
-    expect(isHeavyHit(13, 10)).toBe(true);
+  it('treats a hit up to 1.15x attackPower as normal and anything above as heavy', () => {
+    expect(isHeavyHit(11, 10)).toBe(false);
+    expect(isHeavyHit(12, 10)).toBe(true);
   });
 });
 

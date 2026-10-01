@@ -16,8 +16,8 @@ export interface HitEvent {
   targetId?: number;
 }
 
-// A basic attack rolls 0.8-1.2x of attackPower; anything above this is a skill-sized blow.
-const HEAVY_RATIO = 1.25;
+// A basic attack rolls 0.8-1.2x of attackPower, so its top ~12% (above 1.15x) reads as a strong hit; skills (1.2-1.3x and up) mostly land above this too.
+const HEAVY_RATIO = 1.15;
 const CHEST_HEIGHT = 0.9;
 
 export function isHeavyHit(damage: number, attackPower: number): boolean {

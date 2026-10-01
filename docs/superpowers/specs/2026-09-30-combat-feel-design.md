@@ -44,7 +44,7 @@ emitHit(event); subscribeHit(fn): unsubscribe;
 
 - 발행 지점: `startCombatFxWatcher`(`diffHits`)가 `combatStore` HP 감소를 감지해 몬스터 피격(AoE는 몬스터마다 1개), 몬스터 사망(`kill`), 플레이어 피격을 발행한다. AoE 타겟별 데미지가 `AttackResult`에 없고 몬스터→플레이어 피격 경로가 여러 곳이라 발행 코드를 한곳으로 모았다(`CharacterMesh`/`PlayerCombatEffects`에는 발행 코드가 없다).
 - 원거리 클래스는 데미지가 즉시 적용되고 투사체가 늦게 도착하므로, `CharacterMesh`가 `setHitLeadMs()`로 알려 주는 시간만큼 몬스터 대상 이벤트를 늦춰 발행한다.
-- `heavy` 판정은 순수 함수 `isHeavyHit(damage, attackPower)`(`damage > attackPower * 1.25`)로 분리해 테스트한다. 사망은 항상 강타.
+- `heavy` 판정은 순수 함수 `isHeavyHit(damage, attackPower)`(`damage > attackPower * 1.15`)로 분리해 테스트한다. 사망은 항상 강타.
 - 구독자는 React 상태를 거치지 않고 ref/mutable 값을 직접 갱신한다(리렌더 없음).
 
 ### 2. 연출 모듈 (각각 독립, 버스만 구독)
