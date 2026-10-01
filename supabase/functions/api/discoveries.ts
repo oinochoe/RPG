@@ -19,8 +19,18 @@ export const MAX_GOLD_PER_DISCOVERY = 500;
 export const MAX_XP_PER_DISCOVERY = 200;
 export const MAX_ITEM_QTY = 5;
 
-// Filled in by the content task; ids match the client's discoveries (a test keeps the two in sync).
-export const DISCOVERY_REWARDS: Record<string, RewardEntry> = {};
+// Ids match the client's discoveries (src/components/game/discoveryContent.ts); discoveryContent.test.ts keeps the
+// two in sync, including minLevel = the client's level requirement. Item rewards are item-only (see below).
+// Item template ids: 7 체력 물약, 9 강철 검, 12 마나 물약, 64 사파이어.
+export const DISCOVERY_REWARDS: Record<string, RewardEntry> = {
+  "fence-stash": { minLevel: 1, gold: 30, xp: 10 },
+  "cracked-jar": { minLevel: 5, itemTemplateId: 7, itemQty: 2 },
+  "fairy-tip-jar": { minLevel: 8, itemTemplateId: 12, itemQty: 3 },
+  "confiscated-sword": { minLevel: 10, itemTemplateId: 9, itemQty: 1 },
+  "bone-piggybank": { minLevel: 13, gold: 120, xp: 60 },
+  "ghoul-lost-and-found": { minLevel: 14, itemTemplateId: 64, itemQty: 2 },
+  "ancient-pension": { minLevel: 18, gold: 150, xp: 80 },
+};
 
 export type ClaimCheck = { ok: true; reward: RewardEntry } | { ok: false; reason: "unknown_discovery" | "level_too_low" };
 

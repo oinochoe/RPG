@@ -1,4 +1,5 @@
 import type { NpcKind } from './NPC';
+import { DISCOVERY_CONTENT } from './discoveryContent';
 
 // Plain data — no three.js, so stores and server-table tests can read it. The reward numbers here are a
 // display copy: the real amounts live in supabase/functions/api/discoveries.ts (a test keeps them equal).
@@ -40,8 +41,8 @@ export interface DiscoveryDef {
   reward?: DiscoveryReward;
 }
 
-// Filled in by the content task (see discoveryContent.ts); kept separate so this file stays a pure type module.
-export const DISCOVERIES: DiscoveryDef[] = [];
+// The data lives in discoveryContent.ts, which imports only types from here (no runtime cycle).
+export const DISCOVERIES: DiscoveryDef[] = DISCOVERY_CONTENT;
 
 export function getDiscovery(id: string): DiscoveryDef | undefined {
   return DISCOVERIES.find((d) => d.id === id);
