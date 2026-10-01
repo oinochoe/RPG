@@ -15,6 +15,7 @@ import {
   parseKillBatch,
   statPointCost,
 } from '../../supabase/functions/api/economyRules';
+import { DISCOVERY_REWARDS, checkClaim } from '../../supabase/functions/api/discoveries';
 
 const BASE = 'http://localhost:8000/api/v1';
 
@@ -53,6 +54,8 @@ interface MockState {
   currentUserEmail: string | null;
   // Server-owned economy state per character (what the real DB columns hold) — see mockProgress().
   progress?: Record<number, MockProgress>;
+  // Claimed discovery ids per character id (the real character_discoveries table).
+  discoveries?: Record<number, string[]>;
 }
 
 interface MockProgress {
@@ -96,6 +99,7 @@ const state = loadState();
 // Backfill for state persisted by an older session shape that predates this field.
 state.characterPositions ??= {};
 state.progress ??= {};
+state.discoveries ??= {};
 const users = new Map<string, StoredUser>(state.users);
 
 function persist(): void {
@@ -427,6 +431,55 @@ export const handlers = [
     p.rev += 1;
     persist();
     return HttpResponse.json({ progress: toSnapshot(p) });
+  }),
+
+  // ---- discoveries (mirrors supabase/functions/api/characters.ts) ---------------------------------
+
+  http.get(`${BASE}/characters/me/discoveries`, () => {
+    const active = state.characters.find((c) => c.id === state.activeCharacterId);
+    return HttpResponse.json({ claimed: active ? (state.discoveries ??= {})[active.id] ?? [] : [] });
+  }),
+
+  http.post(`${BASE}/characters/me/discoveries/:id/claim`, ({ params }) => {
+    const active = state.characters.find((c) => c.id === state.activeCharacterId);
+    if (!active) {
+      return HttpResponse.json({ error: 'not_found', reason: 'no_active_character', message: 'No active character.' }, { status: 404 });
+    }
+    const id = String(params.id);
+    const p = mockProgress(active.id);
+    const check = checkClaim(id, p.level);
+    if (!check.ok) {
+      return check.reason === 'unknown_discovery'
+        ? HttpResponse.json({ error: 'not_found', reason: 'discovery_not_found', message: 'Unknown discovery.' }, { status: 404 })
+        : HttpResponse.json({ error: 'forbidden', reason: 'discovery_level_too_low', message: 'Level too low.' }, { status: 403 });
+    }
+    const claimed = ((state.discoveries ??= {})[active.id] ??= []);
+    if (claimed.includes(id)) {
+      return HttpResponse.json({ error: 'conflict', reason: 'discovery_already_claimed', message: 'Already claimed.' }, { status: 409 });
+    }
+    claimed.push(id);
+    const r = DISCOVERY_REWARDS[id];
+    const gold = r.gold ?? 0;
+    const xp = r.xp ?? 0;
+    const applied = applyExperience(
+      { level: p.level, experience: p.experience, maxHp: p.maxHp, attackPower: p.attack, statPoints: p.skillPoints, skillUpgradePoints: p.skillUpgradePoints },
+      xp,
+    );
+    p.level = applied.state.level;
+    p.experience = applied.state.experience;
+    p.maxHp = applied.state.maxHp;
+    p.attack = applied.state.attackPower;
+    p.skillPoints = applied.state.statPoints;
+    p.skillUpgradePoints = applied.state.skillUpgradePoints;
+    p.gold = Math.min(999_999_999, p.gold + gold);
+    p.rev += 1;
+    persist();
+    // The mock has no inventory, so an item reward is reported but not stored.
+    return HttpResponse.json({
+      progress: toSnapshot(p, xp, gold, applied.leveledUp),
+      inventory: [],
+      reward: { gold, xp, item_template_id: r.itemTemplateId ?? null, item_qty: r.itemQty ?? 0 },
+    });
   }),
 
   http.patch(`${BASE}/characters/me/position`, async ({ request }) => {
