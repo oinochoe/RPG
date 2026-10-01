@@ -1,4 +1,4 @@
-import { Suspense, useRef, useState } from 'react';
+import { Suspense, useMemo, useRef, useState } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { DISCOVERIES, type DiscoveryDef, type PropPreset } from './discoveries';
@@ -15,6 +15,8 @@ import { useDiscoveryStore } from '../../stores/discoveryStore';
 import { useCombatStore } from '../../stores/combatStore';
 
 const CHECK_INTERVAL_S = 0.5;
+// Triggers have small radii; a fast player could cross one between two 0.5s samples, so they get a faster check.
+const TRIGGER_INTERVAL_S = 0.1;
 // Minimum radius of the tap area on screen, in CSS pixels (same idea as NPC.tsx).
 const HIT_RADIUS_PX = 26;
 const HIT_HEIGHT = 1.6;
@@ -181,26 +183,32 @@ export function DiscoveryProps() {
   const acc = useRef(CHECK_INTERVAL_S); // evaluate on the first frame
   const idsKey = useRef('');
   const fired = useRef(new Set<string>());
+  const triggerAcc = useRef(TRIGGER_INTERVAL_S);
+  const triggerDefs = useMemo(() => DISCOVERIES.filter((d) => d.kind === 'trigger'), []);
 
   useFrame((_, delta) => {
     if (inDungeon) return;
-    acc.current += delta;
-    if (acc.current < CHECK_INTERVAL_S) return;
-    acc.current = 0;
-    const ctx = {
+    const ctx = () => ({
       level: useCombatStore.getState().player.level,
       seen: useDiscoveryStore.getState().seen,
       zoneAt,
-    };
-    const next = selectRenderable(DISCOVERIES, playerPosition.x, playerPosition.z, ctx).map((d) => d.id);
+    });
+    triggerAcc.current += delta;
+    if (triggerAcc.current >= TRIGGER_INTERVAL_S) {
+      triggerAcc.current = 0;
+      for (const d of selectTriggered(triggerDefs, playerPosition.x, playerPosition.z, ctx(), fired.current)) {
+        fired.current.add(d.id);
+        useUIStore.getState().openDiscovery(d.id);
+      }
+    }
+    acc.current += delta;
+    if (acc.current < CHECK_INTERVAL_S) return;
+    acc.current = 0;
+    const next = selectRenderable(DISCOVERIES, playerPosition.x, playerPosition.z, ctx()).map((d) => d.id);
     const key = next.join('|');
     if (key !== idsKey.current) {
       idsKey.current = key;
       setIds(next);
-    }
-    for (const d of selectTriggered(DISCOVERIES, playerPosition.x, playerPosition.z, ctx, fired.current)) {
-      fired.current.add(d.id);
-      useUIStore.getState().openDiscovery(d.id);
     }
   });
 
