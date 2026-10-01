@@ -242,8 +242,8 @@ export interface SkillDef {
   requiredLevel: number;
   type: 'single' | 'aoe';
   aoeRadius?: number;
-  // Per-skill tint for its cast/impact FX (see CharacterMesh's spawnSkillEffect) — used to
-  // stay distinct in fights rather than every skill in a class sharing one color.
+  // Skill visuals now come from skillFxDefs.ts; fxColor is kept for UI/legacy use and is
+  // not used for skill effects.
   fxColor: string;
 }
 

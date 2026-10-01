@@ -209,9 +209,7 @@ const PROJECTILE_VARIANT: Partial<Record<CharacterProfile['character_class'], 'a
 const PROJECTILE_ORIGIN_HEIGHT = 0.75;
 const PROJECTILE_DURATION_MS = 200;
 
-// Fallback color for the plain basic attack (no skill) — actual skill casts use their own
-// SkillDef.fxColor (see combatStore.ts) instead of one shared per-class color, so each of a
-// class's 3 skills reads as visually distinct rather than every cast looking the same.
+// Colors only the plain basic-attack projectile now; skill visuals come from skillFxDefs.ts.
 const SKILL_FX_COLOR: Record<CharacterProfile['character_class'], THREE.ColorRepresentation> = {
   warrior: '#ffcf5c',
   archer: '#eaffb0',
@@ -442,6 +440,17 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
   }
 
 
+  // Releases a queued ranged shot: a skill hands off to SkillFxRoot, a plain attack spawns its projectile.
+  function releasePending(p: PendingProjectile) {
+    if (p.skillId !== undefined) {
+      // A skill's look comes from SkillFxRoot (its own trail/orb/fall), not the plain arrow/bolt.
+      emitSkillCast({ skillId: p.skillId, from: p.from, to: p.to, aoeRadius: p.aoeRadius, travelMs: PROJECTILE_DURATION_MS });
+      window.setTimeout(() => playSound('hitHeavy', 0.5), PROJECTILE_DURATION_MS);
+    } else {
+      setProjectiles((prev) => [...prev, { id: performance.now() + Math.random(), ...p }]);
+    }
+  }
+
   // Shared by both attack entry points (Space key and click-to-move-then-attack below) so a
   // hit always resolves into the right class's basic-attack visual: warrior keeps the melee
   // swing, archer/mage play a short draw/cast pose and the projectile itself is queued to
@@ -478,6 +487,13 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
       return;
     }
     if (!monster) return;
+    // A single pending slot: flush a still-drawing shot now so a quick follow-up attack
+    // does not silently drop its skill effect (or its projectile).
+    if (pendingProjectile.current) {
+      const prev = pendingProjectile.current;
+      pendingProjectile.current = null;
+      releasePending(prev);
+    }
     beginDraw();
     pendingProjectile.current = {
       from: [playerPosition.x, baseY + PROJECTILE_ORIGIN_HEIGHT, playerPosition.z],
@@ -713,13 +729,7 @@ export function CharacterMesh({ character }: { character: CharacterProfile }) {
     if (pendingProjectile.current && attackRemaining <= 0) {
       const p = pendingProjectile.current;
       pendingProjectile.current = null;
-      if (p.skillId !== undefined) {
-        // A skill's look comes from SkillFxRoot (its own trail/orb/fall), not the plain arrow/bolt.
-        emitSkillCast({ skillId: p.skillId, from: p.from, to: p.to, aoeRadius: p.aoeRadius, travelMs: PROJECTILE_DURATION_MS });
-        window.setTimeout(() => playSound('hitHeavy', 0.5), PROJECTILE_DURATION_MS);
-      } else {
-        setProjectiles((prev) => [...prev, { id: performance.now() + Math.random(), ...p }]);
-      }
+      releasePending(p);
     }
 
     if (swingBoneRef.current) {

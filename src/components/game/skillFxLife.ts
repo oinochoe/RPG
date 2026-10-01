@@ -105,6 +105,13 @@ export function buildParts(
   return out;
 }
 
+/** How long after landing the last impact part starts (0 if none) — when the camera shake should fire. */
+export function impactShakeDelayMs(def: SkillFxDef): number {
+  let max = 0;
+  for (const part of def.impact) max = Math.max(max, part.delayMs ?? 0);
+  return max;
+}
+
 /** Append, then keep only the newest `cap` parts. */
 export function capParts<T>(list: T[], add: T[], cap: number): T[] {
   const next = [...list, ...add];

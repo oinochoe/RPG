@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { emitSkillCast, subscribeSkillCast, type SkillCastEvent } from './skillFx';
-import { buildParts, capParts, partState, spreadTarget, MAX_ACTIVE_PARTS, type ActivePart, type FxPart } from './skillFxLife';
+import { buildParts, capParts, impactShakeDelayMs, partState, spreadTarget, MAX_ACTIVE_PARTS, type ActivePart, type FxPart, type SkillFxDef } from './skillFxLife';
 
 const ev = (over: Partial<SkillCastEvent> = {}): SkillCastEvent => ({
   skillId: 1,
@@ -136,5 +136,21 @@ describe('spreadTarget', () => {
   });
   it('returns the target unchanged for angle 0', () => {
     expect(spreadTarget([0, 0, 0], [3, 1, 2], 0)).toEqual([3, 1, 2]);
+  });
+});
+
+describe('impactShakeDelayMs', () => {
+  const def = (impact: FxPart[]): SkillFxDef => ({ tier: 'awakening', cast: [], impact });
+  it('is 0 with no impact parts', () => {
+    expect(impactShakeDelayMs(def([]))).toBe(0);
+  });
+  it('picks the largest delayMs', () => {
+    expect(
+      impactShakeDelayMs(def([{ kind: 'flash', color: 1, delayMs: 100 }, { kind: 'pillar', color: 1, delayMs: 450 }, { kind: 'sparks', color: 1, delayMs: 20 }])),
+    ).toBe(450);
+  });
+  it('ignores parts without delayMs', () => {
+    expect(impactShakeDelayMs(def([{ kind: 'flash', color: 1 }, { kind: 'sparks', color: 1, delayMs: 60 }]))).toBe(60);
+    expect(impactShakeDelayMs(def([{ kind: 'flash', color: 1 }]))).toBe(0);
   });
 });

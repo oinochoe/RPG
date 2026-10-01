@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { addShake } from './combatFx';
 import { subscribeSkillCast } from './skillFx';
 import { fxFor } from './skillFxDefs';
-import { MAX_ACTIVE_PARTS, buildParts, capParts, type ActivePart } from './skillFxLife';
+import { MAX_ACTIVE_PARTS, buildParts, impactShakeDelayMs, capParts, type ActivePart } from './skillFxLife';
 import { PART_RENDERERS } from './skillFxParts';
 
 /** Mount once inside the Canvas: turns each skill cast into its recipe of timed visual parts. */
@@ -20,7 +20,18 @@ export function SkillFxRoot() {
       add(buildParts(def.cast, e, 'cast', performance.now(), newId));
       const land = () => {
         add(buildParts(def.impact, e, 'impact', performance.now(), newId));
-        if (def.shake) addShake(def.shake);
+        if (def.shake) {
+          const shake = def.shake;
+          const delay = impactShakeDelayMs(def);
+          if (delay <= 0) addShake(shake);
+          else {
+            const t = setTimeout(() => {
+              timers.delete(t);
+              addShake(shake);
+            }, delay);
+            timers.add(t);
+          }
+        }
       };
       if (e.travelMs <= 0) {
         land();
