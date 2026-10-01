@@ -17,7 +17,7 @@ app.use(
   cors({
     origin: (origin) => origin ?? "*",
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Game-Session"],
   }),
 );
 

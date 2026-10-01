@@ -2,12 +2,17 @@ import { Hono } from "hono";
 import { getAdminClient } from "./supabaseAdmin.ts";
 import { ApiError, readJsonBody } from "./errors.ts";
 import { requireAuth, AppUser } from "./authMiddleware.ts";
+import { requireGameSession } from "./gameSessionMiddleware.ts";
 import { BOSSES, parseKillBatch, type KillReport } from "./economyRules.ts";
 import { rollDropEntry } from "./drops.ts";
 
 export const charactersRoutes = new Hono<{ Variables: { appUser: AppUser } }>();
 
 charactersRoutes.use("*", requireAuth);
+// Everything that acts on "my" character must come from the current game session. `use("/me/*")` alone
+// would miss the exact path /me (GET profile), so register both.
+charactersRoutes.use("/me", requireGameSession);
+charactersRoutes.use("/me/*", requireGameSession);
 
 function toSummary(row: Record<string, unknown>) {
   return {
@@ -517,7 +522,7 @@ charactersRoutes.post("/:id/select", async (c) => {
   }
 
   const admin = getAdminClient();
-  const { error } = await admin.rpc("select_character", {
+  const { data: selected, error } = await admin.rpc("select_character", {
     p_user_id: appUser.id,
     p_character_id: characterId,
   });
@@ -531,7 +536,10 @@ charactersRoutes.post("/:id/select", async (c) => {
     throw new ApiError(500, "internal_error", "character_select_failed", "캐릭터 선택 중 오류가 발생했습니다.");
   }
 
-  return c.json({}, 200);
+  // The RPC returns the activated character row; its fresh game_session_id is this session's ticket.
+  const row = (Array.isArray(selected) ? selected[0] : selected) as { game_session_id: string | null } | null | undefined;
+  const gameSessionId = row?.game_session_id ?? null;
+  return c.json({ game_session_id: gameSessionId }, 200);
 });
 
 charactersRoutes.delete("/:id", async (c) => {
