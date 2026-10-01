@@ -15,7 +15,7 @@ const FLARE_TEXTURE = '/models/kaykit-spells/textures/flare_01.png';
 // Geometry is shared by every part of a kind (R3F would dispose it when a part unmounts, so each mesh
 // that uses one sets dispose={null}). Materials are per part: each animates its own opacity.
 const PLANE = new THREE.PlaneGeometry(1, 1);
-const RING = new THREE.RingGeometry(0.7, 1, 40);
+const RING = new THREE.RingGeometry(0.84, 1, 40);
 
 /** Runs `update` every frame with the part's progress, then retires the part when its life is over. */
 function usePartClock(part: ActivePart, onDone: () => void, update: (t: number, started: boolean) => void) {
@@ -78,8 +78,8 @@ function FlashPart({ part, onDone }: PartProps) {
     mat.opacity = 1 - t;
   });
   return (
-    <mesh ref={meshRef} position={part.pos} geometry={PLANE} dispose={null} visible={false}>
-      <meshBasicMaterial ref={matRef} map={texture} color={part.color} {...additive()} />
+    <mesh ref={meshRef} position={part.pos} geometry={PLANE} dispose={null} visible={false} renderOrder={10}>
+      <meshBasicMaterial ref={matRef} map={texture} color={part.color} depthTest={false} {...additive()} />
     </mesh>
   );
 }
@@ -103,8 +103,8 @@ function SlashArcPart({ part, onDone }: PartProps) {
     mat.opacity = 1 - t * t;
   });
   return (
-    <mesh ref={meshRef} position={part.pos} geometry={PLANE} dispose={null} visible={false}>
-      <meshBasicMaterial ref={matRef} map={texture} color={part.color} {...additive()} />
+    <mesh ref={meshRef} position={part.pos} geometry={PLANE} dispose={null} visible={false} renderOrder={10}>
+      <meshBasicMaterial ref={matRef} map={texture} color={part.color} depthTest={false} {...additive()} />
     </mesh>
   );
 }
@@ -120,11 +120,11 @@ function ShockwavePart({ part, onDone }: PartProps) {
     mesh.visible = started;
     if (!started) return;
     mesh.scale.setScalar(part.radius * part.scale * (0.15 + 0.85 * t));
-    mat.opacity = (1 - t) * 0.85;
+    mat.opacity = (1 - t) * 0.7;
   });
   return (
     <mesh ref={meshRef} position={[part.pos[0], 0.06, part.pos[2]]} rotation={[-Math.PI / 2, 0, 0]} geometry={RING} dispose={null} visible={false}>
-      <meshBasicMaterial ref={matRef} color={part.color} side={THREE.DoubleSide} {...additive(0.85)} />
+      <meshBasicMaterial ref={matRef} color={part.color} side={THREE.DoubleSide} {...additive(0.7)} />
     </mesh>
   );
 }
