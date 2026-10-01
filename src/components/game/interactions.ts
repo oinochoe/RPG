@@ -25,6 +25,8 @@ export function currentInteraction(): InteractKind | null {
 /** Space: open the shop/quest dialogue of the NPC in range. Returns whether one opened. */
 export function talkToNearby(): boolean {
   const ui = useUIStore.getState();
+  // The discovery dialog uses Space to advance; don't reopen/restart it (or swap panels) underneath.
+  if (ui.discoveryDialogId) return true;
   if (ui.nearShopKind) {
     ui.openShop(ui.nearShopKind, ui.nearShopVillageIndex);
     return true;

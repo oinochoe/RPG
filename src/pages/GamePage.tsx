@@ -19,6 +19,7 @@ import { CharacterPanel } from '../components/game/CharacterPanel';
 import { InventoryPanel } from '../components/game/InventoryPanel';
 import { ShopPanel } from '../components/game/ShopPanel';
 import { QuestPanel } from '../components/game/QuestPanel';
+import { DiscoveryDialog } from '../components/game/DiscoveryDialog';
 import { QuestLogPanel } from '../components/game/QuestLogPanel';
 import { SystemMenu } from '../components/game/SystemMenu';
 import { TutorialModal } from '../components/game/TutorialModal';
@@ -75,6 +76,8 @@ export function GamePage() {
         e.preventDefault();
         useUIStore.getState().toggleSystemMenu();
       } else if (e.code === 'Escape') {
+        // DiscoveryDialog isn't on openPanelStack and closes itself on Escape; don't also toggle the menu.
+        if (useUIStore.getState().discoveryDialogId) return;
         // Cancels an armed skill aim first, if one's active, rather than also closing
         // whatever panel happens to be open underneath it — Escape backing out of aiming
         // should feel like its own single step.
@@ -152,6 +155,7 @@ export function GamePage() {
       <InventoryPanel character={activeCharacter} />
       <ShopPanel character={activeCharacter} />
       <QuestPanel />
+      <DiscoveryDialog />
       <QuestLogPanel />
       <SystemMenu />
       <TutorialModal />

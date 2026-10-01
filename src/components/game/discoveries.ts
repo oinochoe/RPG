@@ -42,3 +42,7 @@ export interface DiscoveryDef {
 
 // Filled in by the content task (see discoveryContent.ts); kept separate so this file stays a pure type module.
 export const DISCOVERIES: DiscoveryDef[] = [];
+
+export function getDiscovery(id: string): DiscoveryDef | undefined {
+  return DISCOVERIES.find((d) => d.id === id);
+}
