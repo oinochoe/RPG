@@ -84,3 +84,8 @@ export class SparkPool {
     return this.life[i] > 0 ? 1 - this.age[i] / this.life[i] : 0;
   }
 }
+
+// Hit sparks (combatFx) and skill sparks (skillFx) draw from one pool and one InstancedMesh, so the
+// total number of live sparks — and the draw call count — stays bounded however many effects overlap.
+export const SPARK_POOL_SIZE = 128;
+export const sharedSparkPool = new SparkPool(SPARK_POOL_SIZE);

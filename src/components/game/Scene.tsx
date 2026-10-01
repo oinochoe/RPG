@@ -8,6 +8,7 @@ import { buildFieldMonsters, isFieldBossAggressive } from './FieldMonsters';
 import { AreaTransitions } from './AreaTransitions';
 import { PlayerCombatEffects } from './PlayerCombatEffects';
 import { CombatFxRoot } from './CombatFxRoot';
+import { SkillFxRoot } from './SkillFxRoot';
 import { PositionSync } from './PositionSync';
 import { ShopProximity } from './ShopProximity';
 import { QuestProximity } from './QuestProximity';
@@ -278,6 +279,8 @@ export function Scene({
       <AreaTransitions fieldMonsters={fieldMonsters} />
       <PlayerCombatEffects fieldMonsters={fieldMonsters} />
       <CombatFxRoot />
+
+      <SkillFxRoot />
       <RespawnTicker />
       <MpRegenTicker />
       <PositionSync mapId={map.map_id} />

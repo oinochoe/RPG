@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SparkPool } from './sparkPool';
+import { SPARK_POOL_SIZE, SparkPool, sharedSparkPool } from './sparkPool';
 
 const rand = () => 0.5;
 
@@ -42,5 +42,12 @@ describe('SparkPool', () => {
     const i = [0, 1, 2, 3].find((k) => p.isAlive(k))!;
     p.step(0.3);
     expect(p.y[i]).toBeLessThan(2);
+  });
+});
+
+describe('sharedSparkPool', () => {
+  it('is one pool of the agreed size that hit sparks and skill sparks both draw from', () => {
+    expect(sharedSparkPool.size).toBe(SPARK_POOL_SIZE);
+    expect(SPARK_POOL_SIZE).toBe(128);
   });
 });

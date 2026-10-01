@@ -2,9 +2,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { subscribeHit } from './combatFx';
-import { SparkPool } from './sparkPool';
+import { SPARK_POOL_SIZE, sharedSparkPool } from './sparkPool';
 
-const POOL_SIZE = 96;
 const COLOR: Record<'normal' | 'heavy' | 'player', number> = { normal: 0xffffff, heavy: 0xffd54a, player: 0xff5a5a };
 
 /**
@@ -13,7 +12,7 @@ const COLOR: Record<'normal' | 'heavy' | 'player', number> = { normal: 0xffffff,
  */
 export function HitSparks() {
   const meshRef = useRef<THREE.InstancedMesh>(null);
-  const pool = useMemo(() => new SparkPool(POOL_SIZE), []);
+  const pool = sharedSparkPool;
   const dummy = useMemo(() => new THREE.Object3D(), []);
   const tint = useMemo(() => new THREE.Color(), []);
 
@@ -41,7 +40,7 @@ export function HitSparks() {
     const mesh = meshRef.current;
     if (!mesh) return;
     pool.step(Math.min(delta, 0.05));
-    for (let i = 0; i < POOL_SIZE; i++) {
+    for (let i = 0; i < SPARK_POOL_SIZE; i++) {
       if (pool.isAlive(i)) {
         dummy.position.set(pool.x[i], pool.y[i], pool.z[i]);
         dummy.scale.setScalar(pool.scale[i] * pool.remaining(i));
@@ -59,7 +58,7 @@ export function HitSparks() {
   });
 
   return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, POOL_SIZE]} frustumCulled={false}>
+    <instancedMesh ref={meshRef} args={[undefined, undefined, SPARK_POOL_SIZE]} frustumCulled={false}>
       <icosahedronGeometry args={[1, 0]} />
       <meshBasicMaterial toneMapped={false} />
     </instancedMesh>
