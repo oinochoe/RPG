@@ -11,6 +11,7 @@ import { Hotbar, COMPACT_HEIGHT } from './Hotbar';
 import { clearMoveTarget } from './moveTarget';
 import { computeStick, resetStick, stick } from './touchInput';
 import { interact } from './interactions';
+import { DISCOVERIES } from './discoveries';
 import { nearestMonster } from './engage';
 import { TOUCH_BUTTON_GAP, TOUCH_STATUS_WIDTH } from './hudLayout';
 
@@ -135,6 +136,7 @@ function ActionButton() {
   const nearShopKind = useUIStore((s) => s.nearShopKind);
   const nearQuestNpcName = useUIStore((s) => s.nearQuestNpcName);
   const nearDropId = useUIStore((s) => s.nearDropId);
+  const nearDiscoveryId = useUIStore((s) => s.nearDiscoveryId);
   const drops = useLootStore((s) => s.drops);
   // Monsters move and the player's position is not React state, so poll for the nearest one.
   const [monsterName, setMonsterName] = useState<string | null>(null);
@@ -146,6 +148,7 @@ function ActionButton() {
   }, []);
 
   const drop = nearDropId !== null ? drops.find((d) => d.id === nearDropId) : undefined;
+  const discoveryName = nearDiscoveryId ? DISCOVERIES.find((d) => d.id === nearDiscoveryId)?.name : undefined;
   let label = '행동';
   let hint: string | null = null;
   if (nearShopKind) {
@@ -154,6 +157,9 @@ function ActionButton() {
   } else if (nearQuestNpcName) {
     label = '대화';
     hint = nearQuestNpcName;
+  } else if (discoveryName) {
+    label = '조사';
+    hint = discoveryName;
   } else if (drop) {
     label = '줍기';
     hint = drop.itemName;

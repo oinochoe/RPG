@@ -10,13 +10,14 @@ import { attackNearestMonster } from './engage';
  * handler so the touch action button can trigger exactly the same behavior.
  */
 
-export type InteractKind = 'shop' | 'quest' | 'pickup';
+export type InteractKind = 'shop' | 'quest' | 'discovery' | 'pickup';
 
 /** What the action button would do right now (null = nothing in range). */
 export function currentInteraction(): InteractKind | null {
   const ui = useUIStore.getState();
   if (ui.nearShopKind) return 'shop';
   if (ui.nearQuestNpcName) return 'quest';
+  if (ui.nearDiscoveryId) return 'discovery';
   if (ui.nearDropId !== null) return 'pickup';
   return null;
 }
@@ -30,6 +31,10 @@ export function talkToNearby(): boolean {
   }
   if (ui.nearQuestNpcName) {
     ui.openQuest(ui.nearQuestNpcName);
+    return true;
+  }
+  if (ui.nearDiscoveryId) {
+    ui.openDiscovery(ui.nearDiscoveryId);
     return true;
   }
   return false;
@@ -54,6 +59,7 @@ const TALK_STANDOFF = 1.6;
 export function openTalk(target: TalkTarget): void {
   const ui = useUIStore.getState();
   if (target.type === 'shop') ui.openShop(target.kind, target.villageIndex);
+  else if (target.type === 'discovery') ui.openDiscovery(target.id);
   else ui.openQuest(target.name);
 }
 

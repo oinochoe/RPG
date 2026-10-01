@@ -32,6 +32,14 @@ interface UIState {
   // Mirrors nearShopKind but for quest-giving flavor NPCs — set every frame by
   // QuestProximity.tsx, read by CharacterMesh's Space handler.
   nearQuestNpcName: string | null;
+  // The discovery (hidden thing / funny prop) the player is standing close enough to inspect; set by
+  // DiscoveryProximity.tsx, read by interactions.ts.
+  nearDiscoveryId: string | null;
+  setNearDiscoveryId: (id: string | null) => void;
+  // The discovery whose dialog is open, if any.
+  discoveryDialogId: string | null;
+  openDiscovery: (id: string) => void;
+  closeDiscovery: () => void;
   // The nearest lootStore world drop's id within pickup range (null if none) — set every
   // frame by LootProximity.tsx, read by CharacterMesh's F4 handler. A plain id rather than a
   // kind/name like the other two, since a drop is a specific instance, not a fixed NPC.
@@ -83,6 +91,7 @@ function allPanelsClosedPatch() {
     isSystemMenuOpen: false,
     isQuestOpen: false,
     isQuestLogOpen: false,
+    discoveryDialogId: null as string | null,
     openPanelStack: [] as PanelId[],
   };
 }
@@ -129,6 +138,8 @@ export const useUIStore = create<UIState>((set) => ({
   isQuestOpen: false,
   questNpcName: null,
   nearQuestNpcName: null,
+  nearDiscoveryId: null,
+  discoveryDialogId: null,
   nearDropId: null,
   isQuestLogOpen: false,
   openPanelStack: [],
@@ -220,6 +231,9 @@ export const useUIStore = create<UIState>((set) => ({
   setNearShopKind: (kind, villageIndex) => set({ nearShopKind: kind, nearShopVillageIndex: villageIndex }),
   setNearQuestNpcName: (npcName) => set({ nearQuestNpcName: npcName }),
   setNearDropId: (dropId) => set({ nearDropId: dropId }),
+  setNearDiscoveryId: (id) => set({ nearDiscoveryId: id }),
+  openDiscovery: (id) => set({ ...allPanelsClosedPatch(), discoveryDialogId: id }),
+  closeDiscovery: () => set({ discoveryDialogId: null }),
 
   closeTopPanel: () =>
     set((s) => {

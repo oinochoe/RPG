@@ -21,6 +21,9 @@ function writeSeen(characterId: number, ids: Iterable<string>): void {
   }
 }
 
+// Bumped by every load() and reset(): a load response only applies if nothing newer happened meanwhile.
+let requestSeq = 0;
+
 interface DiscoveryState {
   /** Reward discoveries this character already collected (server truth). */
   claimed: Set<string>;
@@ -38,12 +41,14 @@ export const useDiscoveryStore = create<DiscoveryState>((set, get) => ({
   seen: new Set(),
   loaded: false,
   load: async (characterId) => {
+    const mySeq = ++requestSeq;
     let claimed: string[] = [];
     try {
       claimed = (await listClaimedDiscoveries()).claimed;
     } catch {
       // Offline or an old server: nothing known to be claimed; the server still guards every claim.
     }
+    if (mySeq !== requestSeq) return; // reset() or a newer load() happened while this was in flight
     set({ claimed: new Set(claimed), seen: new Set([...readSeen(characterId), ...claimed]), loaded: true });
   },
   markSeen: (characterId, id) => {
@@ -52,5 +57,8 @@ export const useDiscoveryStore = create<DiscoveryState>((set, get) => ({
     set({ seen });
   },
   markClaimed: (id) => set((s) => ({ claimed: new Set(s.claimed).add(id), seen: new Set(s.seen).add(id) })),
-  reset: () => set({ claimed: new Set(), seen: new Set(), loaded: false }),
+  reset: () => {
+    requestSeq++;
+    set({ claimed: new Set(), seen: new Set(), loaded: false });
+  },
 }));

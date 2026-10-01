@@ -4,6 +4,7 @@ import * as authApi from '../api/auth';
 import { updateCharacterPosition } from '../api/characters';
 import { useSessionStore } from './sessionStore';
 import { useGameSessionStore } from './gameSessionStore';
+import { useDiscoveryStore } from './discoveryStore';
 import { playerPosition } from '../components/game/playerTransform';
 
 interface StoredTokens {
@@ -98,6 +99,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ accessToken: null, refreshToken: null, email: null, isAuthenticated: false });
     persistTokens(null);
     useGameSessionStore.getState().reset();
+    useDiscoveryStore.getState().reset();
   },
 
   restoreSession: () => {
@@ -128,6 +130,7 @@ configureApiClient({
     useAuthStore.setState({ accessToken: null, refreshToken: null, email: null, isAuthenticated: false });
     persistTokens(null);
     useGameSessionStore.getState().reset();
+    useDiscoveryStore.getState().reset();
   },
   getGameSession: () => useGameSessionStore.getState().sessionId,
   onSessionReplaced: () => useGameSessionStore.getState().markReplaced(),

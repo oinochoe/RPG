@@ -2,7 +2,10 @@ import { Vec3 } from './playerTransform';
 import type { ShopNpcKind } from '../../stores/uiStore';
 
 /** Who a clicked NPC talks as: opens their shop or their quest dialogue. */
-export type TalkTarget = { type: 'shop'; kind: ShopNpcKind; villageIndex: number } | { type: 'quest'; name: string };
+export type TalkTarget =
+  | { type: 'shop'; kind: ShopNpcKind; villageIndex: number }
+  | { type: 'quest'; name: string }
+  | { type: 'discovery'; id: string };
 
 /** Mutated by ground/monster clicks, read every frame by CharacterMesh. Same
  * out-of-React-state pattern as playerTransform, for the same reason. */

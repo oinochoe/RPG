@@ -5,6 +5,7 @@ import { App } from './App';
 import { getActiveCharacterProfile } from './api/characters';
 import { useAuthStore } from './stores/authStore';
 import { useCharacterStore, loadHotbar } from './stores/characterStore';
+import { useDiscoveryStore } from './stores/discoveryStore';
 import { useGameSessionStore } from './stores/gameSessionStore';
 import { shouldFetchActiveProfile } from './bootstrapPolicy';
 
@@ -32,6 +33,8 @@ async function bootstrap() {
         inventory: profile.inventory,
         hotbar: loadHotbar(profile.id),
       });
+      useDiscoveryStore.getState().reset();
+      useDiscoveryStore.getState().load(profile.id).catch(() => {});
     } catch {
       // No active character selected server-side yet, or the session is
       // actually stale — either way, route guards handle it correctly

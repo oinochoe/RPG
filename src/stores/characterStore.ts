@@ -4,6 +4,7 @@ import { useCombatStore } from './combatStore';
 import { useUIStore } from './uiStore';
 import { useGameSessionStore } from './gameSessionStore';
 import { useWorldStore } from './worldStore';
+import { useDiscoveryStore } from './discoveryStore';
 import { playSound } from '../lib/sound';
 import { playerPosition, playerStuck } from '../components/game/playerTransform';
 import { clearMoveTarget } from '../components/game/moveTarget';
@@ -253,6 +254,9 @@ export const useCharacterStore = create<CharacterState>((set, get) => ({
     useGameSessionStore.getState().setSessionId(selected?.game_session_id ?? null);
     const profile = await charactersApi.getActiveCharacterProfile();
     set({ activeCharacter: profile, inventory: profile.inventory, hotbar: loadHotbar(profile.id) });
+    // Discoveries already found belong to this character: drop the previous one's and load fresh.
+    useDiscoveryStore.getState().reset();
+    useDiscoveryStore.getState().load(profile.id).catch(() => {});
     // Whatever panel (F1 menu, inventory, ...) was left open from a previous character's
     // session — or from clicking "캐릭터 선택" while one was open — shouldn't carry over into
     // the new one, since uiStore isn't reset by the route change itself.

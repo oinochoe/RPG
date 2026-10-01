@@ -3,6 +3,7 @@ import { useCombatStore } from '../../stores/combatStore';
 import { useQuestStore, findQuestByGiver } from '../../stores/questStore';
 import { useLootStore } from '../../stores/lootStore';
 import { useUIStore } from '../../stores/uiStore';
+import { DISCOVERIES } from './discoveries';
 import { Hotbar } from './Hotbar';
 import { TouchHud } from './TouchHud';
 import { useIsTouch } from '../../lib/device';
@@ -32,6 +33,7 @@ export function HUD() {
   const nearQuestNpcName = useUIStore((s) => s.nearQuestNpcName);
   const quests = useQuestStore((s) => s.quests);
   const nearDropId = useUIStore((s) => s.nearDropId);
+  const nearDiscoveryId = useUIStore((s) => s.nearDiscoveryId);
   const drops = useLootStore((s) => s.drops);
   const toggleSystemMenu = useUIStore((s) => s.toggleSystemMenu);
   const isTouch = useIsTouch();
@@ -47,6 +49,8 @@ export function HUD() {
       : `${nearQuestNpcName}에게 말 걸기: Space`
     : null;
 
+  const nearDiscoveryName = nearDiscoveryId ? DISCOVERIES.find((d) => d.id === nearDiscoveryId)?.name : undefined;
+
   // Phones get their own layout (joystick, action button, compact status/hotbar) — the desktop
   // one below assumes a keyboard and a 1000px+ wide screen.
   if (isTouch) return <TouchHud />;
@@ -57,7 +61,9 @@ export function HUD() {
 
       {!nearShopKind && nearQuestPrompt && <HudPrompt>{nearQuestPrompt}</HudPrompt>}
 
-      {!nearShopKind && !nearQuestPrompt && nearDrop && <HudPrompt>{nearDrop.itemName} 줍기: F4 (클릭도 가능)</HudPrompt>}
+      {!nearShopKind && !nearQuestPrompt && nearDiscoveryName && <HudPrompt>{nearDiscoveryName} 조사하기: Space</HudPrompt>}
+
+      {!nearShopKind && !nearQuestPrompt && !nearDiscoveryName && nearDrop && <HudPrompt>{nearDrop.itemName} 줍기: F4 (클릭도 가능)</HudPrompt>}
 
       {/* Bottom-left: menu entry point (name/gold/keybinds now live behind it — name is
           already visible as the nametag above the character, and gold is visible in the

@@ -59,3 +59,37 @@ describe('useDiscoveryStore', () => {
     expect(s.claimed.has('z') && s.seen.has('z')).toBe(true);
   });
 });
+
+describe('useDiscoveryStore stale loads', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useDiscoveryStore.getState().reset();
+    vi.mocked(api.listClaimedDiscoveries).mockReset();
+  });
+
+  it('ignores a load that finishes after reset()', async () => {
+    let resolve!: (v: { claimed: string[] }) => void;
+    vi.mocked(api.listClaimedDiscoveries).mockReturnValue(new Promise((r) => (resolve = r)));
+    const p = useDiscoveryStore.getState().load(7);
+    useDiscoveryStore.getState().reset();
+    resolve({ claimed: ['a'] });
+    await p;
+    const s = useDiscoveryStore.getState();
+    expect(s.loaded).toBe(false);
+    expect(s.claimed.size).toBe(0);
+  });
+
+  it('lets a newer load supersede an older one still in flight', async () => {
+    let resolveOld!: (v: { claimed: string[] }) => void;
+    vi.mocked(api.listClaimedDiscoveries)
+      .mockReturnValueOnce(new Promise((r) => (resolveOld = r)))
+      .mockResolvedValueOnce({ claimed: ['new'] });
+    const oldLoad = useDiscoveryStore.getState().load(7);
+    await useDiscoveryStore.getState().load(8);
+    resolveOld({ claimed: ['old'] });
+    await oldLoad;
+    const s = useDiscoveryStore.getState();
+    expect([...s.claimed]).toEqual(['new']);
+    expect(s.seen.has('old')).toBe(false);
+  });
+});
