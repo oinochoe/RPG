@@ -389,7 +389,8 @@ export const useGameSessionStore = create<GameSessionState>((set) => ({
   replaced: false,
   setSessionId: (id) => {
     write(id);
-    set({ sessionId: id });
+    // A fresh selection also clears a previous "replaced" state.
+    set({ sessionId: id, replaced: false });
   },
   markReplaced: () => set({ replaced: true }),
   reset: () => {
@@ -439,10 +440,9 @@ export function selectCharacter(characterId: number): Promise<{ game_session_id:
     const selected = await charactersApi.selectCharacter(characterId);
     // Replaces any earlier session (this tab's or another tab's) — see gameSessionStore.
     useGameSessionStore.getState().setSessionId(selected?.game_session_id ?? null);
-    useGameSessionStore.getState().reset_replaced?.();
 ```
 
-(마지막 줄은 쓰지 않는다 — 대신 `setSessionId` 호출만 한다. 새 선택은 `replaced` 상태를 유지하지 않아도 되도록 `setSessionId`가 `replaced: false`도 함께 만들게 스토어의 `setSessionId`를 `set({ sessionId: id, replaced: false })`로 한다. 테스트의 "markReplaced … until reset" 케이스는 `setSessionId`를 부르지 않으므로 영향 없다.) `import { useGameSessionStore } from './gameSessionStore';`를 추가한다.
+새 선택은 이전에 `replaced`였던 상태를 풀어야 하므로, 스토어의 `setSessionId`를 `set({ sessionId: id, replaced: false })`로 구현한다(Step 2의 코드를 그렇게 쓴다; 테스트의 "markReplaced … until reset" 케이스는 `setSessionId`를 부르지 않으므로 영향 없다). `import { useGameSessionStore } from './gameSessionStore';`를 추가한다.
 
 `authStore.ts`의 `configureApiClient({...})`에 추가:
 
