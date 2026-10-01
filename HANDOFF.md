@@ -133,6 +133,23 @@ DB/함수와 클라이언트 사이에는 잠깐 구 클라이언트와 새 서�
 - 알려진 한계: 사망 타격의 숫자는 남은 HP만큼만 나온다(스토어가 오버킬을 0으로 자름). 실제 크리티컬 시스템은 없다.
   **폰 실기기 성능은 아직 확인하지 못했다**(자동화로 검증 불가).
 
+## 스킬 이펙트
+
+설계는 `docs/superpowers/specs/2026-10-01-skill-fx-design.md`. 스킬 규칙(데미지·쿨타임·MP)은 건드리지 않고 보이는 것만 담당한다. 구조:
+
+- `CharacterMesh`가 스킬 시전마다 `emitSkillCast`(`skillFx.ts`)를 **한 번** 발행(`from`, `to`, `aoeRadius`, `travelMs`) -> `SkillFxRoot.tsx`가 `SKILL_FX[skillId]`(`skillFxDefs.ts`)를 재생: `cast` 부품은 즉시, `impact` 부품은 `travelMs` 뒤에(`setTimeout`) -> 부품 렌더러(`skillFxParts.tsx`의 `PART_RENDERERS`). 수명/상한 순수 로직은 `skillFxLife.ts`.
+- 새 스킬 이펙트 추가: `skillFxDefs.ts`의 `SKILL_FX`에 항목 하나 추가. 정의가 없는 id는 `FALLBACK_FX`로 대체된다. 새 `PartKind`는 `PART_RENDERERS`에 렌더러를 같이 추가해야 한다(모든 kind에 렌더러가 있는지 테스트가 검사).
+- 규칙:
+  - 색은 hex 숫자만(three.js에 CSS 변수 금지). `pointLight` 추가 금지, 발광은 `toneMapped={false}` + 가산 혼합 + 기존 Bloom.
+  - 지오메트리는 모듈 상수로 공유하므로 그걸 쓰는 mesh에는 `dispose={null}`을 단다(없으면 한 부품이 사라질 때 지오메트리가 dispose되어 다음 시전에서 안 보인다). 재질은 부품마다 만든다.
+  - 동시 부품 상한 `MAX_ACTIVE_PARTS = 24`(초과 시 가장 오래된 것부터 제거).
+  - 스파크는 `sharedSparkPool`(128칸)을 쓴다. 타격감의 `HitSparks`와 같은 풀이다.
+  - 빌보드 부품(`flash`, `slashArc`)은 `depthTest={false}`라 땅에 잘리지 않는다.
+  - 각성기(10/11/12)는 `tier: 'awakening'` + 카메라 `shake`가 있다.
+  - 원거리 스킬은 옛 `Projectile`을 더 이상 만들지 않는다(`trail`/`orb`/`fall`이 대체). 평타는 그대로 `Projectile`을 쓴다.
+- 미리보기: dev 서버 콘솔에서 `const m = await import('/src/components/game/skillFx.ts'); m.emitSkillCast({skillId, from, to, aoeRadius, travelMs})`.
+- 알려진 한계: **폰 실기기 성능은 확인하지 못했다.** 땅 링/기둥은 고정 y라 지형 높이를 따르지 않는다. 부품별 재질은 dispose하지 않는다(미미함). `fall`의 x 흔들림과 세로 늘어남은 겉보기용이다.
+
 ## 경제 서버 권위 (동작/주의)
 
 골드·경험치/레벨·스탯 포인트·파생 능력치·아이템 지급은 **서버(DB)가 유일한 원본**이다. 클라이언트는 화면

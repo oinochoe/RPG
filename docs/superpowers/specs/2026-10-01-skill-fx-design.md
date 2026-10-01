@@ -31,15 +31,15 @@
 
 ### 1. 시전 이벤트 `skillFx` 버스
 
-`CharacterMesh.handleAttackResult`의 스킬 분기(시전 순간, 그리고 원거리 투사체 도착 순간)에서 한 번씩 발행한다:
+`CharacterMesh.handleAttackResult`의 스킬 분기(시전 순간)에서 한 번 발행한다(근접은 `travelMs = 0`):
 
 ```ts
 interface SkillCastEvent {
   skillId: number;
-  phase: 'cast' | 'impact';
   from: [number, number, number];   // 시전자(손/가슴 높이)
   to: [number, number, number];     // 대상 위치(타격 높이)
   aoeRadius?: number;
+  travelMs: number;                 // 투사체 비행 시간(근접 0). impact 부품은 이만큼 늦게 재생
 }
 subscribeSkillCast(fn): unsubscribe; emitSkillCast(e): void;   // 구독자 예외는 삼킨다
 ```
@@ -48,10 +48,10 @@ subscribeSkillCast(fn): unsubscribe; emitSkillCast(e): void;   // 구독자 예�
 
 ### 2. 이펙트 정의 (데이터)
 
-`SKILL_FX: Record<number, SkillFxDef>` — 스킬 id별. 정의는 단계(phase)마다 부품 목록:
+`SKILL_FX: Record<number, SkillFxDef>` — 스킬 id별. 정의는 단계(cast/impact)마다 부품 목록:
 
 ```ts
-interface FxPart { kind: PartKind; color: number; scale?: number; delayMs?: number; count?: number; /* 부품별 옵션 */ }
+interface FxPart { kind: PartKind; color: number; scale?: number; delayMs?: number; count?: number; durationMs?: number; staggerMs?: number; angle?: number; spread?: number; at?: 'from' | 'to'; /* 부품별 옵션 */ }
 interface SkillFxDef { tier: 'normal' | 'awakening'; cast: FxPart[]; impact: FxPart[]; shake?: number }
 ```
 
@@ -59,7 +59,7 @@ interface SkillFxDef { tier: 'normal' | 'awakening'; cast: FxPart[]; impact: FxP
 - `tier: 'awakening'`이면 부품이 더 크고, 충돌 순간 추가 흔들림(`addShake`)과 `heavy` 스파크 버스트를 더한다.
 - 정의가 없는 스킬 id는 기존과 비슷한 기본 이펙트(flash + impact 스파크)로 대체한다(미래 스킬이 안 보이는 일이 없게).
 
-### 3. 부품 (코드 생성, 공유 지오메트리/재질)
+### 3. 부품 (코드 생성, 공유 지오메트리 + 부품별 재질)
 
 | 부품 | 모양 | 비고 |
 |---|---|---|
@@ -70,9 +70,9 @@ interface SkillFxDef { tier: 'normal' | 'awakening'; cast: FxPart[]; impact: FxP
 | `pillar` | 위로 솟는 원기둥 + 세로 그라데이션, 가산 혼합 | 각성기/블리자드 |
 | `fall` | 하늘(대상 위)에서 대상으로 낙하하는 물체 + 착지 시 콜백 | 메테오/폭풍의 화살 |
 | `sparks` | 기존 `SparkPool` 재사용(색·개수·속도만 다름) | 전부 |
-| `flash` | 기존 빌보드 스프라이트(`FxSprite`) | 시전 순간 |
+| `flash` | 자체 빌보드 스프라이트(`FlashPart`) | 시전 순간 |
 
-모든 부품은 "수명 동안 진행도 t(0..1)로 매 프레임 갱신 후 자동 제거"되는 같은 형태(`update(t)`)를 따른다. 진행도 계산·수명 처리는 순수 함수로 분리해 테스트한다. 지오메트리·재질은 모듈 단위로 한 번만 만들고 재사용한다(재질의 `opacity`/`color`는 인스턴스별 복제 대신 mesh별 `userData`가 아니라 per-part material clone을 쓰되 풀에서 재사용).
+모든 부품은 "수명 동안 진행도 t(0..1)로 매 프레임 갱신 후 자동 제거"되는 같은 형태(`update(t)`)를 따른다. 진행도 계산·수명 처리는 순수 함수로 분리해 테스트한다. 지오메트리는 모듈 단위로 한 번만 만들어 공유하고(mesh마다 `dispose={null}`), 재질은 부품마다 opacity/color가 따로 움직이므로 부품 인스턴스마다 만든다(셰이더 프로그램은 three가 공유, 동시 상한 24). 빌보드 부품(`flash`, `slashArc`)은 `depthTest={false}`로 땅에 잘리지 않게 한다.
 
 ### 4. 스킬별 구성
 
@@ -96,17 +96,17 @@ interface SkillFxDef { tier: 'normal' | 'awakening'; cast: FxPart[]; impact: FxP
 ### 5. `SkillFxRoot`
 
 씬에 한 번 마운트. `subscribeSkillCast`로 받아 정의대로 부품 인스턴스를 만든다.
+- **지연 재생:** `cast` 부품은 즉시, `impact` 부품은 `travelMs` 뒤에 `setTimeout`으로 만든다. 부품 단위의 늦춤(연속 시전, 낙하 도착)은 부품별 `delayMs`로 한다(별도 `impactDelayMs` 없음).
 - **동시 상한** `MAX_ACTIVE_PARTS = 24`(부품 기준; 스킬 1회가 여러 부품을 만들 수 있음). 초과 시 가장 오래된 부품을 제거하고 새 것을 만든다.
 - 각 부품은 자기 수명이 끝나면 스스로 제거 → 실패해도 게임을 막지 않는다.
-- `fall`/`orb`처럼 도착이 있는 부품이 도착하면 `phase:'impact'` 부품을 이어서 만든다(필요 시).
-- 원거리의 투사체 도착 시점은 기존 `CharacterMesh` 흐름(`pendingProjectile`/`Projectile.onArrive`)에서 `phase:'impact'` 이벤트를 발행해 맞춘다. 기존 `Projectile`(화살/볼트 모양)은 `cast` 단계의 `trail`/`orb`로 대체되는 스킬에서는 숨기고, 평타에서는 그대로 쓴다.
+- 원거리의 도착 시점은 별도 이벤트 없이 `travelMs`로 맞춘다. 기존 `Projectile`(화살/볼트 모양)은 스킬에서는 더 이상 만들지 않고(`trail`/`orb`/`fall`이 대체), 평타에서는 그대로 쓴다.
 
 ### 6. 성능 원칙
 
 - `pointLight` 추가 금지. 발광은 `toneMapped={false}` + 기존 Bloom.
-- 지오메트리는 모듈 상수, 재질은 부품 종류별 풀에서 가져와 재사용(스킬 시전마다 `new` 하지 않음).
+- 지오메트리는 모듈 상수, 재질은 부품마다 생성(상한 24로 비용 제한).
 - 부품 상한 24, 투명도 정렬 비용을 줄이려 `depthWrite={false}`.
-- 파티클은 기존 `SparkPool` 하나를 공유한다(풀 크기 96 유지, 필요하면 128로 확대 — 풀 크기 변경은 구현 중 측정 후 판단).
+- 파티클은 기존 `SparkPool` 하나를 공유한다(모듈 싱글턴 `sharedSparkPool`, 크기 96 -> 128로 확대; `HitSparks`와 공유).
 
 ### 7. 파일 구성
 
@@ -114,12 +114,13 @@ interface SkillFxDef { tier: 'normal' | 'awakening'; cast: FxPart[]; impact: FxP
 - `src/components/game/skillFx.ts` — `SkillCastEvent` 버스(`emitSkillCast`/`subscribeSkillCast`)
 - `src/components/game/skillFxDefs.ts` — `SKILL_FX` 정의(12개) + 기본 폴백
 - `src/components/game/skillFxParts.tsx` — 부품 컴포넌트(공유 지오메트리/재질)
-- `src/components/game/skillFxLife.ts` — 수명/진행도/상한 정리 순수 로직
+- `src/components/game/skillFxLife.ts` — 부품 타입(`FxPart`/`SkillFxDef`)과 수명/진행도/상한 정리 순수 로직
 - `src/components/game/SkillFxRoot.tsx` — 구독 + 부품 렌더/관리
 
 수정:
 - `CharacterMesh.tsx` — 스킬 분기에서 `emitSkillCast` 발행, 기존 인라인 이펙트 제거
-- `FxSprite.tsx` — `SkillRing` 제거(shockwave로 대체), `FxSprite`는 `flash` 부품이 사용
+- `FxSprite.tsx` — 삭제(`flash` 부품이 자체 스프라이트 `FlashPart`를 가짐, 링은 `shockwave`로 대체)
+- `sparkPool.ts`/`HitSparks.tsx` — `sharedSparkPool`(128칸)로 공유
 - `Scene.tsx` — `<SkillFxRoot />` 마운트
 - `HANDOFF.md`, 이 스펙
 
