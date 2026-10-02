@@ -48,7 +48,7 @@ export interface QuestDef {
 // The 5 one-time NPC story quests (ids 1-5) the main quest (id 11) gates on — kept as its own
 // list rather than deriving from QUEST_DEFS at call time so findQuestByGiver doesn't need to
 // exclude the main quest itself (and any future non-gating story quest) from that derivation.
-const STORY_QUEST_IDS = [1, 2, 3, 4, 5];
+export const STORY_QUEST_IDS = [1, 2, 3, 4, 5];
 
 export const QUEST_DEFS: QuestDef[] = [
   {

@@ -43,6 +43,9 @@ export interface DiscoveryDef {
   /** What it says once already seen/claimed. */
   afterLines?: string[];
   reward?: DiscoveryReward;
+  /** Guide copy (see src/guide): a vague nudge, and where to look. */
+  hint?: string;
+  where?: string;
 }
 
 // The data lives in discoveryContent.ts, which imports only types from here (no runtime cycle).
