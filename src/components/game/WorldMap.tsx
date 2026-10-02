@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Modal } from '../ui/modal';
+import { THEME } from '../../lib/theme';
+import { MAP_LABEL, MAP_ZONE_STYLE } from './mapPalette';
 import { playerPosition, playerFacing } from './playerTransform';
 import {
   DUNGEON_ENTRANCES,
@@ -50,26 +52,26 @@ const BONE_FIELD_PATH = curvedBandPathD(boneFieldEdgeAt, -OUTER_ZONE_BOUND, OUTE
 function CompassRose({ cx, cy, r }: { cx: number; cy: number; r: number }) {
   return (
     <g opacity={0.9}>
-      <circle cx={cx} cy={cy} r={r} fill="rgba(15, 25, 12, 0.4)" stroke="#e8c97a" strokeWidth={0.5} />
+      <circle cx={cx} cy={cy} r={r} fill={THEME.color.cream} stroke={THEME.color['gold-deep']} strokeWidth={0.5} />
       <polygon
         points={`${cx},${cy - r * 0.72} ${cx + r * 0.2},${cy} ${cx},${cy + r * 0.72} ${cx - r * 0.2},${cy}`}
-        fill="#e8c97a"
+        fill={THEME.color['gold-deep']}
       />
       <polygon
         points={`${cx - r * 0.72},${cy} ${cx},${cy - r * 0.2} ${cx + r * 0.72},${cy} ${cx},${cy + r * 0.2}`}
-        fill="rgba(232, 201, 122, 0.55)"
+        fill={THEME.color.edge}
       />
-      <circle cx={cx} cy={cy} r={r * 0.1} fill="#f4f1e8" />
-      <text x={cx} y={cy - r - 1.3} fill="#e8c97a" fontSize={r * 0.5} textAnchor="middle" fontWeight={700}>
+      <circle cx={cx} cy={cy} r={r * 0.1} fill={THEME.color.cream} />
+      <text x={cx} y={cy - r - 1.3} fill={THEME.color.ink} fontSize={r * 0.5} textAnchor="middle" fontWeight={700}>
         N
       </text>
-      <text x={cx} y={cy + r + r * 0.5 + 0.6} fill="#e8c97a" fontSize={r * 0.4} textAnchor="middle">
+      <text x={cx} y={cy + r + r * 0.5 + 0.6} fill={THEME.color.ink} fontSize={r * 0.4} textAnchor="middle">
         S
       </text>
-      <text x={cx - r - r * 0.35} y={cy + r * 0.35} fill="#e8c97a" fontSize={r * 0.4} textAnchor="middle">
+      <text x={cx - r - r * 0.35} y={cy + r * 0.35} fill={THEME.color.ink} fontSize={r * 0.4} textAnchor="middle">
         W
       </text>
-      <text x={cx + r + r * 0.35} y={cy + r * 0.35} fill="#e8c97a" fontSize={r * 0.4} textAnchor="middle">
+      <text x={cx + r + r * 0.35} y={cy + r * 0.35} fill={THEME.color.ink} fontSize={r * 0.4} textAnchor="middle">
         E
       </text>
     </g>
@@ -98,10 +100,10 @@ function MapFrame({ halfX, halfZ }: { halfX: number; halfZ: number }) {
         width={(halfX - inset1) * 2}
         height={(halfZ - inset1) * 2}
         fill="none"
-        stroke="#e8c97a"
+        stroke={THEME.color['gold-deep']}
         strokeWidth={1.4}
         rx={4}
-        opacity={0.85}
+        opacity={1}
       />
       <rect
         x={-halfX + inset2}
@@ -109,17 +111,17 @@ function MapFrame({ halfX, halfZ }: { halfX: number; halfZ: number }) {
         width={(halfX - inset2) * 2}
         height={(halfZ - inset2) * 2}
         fill="none"
-        stroke="#e8c97a"
+        stroke={THEME.color['gold-deep']}
         strokeWidth={0.5}
         rx={3}
-        opacity={0.5}
+        opacity={0.8}
       />
       {corners.map(([x, y], i) => (
         <path
           key={i}
           d={`M ${x - corner} ${y} L ${x} ${y} L ${x} ${y - corner}`}
           fill="none"
-          stroke="#e8c97a"
+          stroke={THEME.color['gold-deep']}
           strokeWidth={1.6}
           strokeLinecap="round"
           opacity={0.7}
@@ -138,7 +140,7 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
       width={720}
       height={720}
       viewBox={`${-VIEW_HALF} ${-VIEW_HALF} ${VIEW_HALF * 2} ${VIEW_HALF * 2}`}
-      style={{ background: '#2f4f27', borderRadius: 6, display: 'block', maxWidth: '100%', maxHeight: 'calc(100dvh - 120px)' }}
+      style={{ background: THEME.color['cream-deep'], borderRadius: 6, display: 'block', maxWidth: '100%', maxHeight: 'calc(100dvh - 120px)' }}
     >
       <defs>
         <radialGradient id="fieldGrass" cx="50%" cy="50%" r="75%">
@@ -151,7 +153,7 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
         </linearGradient>
         <radialGradient id="fieldVignette" cx="50%" cy="50%" r="72%">
           <stop offset="55%" stopColor="black" stopOpacity="0" />
-          <stop offset="100%" stopColor="black" stopOpacity="0.4" />
+          <stop offset="100%" stopColor={THEME.color.edge} stopOpacity="0.22" />
         </radialGradient>
         {/* Subtle parchment-grain overlay — a bare flat-color fill read as too clean/digital. */}
         <filter id="fieldGrain" x="-5%" y="-5%" width="110%" height="110%">
@@ -177,16 +179,16 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
           4 trace a curved frontier (curvedBandPathD, same edge function the actual zone check
           uses) instead of a flat rect — a dead-straight border read as flat/artificial. 구울
           평원 keeps a flat rect since its inner edge is the desert's own straight biome line. */}
-      <path d={FAIRY_FOREST_PATH} fill="#4f9a62" opacity={0.75} />
-      <text x={(-VIEW_HALF + DESERT_X_END) / 2} y={(OUTER_ZONE_BOUND + VIEW_HALF) / 2} fill="#eaffe0" fontSize={7} textAnchor="middle" fontWeight={700}>
+      <path d={FAIRY_FOREST_PATH} fill={MAP_ZONE_STYLE.fairyForest.fill} opacity={MAP_ZONE_STYLE.fairyForest.opacity} />
+      <text x={(-VIEW_HALF + DESERT_X_END) / 2} y={(OUTER_ZONE_BOUND + VIEW_HALF) / 2} fill={MAP_LABEL.fill} fontSize={7} stroke={MAP_LABEL.halo} strokeWidth={1.6} paintOrder="stroke" strokeLinejoin="round" textAnchor="middle" fontWeight={700}>
         요정의 숲
       </text>
-      <path d={ORC_VILLAGE_PATH} fill="#8e6248" opacity={0.75} />
-      <text x={(-VIEW_HALF + DESERT_X_END) / 2} y={-(OUTER_ZONE_BOUND + VIEW_HALF) / 2} fill="#ffe8d0" fontSize={7} textAnchor="middle" fontWeight={700}>
+      <path d={ORC_VILLAGE_PATH} fill={MAP_ZONE_STYLE.orcVillage.fill} opacity={MAP_ZONE_STYLE.orcVillage.opacity} />
+      <text x={(-VIEW_HALF + DESERT_X_END) / 2} y={-(OUTER_ZONE_BOUND + VIEW_HALF) / 2} fill={MAP_LABEL.fill} fontSize={7} stroke={MAP_LABEL.halo} strokeWidth={1.6} paintOrder="stroke" strokeLinejoin="round" textAnchor="middle" fontWeight={700}>
         오크 마을
       </text>
-      <path d={BONE_FIELD_PATH} fill="#c2b8a2" opacity={0.75} />
-      <text x={(-VIEW_HALF - OUTER_ZONE_BOUND) / 2} y={0} fill="#2a241c" fontSize={7} textAnchor="middle" fontWeight={700}>
+      <path d={BONE_FIELD_PATH} fill={MAP_ZONE_STYLE.boneField.fill} opacity={MAP_ZONE_STYLE.boneField.opacity} />
+      <text x={(-VIEW_HALF - OUTER_ZONE_BOUND) / 2} y={0} fill={MAP_LABEL.fill} fontSize={7} stroke={MAP_LABEL.halo} strokeWidth={1.6} paintOrder="stroke" strokeLinejoin="round" textAnchor="middle" fontWeight={700}>
         해골 평원
       </text>
       <rect
@@ -194,10 +196,10 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
         y={-VIEW_HALF}
         width={VIEW_HALF - DESERT_X_END}
         height={VIEW_HALF * 2}
-        fill="#55694f"
-        opacity={0.8}
+        fill={MAP_ZONE_STYLE.ghoulPlain.fill}
+        opacity={MAP_ZONE_STYLE.ghoulPlain.opacity}
       />
-      <text x={(DESERT_X_END + VIEW_HALF) / 2} y={0} fill="#d0f0c0" fontSize={7} textAnchor="middle" fontWeight={700}>
+      <text x={(DESERT_X_END + VIEW_HALF) / 2} y={0} fill={MAP_LABEL.fill} fontSize={7} stroke={MAP_LABEL.halo} strokeWidth={1.6} paintOrder="stroke" strokeLinejoin="round" textAnchor="middle" fontWeight={700}>
         구울 평원
       </text>
       <path d={RIVER_PATH} fill="#3a9ad0" />
@@ -229,11 +231,14 @@ function FieldMap({ player, facing }: { player: { x: number; z: number }; facing
 
       {VILLAGES.map((zone, i) => (
         <g key={i}>
-          <MapIcon path={ICON_PATH.house} x={zone.center[0]} y={zone.center[1]} size={10} color="#e8c97a" />
+          <MapIcon path={ICON_PATH.house} x={zone.center[0]} y={zone.center[1]} size={10} color={THEME.color['gold-deep']} />
           <text
             x={zone.center[0]}
             y={zone.center[1] + 8}
-            fill="#e8c97a"
+            fill={MAP_LABEL.fill}
+            stroke={MAP_LABEL.halo}
+            strokeWidth={1}
+            paintOrder="stroke"
             fontSize={3.4}
             textAnchor="middle"
             fontWeight={700}

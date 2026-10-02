@@ -17,6 +17,8 @@ import {
 } from './worldColliders';
 import { DUNGEON_META, getEntryTrigger, getExitTrigger, getFloorRects } from './Dungeon';
 import { ICON_PATH, MapIcon, PlayerArrow } from './mapIcons';
+import { THEME } from '../../lib/theme';
+import { MAP_ZONE_STYLE } from './mapPalette';
 import { DISCOVERIES } from './discoveries';
 import { selectMapMarkers } from './discoveryRender';
 import { useDiscoveryStore } from '../../stores/discoveryStore';
@@ -64,10 +66,10 @@ function MiniFieldView({ player, facing }: { player: { x: number; z: number }; f
           with the player, unlike WorldMap's fixed viewBox), recomputed only across the locally
           visible window rather than the full field. 구울 평원 keeps its flat rect (see
           WorldMap.tsx's own comment on why). */}
-      <path d={curvedBandPathD(fairyForestEdgeAt, player.x - half - 5, player.x + half + 5, 3000, 'x', 5)} fill="#4f9a62" />
-      <path d={curvedBandPathD(orcVillageEdgeAt, player.x - half - 5, player.x + half + 5, -3000, 'x', 5)} fill="#8e6248" />
-      <path d={curvedBandPathD(boneFieldEdgeAt, player.z - half - 5, player.z + half + 5, -3000, 'z', 5)} fill="#c2b8a2" />
-      <rect x={DESERT_X_END} y={-BACKDROP_HALF} width={BACKDROP_HALF} height={BACKDROP_HALF * 2} fill="#55694f" />
+      <path d={curvedBandPathD(fairyForestEdgeAt, player.x - half - 5, player.x + half + 5, 3000, 'x', 5)} fill={MAP_ZONE_STYLE.fairyForest.fill} fillOpacity={MAP_ZONE_STYLE.fairyForest.opacity} />
+      <path d={curvedBandPathD(orcVillageEdgeAt, player.x - half - 5, player.x + half + 5, -3000, 'x', 5)} fill={MAP_ZONE_STYLE.orcVillage.fill} fillOpacity={MAP_ZONE_STYLE.orcVillage.opacity} />
+      <path d={curvedBandPathD(boneFieldEdgeAt, player.z - half - 5, player.z + half + 5, -3000, 'z', 5)} fill={MAP_ZONE_STYLE.boneField.fill} fillOpacity={MAP_ZONE_STYLE.boneField.opacity} />
+      <rect x={DESERT_X_END} y={-BACKDROP_HALF} width={BACKDROP_HALF} height={BACKDROP_HALF * 2} fill={MAP_ZONE_STYLE.ghoulPlain.fill} fillOpacity={MAP_ZONE_STYLE.ghoulPlain.opacity} />
       <path d={riverPathD(player.z - half - 5, player.z + half + 5)} fill="#3a9ad0" />
       <rect
         x={RIVER_X_CENTER - RIVER_HALF_WIDTH - 1.5}
@@ -81,7 +83,7 @@ function MiniFieldView({ player, facing }: { player: { x: number; z: number }; f
       />
 
       {VILLAGES.map((zone, i) => (
-        <MapIcon key={i} path={ICON_PATH.house} x={zone.center[0]} y={zone.center[1]} size={9} color="#e8c97a" />
+        <MapIcon key={i} path={ICON_PATH.house} x={zone.center[0]} y={zone.center[1]} size={9} color={THEME.color['gold-deep']} />
       ))}
       {(Object.keys(DUNGEON_ENTRANCES) as DungeonId[]).map((id) => (
         <MapIcon key={id} path={ICON_PATH.cave} x={DUNGEON_ENTRANCES[id].point[0]} y={DUNGEON_ENTRANCES[id].point[1]} size={6} color="#c084fc" />
