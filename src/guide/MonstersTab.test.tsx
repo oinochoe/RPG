@@ -12,9 +12,12 @@ describe('MonstersTab', () => {
   });
   it('lists drops sorted by chance descending', () => {
     const { container } = render(<MonstersTab />);
-    const first = container.querySelector('[data-guide-card] ul')!;
-    const vals = [...first.querySelectorAll('li')].map((li) => parseFloat(/(\d+\.\d)%/.exec(li.textContent ?? '')![1]));
-    expect([...vals].sort((a, b) => b - a)).toEqual(vals);
+    const lists = [...container.querySelectorAll('[data-guide-card] ul')];
+    expect(lists.length).toBeGreaterThan(0);
+    for (const ul of lists) {
+      const vals = [...ul.querySelectorAll('li')].map((li) => parseFloat(/(\d+\.\d)%/.exec(li.textContent ?? '')![1]));
+      expect([...vals].sort((a, b) => b - a)).toEqual(vals);
+    }
   });
   it('filters by zone chip', () => {
     render(<MonstersTab />);

@@ -4,6 +4,8 @@ import { Button } from '../components/ui/button';
 import type { DropChance } from '../../supabase/functions/api/drops';
 import { guideBosses, guideMonsters } from './guideMonsters';
 
+// Enchant-scroll item template ids (weapon 50, armor 86, blessed 47, cursed 48); must match
+// SCROLL_ITEMS in supabase/functions/api/drops.ts.
 const SCROLL_IDS = new Set([50, 86, 47, 48]);
 const isScroll = (d: DropChance) => d.itemName.endsWith('강화 주문서') || SCROLL_IDS.has(d.itemTemplateId);
 

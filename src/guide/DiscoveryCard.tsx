@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import type { GuideDiscovery, RevealStage } from './guideDiscoveries';
@@ -15,6 +16,7 @@ const NEXT_LABEL: Record<number, string> = { 0: '힌트 보기', 1: '위치 보�
 
 /** One discovery. Anything not yet revealed is not rendered at all (never hidden with CSS). */
 export function DiscoveryCard({ item, stage, canRevealWhere, prevName, onAdvance }: DiscoveryCardProps) {
+  const lockId = useId();
   const locked = stage === 1 && !canRevealWhere;
   const nameVisible = !item.hidden || stage >= 3;
   return (
@@ -41,10 +43,10 @@ export function DiscoveryCard({ item, stage, canRevealWhere, prevName, onAdvance
       )}
       {stage < 3 && (
         <div className="mt-3 flex flex-col gap-1">
-          <Button type="button" size="sm" variant="ghost" disabled={locked} onClick={onAdvance}>
+          <Button type="button" size="sm" variant="ghost" disabled={locked} aria-describedby={locked ? lockId : undefined} onClick={onAdvance}>
             {NEXT_LABEL[stage]}
           </Button>
-          {locked && <p className="text-xs text-ink-soft">앞 단계 정답을 먼저 확인하세요</p>}
+          {locked && <p id={lockId} className="text-xs text-ink-soft">앞 단계 정답을 먼저 확인하세요</p>}
         </div>
       )}
     </li>

@@ -2,18 +2,26 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { DISCOVERIES } from '../components/game/discoveries';
 import { HiddenTab } from './HiddenTab';
+import { buildGuideDiscoveries } from './guideDiscoveries';
 
 const hiddenWithReward = DISCOVERIES.find((d) => d.hidden && d.reward && !(d.requires ?? []).some((r) => r.type === 'seen'))!;
 const chained = DISCOVERIES.find((d) => d.hidden && (d.requires ?? []).some((r) => r.type === 'seen'))!;
 
 describe('HiddenTab spoiler stages', () => {
-  it("does not put a hidden discovery's answer anywhere in the DOM at first", () => {
+  it('leaks nothing of any hidden discovery anywhere in the DOM at first', () => {
     const { container } = render(<HiddenTab />);
-    const text = container.textContent ?? '';
-    expect(text).not.toContain(hiddenWithReward.name);
-    expect(text).not.toContain(hiddenWithReward.hint!);
-    expect(text).not.toContain(hiddenWithReward.where!);
-    expect(text).toContain('스포일러 주의');
+    const html = container.innerHTML;
+    const coordsById = new Map(buildGuideDiscoveries().map((g) => [g.id, g.coords]));
+    const hidden = DISCOVERIES.filter((d) => d.hidden === true);
+    expect(hidden.length).toBeGreaterThan(0);
+    for (const d of hidden) {
+      for (const secret of [d.name, d.hint, d.where, d.id, coordsById.get(d.id)]) {
+        if (!secret) continue;
+        expect(html, `${d.id} leaks "${secret}"`).not.toContain(secret);
+      }
+    }
+    expect(container.textContent ?? '').not.toContain('x≈');
+    expect(container.textContent ?? '').toContain('스포일러 주의');
   });
   it('reveals hint, then location, then the answer one step at a time', () => {
     render(<HiddenTab />);
@@ -37,14 +45,16 @@ describe('HiddenTab spoiler stages', () => {
     render(<HiddenTab />);
     for (const b of screen.getAllByRole('button', { name: '힌트 보기' })) fireEvent.click(b);
     const card = screen.getByText(chained.hint!).closest('[data-guide-card]') as HTMLElement;
-    expect(within(card).getByRole('button', { name: '위치 보기' })).toBeDisabled();
+    const where = within(card).getByRole('button', { name: '위치 보기' });
+    expect(where).toBeDisabled();
+    expect(where).toHaveAttribute('aria-describedby', within(card).getByText('앞 단계 정답을 먼저 확인하세요').id);
     expect(within(card).getByText('앞 단계 정답을 먼저 확인하세요')).toBeInTheDocument();
   });
   it('filters sections by zone', () => {
     render(<HiddenTab />);
     const before = document.querySelectorAll('[data-guide-card]').length;
-    const chips = screen.getAllByRole('button', { pressed: false });
-    fireEvent.click(chips[0]);
+    const zoneLabel = document.querySelector('h2')!.textContent!;
+    fireEvent.click(screen.getByRole('button', { name: zoneLabel }));
     expect(document.querySelectorAll('[data-guide-card]').length).toBeLessThan(before);
   });
 });
