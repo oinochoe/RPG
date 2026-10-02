@@ -148,6 +148,11 @@ export function listClaimedDiscoveries(): Promise<{ claimed: string[] }> {
   return apiRequest('/characters/me/discoveries');
 }
 
+/** Read-only: claimed discovery ids of one of the caller's own characters (works without a game session). */
+export function listClaimedDiscoveriesFor(characterId: number): Promise<{ claimed: string[] }> {
+  return apiRequest(`/characters/${characterId}/discoveries`);
+}
+
 export function claimDiscovery(id: string): Promise<ClaimDiscoveryResponse> {
   return apiRequest(`/characters/me/discoveries/${encodeURIComponent(id)}/claim`, { method: 'POST' });
 }

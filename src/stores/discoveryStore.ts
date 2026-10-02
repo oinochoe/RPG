@@ -3,7 +3,8 @@ import { listClaimedDiscoveries } from '../api/characters';
 
 const seenKey = (characterId: number) => `rpg.discoveries.seen.${characterId}`;
 
-function readSeen(characterId: number): string[] {
+/** Ids this browser remembers a character having seen (reward-less discoveries live only here). */
+export function readSeenIds(characterId: number): string[] {
   try {
     const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(seenKey(characterId));
     const parsed = raw ? (JSON.parse(raw) as unknown) : [];
@@ -49,7 +50,7 @@ export const useDiscoveryStore = create<DiscoveryState>((set, get) => ({
       // Offline or an old server: nothing known to be claimed; the server still guards every claim.
     }
     if (mySeq !== requestSeq) return; // reset() or a newer load() happened while this was in flight
-    set({ claimed: new Set(claimed), seen: new Set([...readSeen(characterId), ...claimed]), loaded: true });
+    set({ claimed: new Set(claimed), seen: new Set([...readSeenIds(characterId), ...claimed]), loaded: true });
   },
   markSeen: (characterId, id) => {
     const seen = new Set(get().seen).add(id);

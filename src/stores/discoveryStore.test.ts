@@ -5,7 +5,7 @@ vi.mock('../api/characters', () => ({
 }));
 
 import * as api from '../api/characters';
-import { useDiscoveryStore } from './discoveryStore';
+import { readSeenIds, useDiscoveryStore } from './discoveryStore';
 
 describe('useDiscoveryStore', () => {
   beforeEach(() => {
@@ -91,5 +91,21 @@ describe('useDiscoveryStore stale loads', () => {
     const s = useDiscoveryStore.getState();
     expect([...s.claimed]).toEqual(['new']);
     expect(s.seen.has('old')).toBe(false);
+  });
+});
+
+describe('readSeenIds', () => {
+  beforeEach(() => localStorage.clear());
+  it('returns the ids remembered for that character only', () => {
+    localStorage.setItem('rpg.discoveries.seen.3', JSON.stringify(['a', 'b']));
+    localStorage.setItem('rpg.discoveries.seen.4', JSON.stringify(['z']));
+    expect(readSeenIds(3)).toEqual(['a', 'b']);
+    expect(readSeenIds(9)).toEqual([]);
+  });
+  it('ignores garbage and non-string entries', () => {
+    localStorage.setItem('rpg.discoveries.seen.3', '{oops');
+    expect(readSeenIds(3)).toEqual([]);
+    localStorage.setItem('rpg.discoveries.seen.3', JSON.stringify(['a', 5, null]));
+    expect(readSeenIds(3)).toEqual(['a']);
   });
 });

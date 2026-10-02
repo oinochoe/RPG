@@ -963,6 +963,40 @@ charactersRoutes.get("/me/discoveries", async (c) => {
   return c.json({ claimed: (data ?? []).map((r: { discovery_id: string }) => r.discovery_id) });
 });
 
+// Read-only progress for the public guide: the claimed ids of one of the caller's own characters. It is
+// deliberately outside `/me/*` (no game-session check) so a fresh browser tab can call it. Registered AFTER
+// `/me/discoveries`: Hono runs matching handlers in registration order and the first one to return a response
+// wins, so `/me/discoveries` is answered above and never reaches `:id = "me"` here (also guarded below).
+charactersRoutes.get("/:id/discoveries", async (c) => {
+  const rawId = c.req.param("id");
+  const notFound = () => new ApiError(404, "not_found", "character_not_found", "해당 캐릭터를 찾을 수 없습니다.", "character_id");
+  if (rawId === "me" || !/^[1-9]d*$/.test(rawId)) throw notFound();
+  const characterId = Number(rawId);
+  if (!Number.isSafeInteger(characterId)) throw notFound();
+
+  const appUser = c.get("appUser");
+  const admin = getAdminClient();
+  const { data: owned, error: ownedError } = await admin
+    .from("characters")
+    .select("id")
+    .eq("id", characterId)
+    .eq("user_id", appUser.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (ownedError) {
+    console.error("character discoveries owner lookup failed:", ownedError.code, ownedError.message);
+    throw new ApiError(500, "internal_error", "discovery_list_failed", "발견 기록을 불러오지 못했습니다.");
+  }
+  if (!owned) throw notFound();
+
+  const { data, error } = await admin.from("character_discoveries").select("discovery_id").eq("character_id", characterId);
+  if (error) {
+    console.error("character discoveries list failed:", error.code, error.message);
+    throw new ApiError(500, "internal_error", "discovery_list_failed", "발견 기록을 불러오지 못했습니다.");
+  }
+  return c.json({ claimed: (data ?? []).map((r: { discovery_id: string }) => r.discovery_id) });
+});
+
 charactersRoutes.post("/me/discoveries/:id/claim", async (c) => {
   const appUser = c.get("appUser");
   const discoveryId = c.req.param("id");
