@@ -2,6 +2,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
+import { useIsTouch } from '../../lib/device';
 import { Ground } from './Ground';
 import { Dungeon, buildFloorMonsters } from './Dungeon';
 import { buildFieldMonsters, isFieldBossAggressive } from './FieldMonsters';
@@ -9,6 +10,7 @@ import { AreaTransitions } from './AreaTransitions';
 import { PlayerCombatEffects } from './PlayerCombatEffects';
 import { CombatFxRoot } from './CombatFxRoot';
 import { SkillFxRoot } from './SkillFxRoot';
+import { SkillFxWarmup } from './SkillFxWarmup';
 import { PositionSync } from './PositionSync';
 import { ShopProximity } from './ShopProximity';
 import { QuestProximity } from './QuestProximity';
@@ -198,6 +200,7 @@ export function Scene({
   const currentArea = useWorldStore((s) => s.currentArea);
   const currentDungeonId = useWorldStore((s) => s.currentDungeonId);
   const dungeonFloor = useWorldStore((s) => s.dungeonFloor);
+  const isTouch = useIsTouch();
 
   // The server's enter-map response always returns monsters: [] (no real monster-instance
   // persistence yet) — generate the field's roster client-side instead, same pattern as the
@@ -283,6 +286,7 @@ export function Scene({
       <CombatFxRoot />
 
       <Suspense fallback={null}><SkillFxRoot /></Suspense>
+      <SkillFxWarmup />
       <RespawnTicker />
       <MpRegenTicker />
       <PositionSync mapId={map.map_id} />
@@ -292,10 +296,14 @@ export function Scene({
       <DiscoveryProps />
       <LootProximity />
 
-      <EffectComposer multisampling={0}>
-        <Bloom luminanceThreshold={0.85} luminanceSmoothing={0.6} intensity={0.15} mipmapBlur />
-        <Vignette eskil={false} offset={0.35} darkness={0.22} />
-      </EffectComposer>
+      {/* Phones skip post-processing entirely (offscreen target + multi-pass mip blur);
+          GamePage draws a CSS vignette instead. */}
+      {!isTouch && (
+        <EffectComposer multisampling={0}>
+          <Bloom luminanceThreshold={0.85} luminanceSmoothing={0.6} intensity={0.15} mipmapBlur />
+          <Vignette eskil={false} offset={0.35} darkness={0.22} />
+        </EffectComposer>
+      )}
     </>
   );
 }

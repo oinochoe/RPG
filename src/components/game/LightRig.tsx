@@ -2,6 +2,12 @@ import { useEffect, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { playerPosition } from './playerTransform';
+import { useIsTouch } from '../../lib/device';
+
+/** Shadow map edge in texels: 2048 on desktop, 1024 on touch (the 70-unit frustum is still ~14 texels/unit). */
+export function shadowMapSizeFor(isTouch: boolean): number {
+  return isTouch ? 1024 : 2048;
+}
 
 const LIGHT_OFFSET = new THREE.Vector3(12, 22, 8);
 
@@ -16,6 +22,7 @@ const LIGHT_OFFSET = new THREE.Vector3(12, 22, 8);
 export function LightRig() {
   const lightRef = useRef<THREE.DirectionalLight>(null);
   const targetRef = useRef<THREE.Object3D>(null);
+  const shadowSize = shadowMapSizeFor(useIsTouch());
 
   useEffect(() => {
     if (lightRef.current && targetRef.current) {
@@ -41,7 +48,7 @@ export function LightRig() {
         color="#fff1d6"
         intensity={1.5}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[shadowSize, shadowSize]}
         shadow-camera-left={-35}
         shadow-camera-right={35}
         shadow-camera-top={35}

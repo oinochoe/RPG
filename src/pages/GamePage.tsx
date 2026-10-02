@@ -143,6 +143,20 @@ export function GamePage() {
       >
         <Scene character={activeCharacter} map={currentMap} />
       </Canvas>
+      {isTouch && (
+        // Cheap stand-in for the desktop Vignette pass (which phones skip): ~transparent until
+        // the outer third, ~22% dark at the corners. Below the HUD, never intercepts touches.
+        <div
+          aria-hidden
+          style={{
+            position: 'fixed',
+            inset: 0,
+            pointerEvents: 'none',
+            zIndex: 0,
+            background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.22) 100%)',
+          }}
+        />
+      )}
       <HUD />
       <LevelUpToast />
       <BossRespawnToast />
