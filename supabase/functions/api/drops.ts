@@ -376,7 +376,7 @@ export function dropChancesFor(monsterTemplateId: number, monsterName: string): 
   if (entries) {
     const nothing = bossEntries ? 0 : NOTHING_WEIGHT[monsterTemplateId] ?? 0;
     const total = nothing + entries.reduce((n, e) => n + e.weight, 0);
-    for (const e of entries) add(e.itemTemplateId, e.itemName, ((1 - scrollTotal) * e.weight) / total);
+    if (total > 0) for (const e of entries) add(e.itemTemplateId, e.itemName, ((1 - scrollTotal) * e.weight) / total);
   }
   return [...byItem.values()];
 }

@@ -25,7 +25,7 @@ import {
   parseKillBatch,
   statPointCost,
 } from '../../supabase/functions/api/economyRules';
-import { dropChancesFor, rollDropEntry } from '../../supabase/functions/api/drops';
+import { dropChancesFor, rollDropEntry, scrollChancesFor } from '../../supabase/functions/api/drops';
 
 const character: CharacterProfile = {
   id: 1, user_id: 1, name: 'T', character_class: 'warrior', level: 1, experience: 0,
@@ -269,25 +269,63 @@ describe('drop rates', () => {
 });
 
 describe('dropChancesFor', () => {
+  const BOSS_NAMES = ['태고의 거인', '거인 군주', '오크 군주', '구울 군주', '버섯 군주'];
+  const SCROLL_KEYS = [['weapon', 50], ['armor', 86], ['blessed', 47], ['cursed', 48]] as const;
+  const STEPS = 400;
+  const TOLERANCE = 0.006;
+
   // Reference: sweep the real roll path over both rng calls (scroll roll, then table roll).
-  function sweep(templateId: number, name: string, steps = 200) {
+  function sweep(templateId: number, name: string, steps = STEPS) {
     const hits = new Map<number, number>();
+    let any = 0;
     for (let i = 0; i < steps; i++) {
       for (let j = 0; j < steps; j++) {
         let call = 0;
         const entry = rollDropEntry(templateId, name, () => (call++ === 0 ? (i + 0.5) / steps : (j + 0.5) / steps));
-        if (entry) hits.set(entry.itemTemplateId, (hits.get(entry.itemTemplateId) ?? 0) + 1);
+        if (entry) {
+          any++;
+          hits.set(entry.itemTemplateId, (hits.get(entry.itemTemplateId) ?? 0) + 1);
+        }
       }
     }
-    return new Map([...hits].map(([id, n]) => [id, n / (steps * steps)]));
+    return { per: new Map([...hits].map(([id, n]) => [id, n / (steps * steps)])), total: any / (steps * steps) };
   }
 
-  it.each([1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 5])('template %i: computed chances match the real roll', (id) => {
-    const measured = sweep(id, `m${id}`);
-    const computed = dropChancesFor(id, `m${id}`);
-    for (const c of computed) expect(measured.get(c.itemTemplateId) ?? 0, `${id}/${c.itemName}`).toBeCloseTo(c.chance, 1);
+  const cases: [string, number, string][] = [
+    ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map((id): [string, number, string] => [`template ${id}`, id, `m${id}`]),
+    ...BOSS_NAMES.map((b): [string, number, string] => [`boss ${b}`, 5, b]),
+  ];
+
+  it.each(cases)('%s: computed chances match the real roll (abs tol 0.006) and scrolls match exactly', (_label, id, name) => {
+    const { per, total } = sweep(id, name);
+    const computed = dropChancesFor(id, name);
+    for (const c of computed) {
+      expect(Math.abs((per.get(c.itemTemplateId) ?? 0) - c.chance), `${name}/${c.itemName}`).toBeLessThan(TOLERANCE);
+    }
     // Nothing is measured that was not computed.
-    for (const [itemId] of measured) expect(computed.some((c) => c.itemTemplateId === itemId), `${id}/${itemId}`).toBe(true);
+    for (const [itemId] of per) expect(computed.some((c) => c.itemTemplateId === itemId), `${name}/${itemId}`).toBe(true);
+    // The totals agree too (catches a wrong overall scaling).
+    const sum = computed.reduce((n, c) => n + c.chance, 0);
+    expect(Math.abs(sum - total), `${name} total`).toBeLessThan(TOLERANCE);
+
+    // Enchant scrolls are exact, and absent when their chance is 0.
+    const scrolls = scrollChancesFor(id, name);
+    for (const [key, itemId] of SCROLL_KEYS) {
+      const expected = scrolls[key] ?? 0;
+      const row = computed.find((c) => c.itemTemplateId === itemId);
+      if (expected === 0) expect(row, `${name}/${key}`).toBeUndefined();
+      else expect(row?.chance, `${name}/${key}`).toBeCloseTo(expected, 10);
+    }
+  });
+
+  it('dropping the (1 - sum of scrolls) scaling would be caught: it shifts some chance by more than 0.0005', () => {
+    const isScroll = (itemId: number) => SCROLL_KEYS.some(([, sid]) => sid === itemId);
+    const diffs = cases.map(([, id, name]) => {
+      const scrolls = scrollChancesFor(id, name);
+      const scrollSum = SCROLL_KEYS.reduce((n, [key]) => n + (scrolls[key] ?? 0), 0);
+      return Math.max(0, ...dropChancesFor(id, name).filter((c) => !isScroll(c.itemTemplateId)).map((c) => c.chance / (1 - scrollSum) - c.chance));
+    });
+    expect(Math.max(...diffs)).toBeGreaterThan(0.0005);
   });
 
   it('a tracked boss always drops something: its chances add up to 1', () => {
