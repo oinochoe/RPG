@@ -77,6 +77,24 @@ describe('buildGuideDiscoveries / groupByZone / reveal', () => {
     const village = groups.find((g) => g.zone === 'village')!;
     expect(village.items.map((i) => i.id)).toEqual(['rock', 'pit']);
   });
+  it('does not hang on a cycle or a self-referencing predecessor, and still returns every item once', () => {
+    const cyc = buildGuideDiscoveries(
+      [def({ id: 'a', position: [-1, 0], requires: [{ type: 'seen', id: 'b' }] }), def({ id: 'b', position: [-2, 0], requires: [{ type: 'seen', id: 'a' }] }), def({ id: 'c', position: [-3, 0], requires: [{ type: 'seen', id: 'c' }] })],
+      zoneOf,
+    );
+    const items = groupByZone(cyc).flatMap((g) => g.items.map((i) => i.id));
+    expect(items.sort()).toEqual(['a', 'b', 'c']);
+  });
+  it('shows the raw zone string when a zone has no label', () => {
+    const odd = buildGuideDiscoveries([def({ id: 'x' })], () => 'moon')[0];
+    expect(odd.zoneLabel).toBe('moon');
+  });
+  it('does not break grouping when the predecessor lives in another zone', () => {
+    const cross = buildGuideDiscoveries([def({ id: 'rock', position: [-5, 0] }), def({ id: 'pit', position: [100, 0], requires: [{ type: 'seen', id: 'rock' }] })], zoneOf);
+    const groups = groupByZone(cross);
+    expect(groups.find((g) => g.zone === 'village')!.items.map((i) => i.id)).toEqual(['rock']);
+    expect(groups.find((g) => g.zone === 'desert')!.items.map((i) => i.id)).toEqual(['pit']);
+  });
   it('starts hidden ones at stage 0 and visible ones at stage 2', () => {
     expect(initialStage(list.find((d) => d.id === 'rock')!)).toBe(2);
     expect(initialStage(list.find((d) => d.id === 'pit')!)).toBe(0);

@@ -93,11 +93,14 @@ export function groupByZone(list: readonly GuideDiscovery[]): { zone: ZoneName; 
 function sortChain(items: GuideDiscovery[]): GuideDiscovery[] {
   const out: GuideDiscovery[] = [];
   const placed = new Set<string>();
+  const visiting = new Set<string>(); // a cycle or self-reference must not recurse forever
   const ids = new Set(items.map((i) => i.id));
   const place = (item: GuideDiscovery) => {
-    if (placed.has(item.id)) return;
+    if (placed.has(item.id) || visiting.has(item.id)) return;
+    visiting.add(item.id);
     const prev = item.chainPrev && ids.has(item.chainPrev) ? items.find((i) => i.id === item.chainPrev) : undefined;
     if (prev) place(prev);
+    visiting.delete(item.id);
     placed.add(item.id);
     out.push(item);
   };
