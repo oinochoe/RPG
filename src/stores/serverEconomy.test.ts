@@ -25,7 +25,7 @@ import {
   parseKillBatch,
   statPointCost,
 } from '../../supabase/functions/api/economyRules';
-import { rollDropEntry } from '../../supabase/functions/api/drops';
+import { dropChancesFor, rollDropEntry } from '../../supabase/functions/api/drops';
 
 const character: CharacterProfile = {
   id: 1, user_id: 1, name: 'T', character_class: 'warrior', level: 1, experience: 0,
@@ -265,5 +265,39 @@ describe('drop rates', () => {
 
   it('returns null for a template with no drop table', () => {
     expect(rollDropEntry(9999, 'nobody', () => 0.5)).toBeNull();
+  });
+});
+
+describe('dropChancesFor', () => {
+  // Reference: sweep the real roll path over both rng calls (scroll roll, then table roll).
+  function sweep(templateId: number, name: string, steps = 200) {
+    const hits = new Map<number, number>();
+    for (let i = 0; i < steps; i++) {
+      for (let j = 0; j < steps; j++) {
+        let call = 0;
+        const entry = rollDropEntry(templateId, name, () => (call++ === 0 ? (i + 0.5) / steps : (j + 0.5) / steps));
+        if (entry) hits.set(entry.itemTemplateId, (hits.get(entry.itemTemplateId) ?? 0) + 1);
+      }
+    }
+    return new Map([...hits].map(([id, n]) => [id, n / (steps * steps)]));
+  }
+
+  it.each([1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 5])('template %i: computed chances match the real roll', (id) => {
+    const measured = sweep(id, `m${id}`);
+    const computed = dropChancesFor(id, `m${id}`);
+    for (const c of computed) expect(measured.get(c.itemTemplateId) ?? 0, `${id}/${c.itemName}`).toBeCloseTo(c.chance, 1);
+    // Nothing is measured that was not computed.
+    for (const [itemId] of measured) expect(computed.some((c) => c.itemTemplateId === itemId), `${id}/${itemId}`).toBe(true);
+  });
+
+  it('a tracked boss always drops something: its chances add up to 1', () => {
+    for (const boss of ['태고의 거인', '거인 군주', '오크 군주', '구울 군주', '버섯 군주']) {
+      const total = dropChancesFor(5, boss).reduce((n, c) => n + c.chance, 0);
+      expect(total, boss).toBeCloseTo(1, 5);
+    }
+  });
+
+  it('is empty for an unknown template and never throws', () => {
+    expect(dropChancesFor(9999, 'nobody')).toEqual([]);
   });
 });

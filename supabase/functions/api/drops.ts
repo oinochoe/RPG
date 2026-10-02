@@ -342,3 +342,41 @@ export function rollDropEntry(monsterTemplateId: number, monsterName: string, rn
   if (!entries) return null;
   return rollWeighted(entries, NOTHING_WEIGHT[monsterTemplateId] ?? 0, rng);
 }
+
+export interface DropChance {
+  itemTemplateId: number;
+  itemName: string;
+  /** Per kill, 0..1. */
+  chance: number;
+}
+
+/**
+ * Per-kill chance of every item a monster can drop — the guide page's drop list. Mirrors rollDropEntry exactly:
+ * enchant scrolls roll first at absolute chances, the remainder goes to the weighted table (a tracked boss's table has
+ * no "nothing" weight). A test sweeps the real roll path and compares. Rows with the same item id are merged.
+ */
+export function dropChancesFor(monsterTemplateId: number, monsterName: string): DropChance[] {
+  const byItem = new Map<number, DropChance>();
+  const add = (itemTemplateId: number, itemName: string, chance: number) => {
+    const existing = byItem.get(itemTemplateId);
+    if (existing) existing.chance += chance;
+    else byItem.set(itemTemplateId, { itemTemplateId, itemName, chance });
+  };
+  const scrolls = scrollChancesFor(monsterTemplateId, monsterName);
+  let scrollTotal = 0;
+  for (const key of Object.keys(SCROLL_ITEMS) as (keyof ScrollChances)[]) {
+    const chance = scrolls[key] ?? 0;
+    if (chance <= 0) continue;
+    scrollTotal += chance;
+    const item = SCROLL_ITEMS[key];
+    add(item.itemTemplateId, item.itemName, chance);
+  }
+  const bossEntries = BOSS_DROP_TABLE[monsterName];
+  const entries = bossEntries ?? DROP_TABLE[monsterTemplateId];
+  if (entries) {
+    const nothing = bossEntries ? 0 : NOTHING_WEIGHT[monsterTemplateId] ?? 0;
+    const total = nothing + entries.reduce((n, e) => n + e.weight, 0);
+    for (const e of entries) add(e.itemTemplateId, e.itemName, ((1 - scrollTotal) * e.weight) / total);
+  }
+  return [...byItem.values()];
+}
