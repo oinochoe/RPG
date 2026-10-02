@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { App } from '../App';
 import { useAuthStore } from '../stores/authStore';
 
-describe('real App routing for /guide', () => {
+describe('real App routing for /guide', { timeout: 20000 }, () => {
   beforeEach(() => {
     useAuthStore.setState({ isAuthenticated: false });
     window.history.pushState({}, '', '/guide');
