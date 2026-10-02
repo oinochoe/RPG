@@ -246,6 +246,11 @@ function getVerticalFadeTexture(): THREE.CanvasTexture {
   return fadeTexture;
 }
 
+/** Builds both lazily-created canvas textures now (called once at scene mount). */
+export function warmSkillFxTextures(): THREE.CanvasTexture[] {
+  return [getCrescentTexture(), getVerticalFadeTexture()];
+}
+
 const PILLAR = new THREE.CylinderGeometry(1, 1, 1, 16, 1, true);
 
 /** A column of light shooting up from the ground, then thinning out. */
