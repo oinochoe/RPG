@@ -29,7 +29,7 @@ const ITEM_ICON: Record<string, IconConfig> = {
   },
   // lorc/broadsword.svg
   '강철 검': {
-    color: '#d7e3ee',
+    color: '#a3adb5',
     path: 'M491.844 22.533l-83.42 14.865L196.572 249.25c3.262 4.815 5.37 10.72 5.37 16.932 0 5.863-1.71 11.35-4.643 15.996-5.065-1.606-10.448-2.477-16.027-2.477-15.724 0-29.904 6.89-39.69 17.796l-9.112-9.113 17.237-17.237c-4.515-5.772-8.907-11.645-13.19-17.6l-19.443 19.44-13.215-13.215 21.828-21.827c-4.403-6.59-8.67-13.278-12.792-20.068l-40.802 40.803 58.314 58.314c-1.613 5.075-2.49 10.47-2.49 16.063 0 7.666 1.65 14.96 4.592 21.564l-72.14 72.14-14.56-14.56L21.013 437l14.558 14.56-8.607 8.608 27.246 27.246 8.606-8.61 14.56 14.56 24.798-24.8-14.557-14.556 72.158-72.16c6.586 2.922 13.858 4.562 21.498 4.562 5.593 0 10.988-.877 16.063-2.49l58.363 58.363L296.5 401.48c-6.797-4.127-13.486-8.395-20.068-12.793l-21.83 21.83L241.39 397.3l19.442-19.44c-5.962-4.29-11.835-8.683-17.603-13.194l-17.238 17.238-9.16-9.16c10.905-9.785 17.795-23.965 17.795-39.69 0-5.346-.806-10.51-2.285-15.39 4.703-3.04 10.288-4.817 16.265-4.816 6.21 0 11.776 1.77 16.52 4.955L476.98 105.95l14.864-83.417zm-66.227 53.012l13.215 13.215-191.684 191.68-13.214-13.213L425.617 75.545zM181.273 298.39c19.257 0 34.665 15.41 34.665 34.665 0 19.256-15.408 34.666-34.665 34.666-19.256 0-34.666-15.41-34.666-34.665s15.41-34.666 34.666-34.666z',
   },
   // lorc/wizard-staff.svg
@@ -39,7 +39,7 @@ const ITEM_ICON: Record<string, IconConfig> = {
   },
   // lorc/crystal-wand.svg
   '대현자의 지팡이': {
-    color: '#9be7ff',
+    color: '#79b4c7',
     path: 'M377.154 21.04l4.06 50.167 54.32 2.856 2.677 54.306 50.173 3.898-7.994-102.88-103.236-8.35zM359.31 32.267L245.954 145.623l44.086 3.566 72.837-72.842-3.566-44.08zm16.696 57.38l-72.98 72.983 2.19 41.692 41.526 2.05 73.004-73.01L417.7 91.84l-41.694-2.192zm56.836 57.05l-72.457 72.46 3.433 44.213 113.24-113.237-44.216-3.436zm-196.213 16.92l7.483 92.525-43.234-43.235c-.846 7.773-2.35 14.887-4.5 21.356l78.48 78.482c6.443-2.176 13.52-3.72 21.244-4.613l-42.5-42.5 92.203 7.164-3.723-47.943-54.648-2.696-2.868-54.662-47.94-3.877zm-48.855 88.472c-4.9 7.32-11.07 13.37-18.474 18.187l69.585 69.584c4.836-7.382 10.892-13.547 18.2-18.458l-69.31-69.312zm-36.392 26.7c-6.41 2.14-13.407 3.69-20.983 4.66l29.25 29.25.34-.34 13.215 13.216-.34.34 52.697 52.697c1.007-7.542 2.585-14.51 4.75-20.894l-78.93-78.93zM135.53 315.01L17.09 433.094v22.17l129.348-129.348-10.905-10.904zm24.12 24.12L17.088 481.69V495h53.73l122.35-122.35-33.518-33.517z',
   },
   // delapouite/bow-arrow.svg
@@ -49,7 +49,7 @@ const ITEM_ICON: Record<string, IconConfig> = {
   },
   // delapouite/bow-string.svg
   '사냥꾼의 장궁': {
-    color: '#d7f79b',
+    color: '#9db471',
     path: 'M114.4 35.99l36.8 85.91c4 2.4 7.9 4.9 11.8 7.5V66.55c-16-11.07-32.2-21.32-48.6-30.56zM181 50.56V160c0 .2.7 2.4 3.4 4.9 2.7 2.5 6.9 5.1 10.9 6.7 3.2 1.3 5.9 1.7 7.7 1.8V64c0-.25-.7-2.39-3.4-4.92s-6.9-5.11-10.9-6.72c-3.2-1.26-5.9-1.69-7.7-1.8zm40 60.54v63.2c48.3 43.4 88.2 95.2 118.7 145 22.3 36.5 39.5 71.9 51.2 102.5 9.9 25.8 16 47.9 17.6 65.2h93.1c-3.4-15.2-13.9-41.6-31-72.9-21.2-38.8-52-85.9-89.7-134.6C336 221.7 281.2 161.7 221 111.1zm-38 74.7V486h18V191.5c-4.2-.3-8.3-1.5-12.3-3.1-1.9-.8-3.8-1.7-5.7-2.6z',
   },
   // sbed/shield.svg
@@ -89,7 +89,7 @@ const ITEM_ICON: Record<string, IconConfig> = {
   },
   // lorc/tied-scroll.svg
   '마을 귀환 주문서': {
-    color: '#e8c97a',
+    color: '#c3a966',
     path: 'M373.563 18.406c-15.616-.167-27.91 4.622-32.563 14.75-22.778 49.605-48.743 87.14-79.094 117.28 3.047 1.015 6.046 2.29 8.938 3.783 12.987 6.708 25.268 17.78 35.312 30.843 10.044 13.062 17.85 28.114 20.78 43.5.746 3.908 1.16 7.885 1.158 11.843 38.97-24.36 85.058-41.223 140.875-51.312 14.91-2.697 23.652-28.632 21.405-58.656l-35.156-1 30.56-24.813c-4.148-14.507-11.013-28.754-21.155-40.72-15.528-18.314-36.43-31.376-56.72-38.686L381.94 40.812l2.812-21.5c-3.875-.55-7.61-.87-11.188-.907zM246.938 166.562c-1.063.052-2.06.226-3 .47-11.976 10.254-24.61 19.597-37.938 28.28.842.33 1.67.667 2.5 1.032 14.123 6.192 27.438 17.145 38.47 30.625 13.356 16.322 23.62 36.94 25.624 57.75 10.334-10.367 21.24-19.943 32.844-28.72 4.096-6.555 4.93-14.468 3.125-23.938-2.184-11.46-8.642-24.43-17.25-35.625-8.61-11.194-19.38-20.622-29.063-25.625-6.052-3.126-11.154-4.45-15.313-4.25zm-61.907 43.282c-1.385.053-2.69.27-3.968.562-37 20.762-79.088 37.985-127.312 56 .574.042 1.14.093 1.72.156 10.627 1.156 21.076 5.008 31.155 10.875L124.313 261 108.5 293.72c5.995 5.432 11.803 11.477 17.344 18 20.76 24.434 37.964 55.865 47.094 88.092.002.01-.003.022 0 .032 2.98 10.508 5.11 20.916 6.312 31 20.99-48.438 44.38-89.26 72.344-123 7.3-21.48-2.186-48.408-19.063-69.03-9.44-11.538-20.976-20.718-31.53-25.345-5.936-2.604-11.27-3.808-15.97-3.626zm141.626 54.844c-7.31 5.05-14.462 10.51-21.437 16.312 39.16 9.26 60.953 35.722 80.655 62.156 10.464 14.04 20.598 28.11 33.125 40.688 24.19 9.147 43.17 6.38 63.906-14.938-92.165-27.78-96.11-92.61-156.25-104.22zM48.594 284.906c-10.873.225-18.26 5.755-23.344 16.594-5.81 12.387-7.114 32.47.438 57.063 5.75 18.73 16.52 37.718 28.75 51.625 12.23 13.906 25.9 22.076 35.374 22.406h.032c3.717.13 6.553-.682 8.812-2.75l-.187-.188 2.093-2.094c.793-1.168 1.52-2.548 2.187-4.187 2.81-6.9 3.28-18.552-1.844-33-6.885-19.417-19.12-31.932-33.375-34.78l-22.968-4.564 19.813-12.5 38.47-24.186c-16.65-16.822-34.55-27.607-49.376-29.22-1.7-.184-3.323-.25-4.876-.218zm236.25 5.406l-24.53 25.375c100.442 17.878 55.45 141.005 159.31 176.188l-24.78-57.28c32.766 16.15 67.39 22.623 97.72 12.03-135.77-41.948-96.32-126.983-207.72-156.313zm-169.47 38.22l-25.968 16.343c13.18 8.5 23.21 22.565 29.125 39.25 2.57 7.244 4.133 14.205 4.75 20.78l23.44-23.374c-8.08-19.19-19.035-37.566-31.345-53zm38.376 72.374l-42.063 42-.156-.156c-4.255 3.942-9.456 6.765-15.186 7.938 23.268 14.873 44.644 19.346 56.812 9.562 4.26-3.426 7.043-8.36 8.47-14.406-.41-12.684-2.602-26.615-6.657-40.906-.382-1.346-.806-2.686-1.22-4.032z',
   },
   // lorc/teleport.svg
@@ -133,8 +133,8 @@ const BREASTPLATE_PATH =
 
 const TIER_COLOR_STARTER = '#8a7458';
 const TIER_COLOR_BRONZE = '#a67c52';
-const TIER_COLOR_SILVER = '#c9d6e3';
-const TIER_COLOR_GOLD = '#e8c97a';
+const TIER_COLOR_SILVER = '#b1bcc8';
+const TIER_COLOR_GOLD = '#d5b970';
 // Lv30 "royal" tier (add_tier3_royal_gear) — sits between the shop's own top gold tier and
 // boss-exclusive drops, so it needs its own color rather than reusing gold/boss and reading as
 // either "the same as 용사의 대검" or "somehow already a boss drop."
@@ -199,26 +199,26 @@ for (const [name, path, requiredLevel] of TIER_ITEMS) {
 ITEM_ICON['낡은 반지'] = { path: RING_PATH, color: '#8a8478' }; // worn, dull iron
 ITEM_ICON['힘의 반지'] = { path: RING_PATH, color: '#d9714a' }; // power — fiery ember
 ITEM_ICON['파괴의 반지'] = { path: RING_PATH, color: '#8a2f5a' }; // destruction — dark violet-red
-ITEM_ICON['왕의 반지'] = { path: RING_PATH, color: '#e8c97a' }; // king's — royal gold
+ITEM_ICON['왕의 반지'] = { path: RING_PATH, color: '#c3a966' }; // king's — royal gold
 ITEM_ICON['나무 목걸이'] = { path: NECKLACE_PATH, color: '#8a6a3e' }; // wooden — warm wood tone
 ITEM_ICON['수호의 목걸이'] = { path: NECKLACE_PATH, color: '#4fb8b0' }; // guardian — protective teal
 ITEM_ICON['대지의 목걸이'] = { path: NECKLACE_PATH, color: '#8a9a4a' }; // earth — olive/ochre
-ITEM_ICON['여신의 목걸이'] = { path: NECKLACE_PATH, color: '#ffe08a' }; // goddess — radiant gold
+ITEM_ICON['여신의 목걸이'] = { path: NECKLACE_PATH, color: '#c2aa69' }; // goddess — radiant gold
 
 // Higher potion tier reuses its own lower tier's shape at a brighter color; the 3 enchant
 // scrolls reuse 마을 귀환 주문서's scroll shape but need their own semantic colors (not a
 // level tier) since weapon/armor/cursed/blessed is a type distinction, not a power ranking.
-ITEM_ICON['최상급 체력 물약'] = { path: POTION_HEAL_PATH, color: '#ffd54a' };
-ITEM_ICON['최상급 마나 물약'] = { path: POTION_MANA_PATH, color: '#d9b3ff' };
-ITEM_ICON['무기 강화 주문서'] = { path: SCROLL_PATH, color: '#c7cdb9' };
-ITEM_ICON['방어구 강화 주문서'] = { path: SCROLL_PATH, color: '#8fb3d9' };
+ITEM_ICON['최상급 체력 물약'] = { path: POTION_HEAL_PATH, color: '#dbb740' };
+ITEM_ICON['최상급 마나 물약'] = { path: POTION_MANA_PATH, color: '#d0acf5' };
+ITEM_ICON['무기 강화 주문서'] = { path: SCROLL_PATH, color: '#a9ae9d' };
+ITEM_ICON['방어구 강화 주문서'] = { path: SCROLL_PATH, color: '#8cafd5' };
 ITEM_ICON['저주의 강화 주문서'] = { path: SCROLL_PATH, color: '#8a1f2b' };
-ITEM_ICON['축복의 강화 주문서'] = { path: SCROLL_PATH, color: '#ffe08a' };
+ITEM_ICON['축복의 강화 주문서'] = { path: SCROLL_PATH, color: '#c2aa69' };
 // 초록 물약 — same potion-bottle shape, literally green (Lineage Classic's own 속도향상
 // 물약 reference).
 ITEM_ICON['초록 물약'] = { path: POTION_HEAL_PATH, color: '#5fae4a' };
 // 강화 초록 물약 — same shape, a hotter/brighter green for the longer-duration upgrade.
-ITEM_ICON['강화 초록 물약'] = { path: POTION_HEAL_PATH, color: '#7ddc5a' };
+ITEM_ICON['강화 초록 물약'] = { path: POTION_HEAL_PATH, color: '#77d156' };
 
 // --- Gems/materials (item_type 'misc') — pure sell-fodder loot referencing Lineage Classic's
 // own gem-tier system (루비/상급 루비/최상급 루비 etc.), one shared cut-gem silhouette
@@ -238,8 +238,8 @@ const BONE_PATH =
 
 const RUBY_TIER = ['#c0392b', '#e74c3c', '#ff5c4d'];
 const SAPPHIRE_TIER = ['#2c6fbb', '#3d8bd6', '#5fb3ff'];
-const EMERALD_TIER = ['#2e8b57', '#3cb371', '#4ade80'];
-const DIAMOND_TIER = ['#b8c4cc', '#dcebf2', '#f4fbff'];
+const EMERALD_TIER = ['#2e8b57', '#3cb371', '#47d57b'];
+const DIAMOND_TIER = ['#8d99a2', '#9fadb7', '#adbcc7'];
 const GEM_NAME_TIERS: [names: [string, string, string], colors: string[]][] = [
   [['루비', '상급 루비', '최상급 루비'], RUBY_TIER],
   [['사파이어', '상급 사파이어', '최상급 사파이어'], SAPPHIRE_TIER],
@@ -253,10 +253,23 @@ for (const [names, colors] of GEM_NAME_TIERS) {
 }
 
 ITEM_ICON['동물 가죽'] = { path: HIDE_PATH, color: '#a97c50' };
-ITEM_ICON['뼛조각'] = { path: BONE_PATH, color: '#e8e0d0' };
+ITEM_ICON['뼛조각'] = { path: BONE_PATH, color: '#b0aa9e' };
 ITEM_ICON['철 덩어리'] = { path: METAL_BAR_PATH, color: '#8a8f99' };
 // 미스릴 — the same ingot shape, tinted the magical silver-blue Lineage's own mithril reads as.
-ITEM_ICON['미스릴'] = { path: METAL_BAR_PATH, color: '#c9e8ff' };
+ITEM_ICON['미스릴'] = { path: METAL_BAR_PATH, color: '#97aebf' };
+
+/** Items whose color encodes a tier (equipment tiers, gem tiers, potion tiers): higher tier = brighter,
+ * so pale tiers can't be darkened as far without flattening the progression. */
+export const TIERED_ITEM_NAMES: ReadonlySet<string> = new Set([
+  ...TIER_ITEMS.map(([name]) => name),
+  ...GEM_NAME_TIERS.flatMap(([names]) => names),
+  '상급 체력 물약', '최상급 체력 물약', '상급 마나 물약', '최상급 마나 물약', '초록 물약', '강화 초록 물약',
+]);
+
+/** Base color of every icon, by item name — read-only view for the contrast test. */
+export const ITEM_ICON_COLORS: Record<string, string> = Object.fromEntries(
+  Object.entries(ITEM_ICON).map(([name, cfg]) => [name, cfg.color]),
+);
 
 /** Falls back to the item's own name as small centered text when it has no hand-picked icon
  * yet — most of the item catalog (every tier added after the original 15-item starter set)
