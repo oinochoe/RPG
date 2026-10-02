@@ -112,8 +112,20 @@ export function initialStage(item: GuideDiscovery): RevealStage {
   return item.hidden ? 0 : 2;
 }
 
-/** A chained discovery's location opens only after its predecessor's answer was revealed. */
-export function canRevealWhere(item: GuideDiscovery, stages: Record<string, RevealStage>): boolean {
+/**
+ * A chained discovery's location opens only after its predecessor's answer was revealed.
+ * Pass `all` so a cycle (a needs b needs a) can be seen: a cyclic chain has no real first link,
+ * so it must not deadlock and its location is open from the start.
+ */
+export function canRevealWhere(item: GuideDiscovery, stages: Record<string, RevealStage>, all: readonly GuideDiscovery[] = []): boolean {
   if (!item.chainPrev) return true;
+  const byId = new Map(all.map((d) => [d.id, d]));
+  const seen = new Set<string>([item.id]);
+  let cur: string | null = item.chainPrev;
+  while (cur) {
+    if (seen.has(cur)) return true; // came back around: a cycle
+    seen.add(cur);
+    cur = byId.get(cur)?.chainPrev ?? null;
+  }
   return (stages[item.chainPrev] ?? 0) >= 3;
 }

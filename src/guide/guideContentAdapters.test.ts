@@ -83,7 +83,14 @@ describe('buildGuideDiscoveries / groupByZone / reveal', () => {
       zoneOf,
     );
     const items = groupByZone(cyc).flatMap((g) => g.items.map((i) => i.id));
-    expect(items.sort()).toEqual(['a', 'b', 'c']);
+    expect([...items].sort()).toEqual(['a', 'b', 'c']);
+    // a -> b -> a: placing a first recurses into b, which hits the visiting a and stops, so b is emitted before a; c (self-ref) follows.
+    expect(items).toEqual(['b', 'a', 'c']);
+    // a cycle has no real first link, so neither member may wait forever for the other (this deadlocked before).
+    const [ga, gb, gc] = ['a', 'b', 'c'].map((id) => cyc.find((d) => d.id === id)!);
+    expect(canRevealWhere(ga, {}, cyc)).toBe(true);
+    expect(canRevealWhere(gb, {}, cyc)).toBe(true);
+    expect(canRevealWhere(gc, {}, cyc)).toBe(true);
   });
   it('shows the raw zone string when a zone has no label', () => {
     const odd = buildGuideDiscoveries([def({ id: 'x' })], () => 'moon')[0];
@@ -101,8 +108,8 @@ describe('buildGuideDiscoveries / groupByZone / reveal', () => {
   });
   it('lets a chained one reveal its location only after its predecessor is fully revealed', () => {
     const pit = list.find((d) => d.id === 'pit')!;
-    expect(canRevealWhere(pit, { rock: 2 })).toBe(false);
-    expect(canRevealWhere(pit, { rock: 3 })).toBe(true);
+    expect(canRevealWhere(pit, { rock: 2 }, list)).toBe(false);
+    expect(canRevealWhere(pit, { rock: 3 }, list)).toBe(true);
     const sand = list.find((d) => d.id === 'sand')!;
     expect(canRevealWhere(sand, {})).toBe(true);
   });

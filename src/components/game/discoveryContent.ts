@@ -19,7 +19,7 @@ export const DISCOVERY_CONTENT: DiscoveryDef[] = [
     position: [-19, 12], // 새벽여울 동남쪽 끝
     radius: 2.5,
     prop: 'rock',
-    where: '새벽여울 마을 변두리, 집들이 끝나는 자리.',
+    where: '새벽여울 마을 끝자락, 마지막 집 너머 바위 곁.',
     lines: ['삐진 바위다.', '…돌이 삐질 수 있나? 아무튼 삐졌다.', '말을 걸면 더 삐질 것 같아 그냥 두기로 했다.'],
     afterLines: ['아직도 삐져 있다. 뒤끝이 바위만큼 단단하다.'],
   },
@@ -30,7 +30,7 @@ export const DISCOVERY_CONTENT: DiscoveryDef[] = [
     position: [-13, -113], // 황금이삭 서북쪽 끝
     radius: 2.5,
     prop: 'signpost',
-    where: '황금이삭 마을을 벗어나자마자 나오는 길가.',
+    where: '황금이삭 마을 변두리, 집들이 끝나는 자리.',
     lines: [
       "표지판: '이 앞, 아무것도 없음.'",
       '가 보니 정말 아무것도 없다.',
@@ -64,7 +64,7 @@ export const DISCOVERY_CONTENT: DiscoveryDef[] = [
     position: [66, 10], // 다리 서쪽 강둑
     radius: 2.5,
     prop: 'signpost',
-    where: '다리 바로 옆, 강을 건너기 전의 강둑.',
+    where: '강의 풀밭 쪽 강둑, 다리에서 조금 떨어진 곳.',
     lines: [
       "'수영 금지. 이 강은 보기보다 단단합니다.'",
       '실제로 강에 들어가려 하면 무언가에 턱 막힌다.',
@@ -99,7 +99,7 @@ export const DISCOVERY_CONTENT: DiscoveryDef[] = [
     hidden: true,
     requires: [{ type: 'level', min: 5 }],
     hint: '사막에서는 반쯤 묻힌 물건부터 의심하는 게 예의다.',
-    where: '다리를 건너 사막 안쪽으로 한참 들어간 모래밭.',
+    where: '다리를 건너 사막 한가운데쯤, 모래가 두꺼운 자리.',
     lines: [
       '모래 속에 금 간 항아리가 반쯤 묻혀 있다.',
       "안에는 물약 두 병과 쪽지. '목마를 때 마시시오. 단, 물은 아님.'",
@@ -114,7 +114,7 @@ export const DISCOVERY_CONTENT: DiscoveryDef[] = [
     position: [175, -120],
     radius: 2.5,
     prop: 'sparkle',
-    where: '사막 깊숙이, 구울 평원과의 경계에 가까운 곳.',
+    where: '사막을 한참 가로질러, 구울 평원과의 경계가 보일 즈음.',
     lines: ['저 앞에 오아시스가 보인다!', "가까이 가 보니 누가 모래 위에 '오아시스'라고 써 놓았다.", '글씨는 꽤 잘 썼다. 그래서 더 화가 난다.'],
   },
   {
@@ -124,7 +124,7 @@ export const DISCOVERY_CONTENT: DiscoveryDef[] = [
     position: [125, -40],
     radius: 2.5,
     prop: 'signpost',
-    where: '다리를 건너 사막으로 조금 들어간 길가.',
+    where: '다리를 건너 사막으로 조금 들어간 모래밭.',
     lines: [
       "'낙타를 찾습니다. 특징: 등에 혹이 있음.'",
       '…이 사막의 모든 낙타가 해당된다.',
@@ -143,7 +143,7 @@ export const DISCOVERY_CONTENT: DiscoveryDef[] = [
     hidden: true,
     requires: [{ type: 'level', min: 8 }],
     hint: '버섯이 있는 곳엔 요정이 있고, 요정이 있으면 영수증도 있다.',
-    where: '요정의 숲 안쪽, 동굴 입구와 숲의 은둔자 사이에서 비켜난 버섯 군락.',
+    where: '요정의 숲 안쪽, 동굴 입구에서도 은둔자에게서도 한참 떨어진 버섯 군락.',
     lines: [
       "버섯 사이에 작은 병이 놓여 있다. '요정 팁 통'",
       "'반짝임 연출 1회 = 마나 물약 1병. 셀프 서비스.'",
@@ -177,7 +177,7 @@ export const DISCOVERY_CONTENT: DiscoveryDef[] = [
     hidden: true,
     requires: [{ type: 'level', min: 10 }],
     hint: '숲 구석에 혼자 사는 분이 있다는 소문이다. 출처는 버섯.',
-    where: '요정의 숲 맨 구석, 사막과 맞닿는 가장자리 쪽.',
+    where: '요정의 숲 맨 구석, 구울 평원과 맞닿기 조금 전.',
     lines: [
       "'날개? 반납했어. 날개 대여 계약이 끝났거든.'",
       "'요즘 요정은 다 계약직이야. 반짝이는 가루도 자비로 사.'",
@@ -196,7 +196,7 @@ export const DISCOVERY_CONTENT: DiscoveryDef[] = [
     hidden: true,
     requires: [{ type: 'level', min: 10 }],
     hint: '오크들은 압수라 부르고, 당한 쪽은 강탈이라 부르는 물건이 있다.',
-    where: '오크 마을 변두리, 정찰병에게서 한참 떨어진 바위 틈.',
+    where: '오크 마을 한켠, 정찰병에게서 한참 떨어진 바위 틈.',
     lines: [
       "바위 틈에 녹슨 상자가 끼어 있다. '압수품 — 인간 모험가 소지'",
       '안에는 멀쩡한 무기가 한 자루. 쥐는 순간 손에 맞는 모양으로 변한다. 수상한 상자다.',
@@ -345,7 +345,7 @@ export const DISCOVERY_CONTENT: DiscoveryDef[] = [
     hidden: true,
     requires: [{ type: 'level', min: 14 }],
     hint: '잃어버린 물건은 구울이 먹기 전에 찾아가는 게 좋다.',
-    where: '저주받은 묘지 입구에서 조금 떨어진 구울 평원.',
+    where: '저주받은 묘지 입구에서 꽤 떨어진 구울 평원.',
     lines: [
       "'분실물 보관소. 주인이 사흘 안에 안 찾아가면 먹음.'",
       '보관 기한이 한참 지난 사파이어 두 개가 아직 남아 있다. 보석은 맛이 없었나 보다.',
@@ -381,7 +381,7 @@ export const DISCOVERY_CONTENT: DiscoveryDef[] = [
     hidden: true,
     requires: [{ type: 'level', min: 18 }],
     hint: '먼 길을 걸어온 사람 몫으로 남겨진 게 있다고들 한다.',
-    where: '고대 유적 바로 옆, 석판이 서 있는 곳.',
+    where: '고대 유적 가까이, 발길이 뜸한 자리.',
     lines: [
       "석판에 새겨져 있다. '고대 모험가 연금 — 여기까지 걸어온 자에게 지급함.'",
       '고대인들도 여기까지 걸어오는 게 얼마나 힘든지는 알았던 모양이다.',
@@ -399,7 +399,7 @@ export const DISCOVERY_CONTENT: DiscoveryDef[] = [
     position: [-90, 40],
     radius: 2.5,
     prop: 'statue',
-    where: '새벽여울에서 꽤 걸어 나온 들판, 북녘등불로 가는 길 어림.',
+    where: '새벽여울을 벗어나 한참 걸은 들판, 마을과 마을 사이의 외딴 자리.',
     lines: [
       "비석에 새겨져 있다. '이동하려면 땅을 누르시오.'",
       '여기까지 걸어온 사람에게 해 주기엔 너무 늦은 조언이다.',
