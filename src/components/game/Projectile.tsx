@@ -2,6 +2,28 @@ import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
+const HALO_GEOMETRY = new THREE.SphereGeometry(1, 10, 8);
+
+/**
+ * Fake glow: a larger additive, unlit sphere instead of a real point light. Adding or removing a
+ * light changes the light count, which changes the shader program key of every lit material in
+ * the scene and recompiles them all (a visible hitch on every ranged cast, worst on phones).
+ */
+function Halo({ color, radius, opacity }: { color: THREE.ColorRepresentation; radius: number; opacity: number }) {
+  return (
+    <mesh geometry={HALO_GEOMETRY} scale={radius} dispose={null}>
+      <meshBasicMaterial
+        color={color}
+        transparent
+        opacity={opacity}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+        toneMapped={false}
+      />
+    </mesh>
+  );
+}
+
 /**
  * Purely visual flourish for a ranged basic attack — damage is already applied instantly by
  * attackNearest (see CharacterMesh's handleAttackResult), same instant-hit model as the melee
@@ -64,7 +86,7 @@ export function Projectile({
             <cylinderGeometry args={[0.014, 0.014, 0.34, 6]} />
             <meshStandardMaterial color="#c9b48a" />
           </mesh>
-          {skill && <pointLight color={skillColor} intensity={1.6} distance={3} />}
+          {skill && <Halo color={skillColor} radius={0.2} opacity={0.35} />}
         </group>
       ) : (
         <group>
@@ -76,7 +98,7 @@ export function Projectile({
               emissiveIntensity={skill ? 3 : 2}
             />
           </mesh>
-          <pointLight color={skill ? skillColor : '#9be7ff'} intensity={skill ? 2.2 : 1.2} distance={skill ? 3.5 : 2.5} />
+          <Halo color={skill ? skillColor : '#9be7ff'} radius={skill ? 0.26 : 0.22} opacity={skill ? 0.4 : 0.3} />
         </group>
       )}
     </group>
