@@ -23,7 +23,7 @@ export interface GuideBoss {
 const MONSTERS: { templateId: number; name: string; zones: string[] }[] = [
   { templateId: 1, name: '슬라임', zones: ['들판'] },
   { templateId: 2, name: '고블린', zones: ['던전'] },
-  { templateId: 3, name: '스켈레톤', zones: ['들판', '뼈의 들판', '던전'] },
+  { templateId: 3, name: '스켈레톤 (해골 전사)', zones: ['들판', '뼈의 들판', '던전'] },
   { templateId: 4, name: '가시선인장', zones: ['사막'] },
   { templateId: 6, name: '오크', zones: ['오크 마을', '던전'] },
   { templateId: 7, name: '구울', zones: ['구울 평원', '던전'] },

@@ -27,6 +27,7 @@ describe('GuidePage', () => {
     renderAt('/guide/skills');
     expect(screen.getByRole('tab', { name: '스킬', selected: true })).toBeInTheDocument();
     expect(screen.getByText('강타')).toBeInTheDocument();
+    expect(screen.getByText(/표시된 배율은 기본값입니다/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '궁수' }));
     expect(screen.getByText('관통사격')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '궁수' })).toHaveAttribute('aria-pressed', 'true');

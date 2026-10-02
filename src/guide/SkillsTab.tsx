@@ -17,6 +17,7 @@ export function SkillsTab() {
           </Button>
         ))}
       </div>
+      <p className="text-sm text-ink-soft">표시된 배율은 기본값입니다. 스킬을 강화하면 배율이 오릅니다(MP·쿨타임은 그대로).</p>
       <ul className="grid gap-3 sm:grid-cols-2">
         {skills.map((s) => (
           <li key={s.id} className="min-w-0 break-words rounded-panel border-[3px] border-edge bg-cream p-4 text-ink shadow-panel">
