@@ -5,6 +5,7 @@ import { requireAuth, AppUser } from "./authMiddleware.ts";
 import { requireGameSession } from "./gameSessionMiddleware.ts";
 import { BOSSES, parseKillBatch, type KillReport } from "./economyRules.ts";
 import { rollDropEntry } from "./drops.ts";
+import { parsePositiveInt } from "./parseId.ts";
 import { checkClaim, pickRewardItem, type RewardClass } from "./discoveries.ts";
 
 export const charactersRoutes = new Hono<{ Variables: { appUser: AppUser } }>();
@@ -970,9 +971,8 @@ charactersRoutes.get("/me/discoveries", async (c) => {
 charactersRoutes.get("/:id/discoveries", async (c) => {
   const rawId = c.req.param("id");
   const notFound = () => new ApiError(404, "not_found", "character_not_found", "해당 캐릭터를 찾을 수 없습니다.", "character_id");
-  if (rawId === "me" || !/^[1-9]d*$/.test(rawId)) throw notFound();
-  const characterId = Number(rawId);
-  if (!Number.isSafeInteger(characterId)) throw notFound();
+  const characterId = rawId === "me" ? null : parsePositiveInt(rawId);
+  if (characterId === null) throw notFound();
 
   const appUser = c.get("appUser");
   const admin = getAdminClient();
