@@ -33,11 +33,11 @@
 
 ### 2. 데이터 어댑터 (순수 모듈, 테스트 대상)
 
-`src/guide/` 디렉터리(3D 의존 없음):
+`src/guide/` 디렉터리(3D 의존 없음). 구현된 파일: `guideDiscoveries.ts`, `guideQuests.ts`, `guideMonsters.ts`, `guideSkills.ts`(어댑터), `GuideTabs.tsx`, `HiddenTab.tsx`, `QuestsTab.tsx`, `MonstersTab.tsx`, `SkillsTab.tsx`, `DiscoveryCard.tsx`, 페이지 `src/pages/GuidePage.tsx`, 테스트 `guide*.test.ts(x)`, `GuideRouting.test.tsx`(실제 `App`으로 라우팅 검증):
 
 - `guideDiscoveries.ts`: `DISCOVERIES`를 지역(`zoneAt`) 단위로 묶고, 연쇄(`requires: seen`)를 순서 체인으로 풀어 낸다. 각 항목에 공개 단계별 필드(§3)를 계산해 돌려준다.
-- `guideQuests.ts`: `QUEST_DEFS`를 의뢰인/마을/종류(스토리·반복·메인)로 정리하고 메인 퀘스트의 해금 조건(`mainQuestUnlocked`가 보는 조건)을 읽기 좋은 문장으로 만든다. (`questStore`가 zustand 스토어를 함께 export하므로, 정의만 필요하다면 `QUEST_DEFS`/`QuestDef`를 별도 순수 모듈로 분리하는 작은 리팩터를 계획 단계에서 판단한다 — 공략집이 스토어와 API 모듈을 끌어오면 번들이 커지고 사이드 이펙트가 생긴다.)
-- `guideMonsters.ts`: 몬스터 템플릿 id → `{ name, zones, maxLevel }` 표(이름·지역은 `drops.ts` 주석의 id 규약과 `FieldMonsters.ts`/`dungeonLayout.ts`의 스폰 설정에서 확인해 작성) + 드롭 확률. 새 export `dropChancesFor(templateId, monsterName): { itemName; chancePct }[]`를 `drops.ts`에 추가한다: `(1 − Σscroll확률) × weight / (Σweight + nothing)`(보스는 nothing 0), 강화 주문서는 `scrollChancesFor`의 값 그대로. 확률은 소수 한 자리 %로 표기. 테스트가 `dropChancesFor`의 합계가 `rollDropEntry` 스윕 결과(기존 `serverEconomy.test.ts`의 방식)와 일치함을 검증한다.
+- `guideQuests.ts`: `QUEST_DEFS`를 의뢰인/마을/종류(스토리·반복·메인)로 정리하고 메인 퀘스트의 해금 조건(`mainQuestUnlocked`가 보는 조건)을 읽기 좋은 문장으로 만든다. (구현 결과: 퀘스트 모듈은 **분리하지 않았다** — 별도 리팩터 없이 구현했다.)
+- `guideMonsters.ts`: 몬스터 템플릿 id → `{ name, zones, maxLevel }` 표(이름·지역은 `drops.ts` 주석의 id 규약과 `FieldMonsters.ts`/`dungeonLayout.ts`의 스폰 설정에서 확인해 작성. 템플릿 5는 보스 전용이라 몬스터 표에서 **제외**하고 보스 섹션에서만 다룬다) + 드롭 확률. 새 export `dropChancesFor(templateId, monsterName): { itemName; chancePct }[]`를 `drops.ts`에 추가한다: `(1 − Σscroll확률) × weight / (Σweight + nothing)`(보스는 nothing 0), 강화 주문서는 `scrollChancesFor`의 값 그대로. 확률은 소수 한 자리 %로 표기. 테스트가 `dropChancesFor`의 합계가 `rollDropEntry` 스윕 결과(기존 `serverEconomy.test.ts`의 방식)와 일치함을 검증한다.
 - `guideSkills.ts`: `SKILLS_BY_CLASS`를 직업별로 정리(요구 레벨, MP, 쿨타임, 배율, 단일/광역, 반경).
 
 각 어댑터는 입력(정의)이 비거나 필드가 없어도 예외 없이 빈 목록을 돌려준다.
@@ -47,10 +47,10 @@
 `DiscoveryDef`에 **선택 항목**을 추가하고 `discoveryContent.ts`의 25개를 채운다(콘텐츠 정합 테스트가 "숨겨진 것·보상 있는 것은 모두 `hint`와 `where`를 가짐"을 강제):
 
 - `hint: string` — 1단계: 정체를 드러내지 않는 한 줄 단서("사막 어딘가에서 금이 간 물건이 속삭인다").
-- `where: string` — 2단계: 지역 안의 방향·랜드마크("다리 동쪽 사막 초입, 야자수가 모인 곳 근처").
+- `where: string` — 2단계: 지역 안의 **랜드마크**로 설명한다. 동/서/남/북 같은 방위 단어는 쓰지 않는다(테스트가 강제)("다리 동쪽 사막 초입, 야자수가 모인 곳 근처").
 - 3단계(정답)는 기존 필드에서 계산: 이름, 대략 좌표(10 단위로 반올림해 "x≈150, z≈70" 형태), 조건(`requires`를 문장으로: "레벨 5 이상", "'수상한 바위'를 먼저 봄"), 보상, 연쇄 위치.
 
-화면 동작: 숨겨지지 않은(visible) 발견물은 처음부터 이름·위치(2단계)를 보인다. `hidden`이면 카드가 "???"로 시작하고 "힌트 보기" → "위치 보기" → "정답 보기" 버튼을 차례로 눌러야 펼쳐진다(상태는 컴포넌트 안, `sessionStorage`에 해금 상태를 저장하지 않아 새로고침하면 다시 가려짐). 보상 있는 발견물은 정답 단계 전에는 보상 칸도 가린다. 연쇄 발견은 앞 단계의 정답을 열어야 다음 항목의 "위치 보기"가 활성화된다.
+화면 동작: 숨겨지지 않은(visible) 발견물은 처음부터 이름·위치(2단계)를 보인다. `hidden`이면 카드가 "???"로 시작하고 "힌트 보기" → "위치 보기" → "정답 보기" 버튼을 차례로 눌러야 펼쳐진다(상태는 컴포넌트 안, `sessionStorage`에 해금 상태를 저장하지 않아 새로고침하면 다시 가려짐). 보상 있는 발견물은 정답 단계 전에는 보상 칸도 가린다. 연쇄 발견은 앞 단계의 정답을 열어야 다음 항목의 "위치 보기"가 활성화된다. 순환 참조에도 안전하도록 `canRevealWhere`는 항목 하나가 아니라 **전체 목록**을 받아 앞 단계를 찾는다.
 
 ### 4. 화면
 
@@ -81,4 +81,4 @@
 3. 발견물 `hint`/`where` 필드 추가 + 25개 콘텐츠 작성 + 정합 테스트 + `guideDiscoveries.ts`
 4. `/guide` 라우트, 페이지 골격, 탭, 스킬 탭, 퀘스트 탭
 5. 몬스터·드롭 탭, 히든 탭(공개 단계 UI)
-6. 시스템 메뉴 링크, 시각 확인(데스크톱/폰), HANDOFF, 배포(프런트만; 서버 `drops.ts`의 새 export는 함수를 재배포하지 않아도 동작에 영향 없음 — 재배포는 선택)
+6. 시스템 메뉴 링크, 시각 확인(데스크톱/폰), HANDOFF, 배포(프런트만; 서버 `drops.ts`의 새 export `dropChancesFor`는 공략집 전용이라 **엣지 함수 재배포가 필요 없다**; 재배포는 선택)

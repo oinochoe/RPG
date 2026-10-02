@@ -195,6 +195,20 @@ DB/함수와 클라이언트 사이에는 잠깐 구 클라이언트와 새 서�
 - **배포 순서**: ① 마이그레이션(2부분으로 나눠 SQL Editor에서) -> ② 프런트 -> ③ 엣지 함수. 새 프런트 + 옛 함수면 보상 수령이 "아무것도 없었다"로 떨어진다(대사는 정상).
 - 한계: 보상 없는 "본 것"은 localStorage에만 저장(기기/브라우저를 바꾸면 사라짐). 대사는 초안이라 다듬을 필요가 있다.
 
+## 공략집 (/guide)
+
+로그인 없이 열리는 공개 페이지. `lazy()` 청크라서 게임 시작 속도에 영향이 없다(GuidePage 약 6 kB, three.js 없음). 시스템 메뉴(F1)의 "공략집"이 새 탭으로 연다(`select`를 호출하지 않아 게임 접속을 바꾸지 않는다). 설계는 `docs/superpowers/specs/2026-10-01-guide-design.md`.
+
+- 구조: `src/pages/GuidePage.tsx`(탭/라우트 `/guide`, `/guide/:tab`) + `src/guide/*`. 데이터 어댑터 `guideSkills`, `guideMonsters`(+ 서버 `drops.ts`의 `dropChancesFor`), `guideQuests`, `guideDiscoveries`. 화면 `GuideTabs`, `HiddenTab`/`QuestsTab`/`MonstersTab`/`SkillsTab`, 카드 `DiscoveryCard`.
+- 데이터 흐름: 정의에서 **자동 생성**한다. 발견물 `DISCOVERIES`, 퀘스트 `QUEST_DEFS`, 스킬 `SKILLS_BY_CLASS`, 드롭은 서버 드롭 표. 콘텐츠를 추가하면 공략집이 따라온다.
+- 새 콘텐츠 추가 규칙(테스트가 강제):
+  - 새 발견물: `hidden`이거나 보상이 있으면 `hint`+`where` 필수, `where`는 항상 필수. **방위 단어(동/서/남/북 등)는 쓰지 않는다** — 랜드마크로 설명(테스트가 검사).
+  - 새 몬스터 템플릿: `guideMonsters.ts`에 이름+지역을 추가(빠뜨리면 테스트 실패).
+  - 드롭 %는 `dropChancesFor`가 계산하며, 실제 `rollDropEntry`와 0.006 허용오차 스윕으로 대조한다. 서버 드롭 표를 바꾸면 이 테스트가 잡는다.
+  - `src/guide`는 순수하게 유지: three/R3F나 스토어/API 모듈을 import하지 않는다(번들이 커진다).
+- 스포일러 단계(히든 발견물): `???` -> 힌트 -> 위치 -> 정답. 단계 상태는 저장하지 않아 새로고침하면 다시 가려진다. 연쇄 발견물은 앞 단계 정답을 열어야 "위치 보기"가 활성화된다. 가려진 내용은 CSS가 아니라 DOM에 아예 렌더하지 않는다(테스트가 `innerHTML`로 검사).
+- 한계: 개인 진행 상황(내가 찾은 것) 표시 없음, 검색 없음. 지역 제목에 그 지역에 히든이 있는지는 보인다.
+
 ## 경제 서버 권위 (동작/주의)
 
 골드·경험치/레벨·스탯 포인트·파생 능력치·아이템 지급은 **서버(DB)가 유일한 원본**이다. 클라이언트는 화면
