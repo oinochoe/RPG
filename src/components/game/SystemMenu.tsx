@@ -8,7 +8,8 @@ import { useDraggablePanel } from "./useDraggablePanel";
 import { useTooltip } from "./Tooltip";
 import { useTutorialStore } from "../../lib/tutorial";
 import { useIsTouch } from "../../lib/device";
-import { Button } from "../ui/button";
+import { Button, buttonVariants } from "../ui/button";
+import { cn } from "../../lib/utils";
 import { useFxSettings } from "./fxSettings";
 import { GamePanel } from "../ui/game-panel";
 
@@ -106,6 +107,15 @@ export function SystemMenu() {
         >
           게임 방법 (도움말)
         </Button>
+        {/* New tab on purpose: the guide is a public page and never touches this game session. */}
+        <a
+          href="/guide"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "w-full")}
+        >
+          공략집
+        </a>
         <Button variant="ghost" size="sm" className="w-full" onClick={() => navigate("/characters")}>
           캐릭터 선택
         </Button>
