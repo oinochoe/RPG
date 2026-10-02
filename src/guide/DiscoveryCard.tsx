@@ -10,12 +10,14 @@ export interface DiscoveryCardProps {
   /** Name of the chained predecessor (only shown once the answer is revealed). */
   prevName?: string | null;
   onAdvance: () => void;
+  /** The selected character already found this (shown with a badge; the caller passes stage 3). */
+  found?: boolean;
 }
 
 const NEXT_LABEL: Record<number, string> = { 0: '힌트 보기', 1: '위치 보기', 2: '정답 보기' };
 
 /** One discovery. Anything not yet revealed is not rendered at all (never hidden with CSS). */
-export function DiscoveryCard({ item, stage, canRevealWhere, prevName, onAdvance }: DiscoveryCardProps) {
+export function DiscoveryCard({ item, stage, canRevealWhere, prevName, onAdvance, found = false }: DiscoveryCardProps) {
   const lockId = useId();
   const locked = stage === 1 && !canRevealWhere;
   const nameVisible = !item.hidden || stage >= 3;
@@ -24,6 +26,7 @@ export function DiscoveryCard({ item, stage, canRevealWhere, prevName, onAdvance
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <h3 className="font-display text-lg">{nameVisible ? item.name : '???'}</h3>
         {item.hidden && <Badge tone="gold">히든</Badge>}
+        {found && <Badge tone="mint">✓ 찾음</Badge>}
       </div>
       {stage >= 1 && item.hint && <p className="text-sm text-ink-soft">{item.hint}</p>}
       {stage >= 2 && item.where && <p className="mt-1 text-sm">{item.where}</p>}
