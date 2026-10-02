@@ -16,6 +16,9 @@ const GamePage = lazy(() => import('./pages/GamePage').then((m) => ({ default: m
 // A design-kit page (every shared UI part on one screen) — lazily loaded, so it costs nothing until visited.
 const DevUiPage = lazy(() => import('./pages/DevUiPage').then((m) => ({ default: m.DevUiPage })));
 
+// The public guide: no login, and it must stay free of the 3D game bundle.
+const GuidePage = lazy(() => import('./pages/GuidePage').then((m) => ({ default: m.GuidePage })));
+
 export function App() {
   return (
     <BrowserRouter>
@@ -44,6 +47,22 @@ export function App() {
           element={
             <Suspense fallback={<LoadingScreen label="불러오는 중..." />}>
               <DevUiPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/guide"
+          element={
+            <Suspense fallback={<LoadingScreen label="불러오는 중..." />}>
+              <GuidePage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/guide/:tab"
+          element={
+            <Suspense fallback={<LoadingScreen label="불러오는 중..." />}>
+              <GuidePage />
             </Suspense>
           }
         />

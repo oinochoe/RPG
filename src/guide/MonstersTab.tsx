@@ -1,0 +1,3 @@
+export function MonstersTab() {
+  return <p>준비 중</p>;
+}
